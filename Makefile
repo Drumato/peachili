@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -std=c11 -g
+CFLAGS=-Wall -Wextra -std=c11 -g -Isrc/include
 SRCS=$(wildcard src/*.c)
 OBJS=$(SRCS:.c=.o)
 CC=clang-9
