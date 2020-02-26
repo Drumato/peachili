@@ -7,12 +7,12 @@
 static void skip_whitespace(char **ptr);
 static Token *tokenize_symbol(char **ptr, Token *cur);
 static Token *tokenize_number(char **ptr, Token *cur);
-static void set_token_position(Token **t);
+static int cut_integer_range(char **ptr, int *value);
 
-static uint32_t fg_col = 1; 
-static uint32_t fg_row = 1; 
+static uint32_t fg_col = 1;
+static uint32_t fg_row = 1;
 
-Token *lexing(char *program) {
+Token *tokenize(char *program) {
   Token head;
   head.next = NULL;
   Token *cur = &head;
@@ -36,7 +36,7 @@ Token *lexing(char *program) {
     exit(1);
   }
 
-  new_token(TK_EOF, cur, program, 1);
+  cur = new_eof(cur, fg_col, fg_row);
   cur->next = NULL;
   return head.next;
 }
@@ -54,8 +54,8 @@ static Token *tokenize_symbol(char **ptr, Token *cur) {
   Token *tok = NULL;
   // 1文字の記号
   if (strchr("+-", **ptr) != NULL) {
-    tok = new_token(TK_SYMBOL, cur, (*ptr)++, 1);
-    set_token_position(&tok);
+    tok = new_symbol(cur, *ptr, 1, fg_col++, fg_row);
+    (*ptr)++;
   }
   return tok;
 }
@@ -63,19 +63,24 @@ static Token *tokenize_symbol(char **ptr, Token *cur) {
 // 数値のトークナイズ
 static Token *tokenize_number(char **ptr, Token *cur) {
   Token *tok = NULL;
+  int value;
   if (isdigit(**ptr)) {
-    char *start = *ptr;
-    int value = strtol(*ptr, ptr, 10);
-    int length = *ptr - start;
-    tok = new_token(TK_INTLIT, cur, start, length);
-    tok->int_value = value;
-    set_token_position(&tok);
+    int length = cut_integer_range(ptr, &value);
+    tok = new_intlit_token(cur, value, fg_col, fg_row);
+
+    // 数字の長さ分進める
+    fg_col += length;
   }
   return tok;
 }
 
-static void set_token_position(Token **t) {
-  (*t)->col = fg_col;
-  (*t)->row = fg_row;
-  fg_col += (*t)->length;
+// 切り取った文字列の長さを返す．
+static int cut_integer_range(char **ptr, int *value) {
+  // 始点を保持
+  char *start = *ptr;
+  *value = strtol(*ptr, ptr, 10);
+
+  // ポインタ演算によって長さを取得
+  int length = *ptr - start;
+  return length;
 }

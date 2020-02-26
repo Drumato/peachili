@@ -1,0 +1,71 @@
+#include "ast.h"
+#include "base.h"
+
+static Node *init_node(NodeKind kind);
+static void debug_binary(char *operator, Node *n);
+static void debug(Node *n);
+
+void dealloc_node(Node *n) {
+  switch (n->kind) {
+  case ND_ADD:
+  case ND_SUB:
+    free(n->left);
+    n->left = NULL;
+    free(n->right);
+    n->right = NULL;
+    break;
+  default:
+    break;
+  }
+  free(n);
+}
+
+// コンストラクタ
+Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs) {
+  Node *n = init_node(kind);
+  n->left = lhs;
+  n->right = rhs;
+  return n;
+}
+
+Node *new_intlit_node(int value) {
+  Node *n = init_node(ND_INTLIT);
+  n->int_value = value;
+  return n;
+}
+
+void debug_ast_to_stderr(bool verbose, Node *top_node) {
+  if (verbose) {
+    fprintf(stderr, "++++++++ debug-ast ++++++++\n");
+    debug(top_node);
+    fprintf(stderr, "\n\n");
+  }
+}
+
+static Node *init_node(NodeKind kind) {
+  Node *n = (Node *)calloc(1, sizeof(Node));
+  n->kind = kind;
+  return n;
+}
+
+static void debug(Node *n) {
+  switch (n->kind) {
+  case ND_INTLIT:
+    fprintf(stderr, "%d", n->int_value);
+    break;
+  case ND_ADD:
+    debug_binary("ADD", n);
+    break;
+  case ND_SUB:
+    debug_binary("SUB", n);
+    break;
+  }
+}
+
+static void debug_binary(char *operator, Node *n) {
+  fprintf(stderr, "%s(", operator);
+  debug(n->left);
+  fprintf(stderr, ", ");
+  debug(n->right);
+  fprintf(stderr, ")");
+}

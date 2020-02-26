@@ -12,12 +12,14 @@ struct Token {
   Token *prev;
   Token *next;
   int int_value;
-  uint32_t length;
   char *str;
   uint32_t col;
   uint32_t row;
 };
 
-Token *new_token(TokenKind kind, Token *cur, char *str, int length);
-void dump_tokens_to_stderr_if_verbose(bool verbose, Token *top_token);
-void dealloc_token(Token **token);
+Token *new_eof(Token *cur, uint32_t col, uint32_t row);
+Token *new_symbol(Token *cur, char *str, int length, uint32_t col,
+                  uint32_t row);
+Token *new_intlit_token(Token *cur, int int_value, uint32_t col, uint32_t row);
+void debug_tokens_to_stderr(bool verbose, Token *top_token);
+void dealloc_tokens(Token **token);
