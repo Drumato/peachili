@@ -21,16 +21,20 @@ void dealloc_node(Node *n) {
 }
 
 // コンストラクタ
-Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs) {
+Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_t row) {
   Node *n = init_node(kind);
   n->left = lhs;
   n->right = rhs;
+  n->col = col;
+  n->row = row;
   return n;
 }
 
-Node *new_intlit_node(int value) {
+Node *new_intlit_node(int value, uint32_t col, uint32_t row) {
   Node *n = init_node(ND_INTLIT);
   n->int_value = value;
+  n->col = col;
+  n->row = row;
   return n;
 }
 

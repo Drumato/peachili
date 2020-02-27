@@ -9,9 +9,13 @@ static bool eat_if_token_matched(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
 
 static Token *fg_cur_tok;
+static uint32_t fg_col = 1;
+static uint32_t fg_row = 1;
 
 Node *parse(Token *top_token) {
   fg_cur_tok = top_token;
+  fg_col = fg_cur_tok->col;
+  fg_row = fg_cur_tok->row;
   return expression();
 }
 
@@ -24,9 +28,9 @@ static Node *additive(void) {
 
   for (;;) {
     if (eat_if_token_matched(&fg_cur_tok, "+"))
-      node = new_binary_node(ND_ADD, node, primary());
+      node = new_binary_node(ND_ADD, node, primary(), fg_col, fg_row);
     else if (eat_if_token_matched(&fg_cur_tok, "-"))
-      node = new_binary_node(ND_SUB, node, primary());
+      node = new_binary_node(ND_SUB, node, primary(), fg_col, fg_row);
     else
       return node;
   }
@@ -35,7 +39,7 @@ static Node *additive(void) {
 // primary = intlit
 static Node *primary(void) {
   int int_value = expect_intlit_value(&fg_cur_tok);
-  return new_intlit_node(int_value);
+  return new_intlit_node(int_value, fg_col, fg_row);
 }
 
 // もし指定パターンにマッチすれば読みすすめる
@@ -44,14 +48,18 @@ static bool eat_if_token_matched(Token **tok, char *pat) {
       strncmp((*tok)->str, pat, strlen((*tok)->str)))
     return false;
   *tok = (*tok)->next;
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
   return true;
 }
 
 // 数値であれば読み進め,意味値( 整数値 )を返す
 static int expect_intlit_value(Token **tok) {
   if ((*tok)->kind != TK_INTLIT)
-    fprintf(stderr, "expected integer-literal\n");
+    fprintf(stderr, "%d:%d: expected integer-literal\n",(*tok)->col, (*tok)->row);
   int val = (*tok)->int_value;
   *tok = (*tok)->next;
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
   return val;
 }
