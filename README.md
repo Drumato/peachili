@@ -3,11 +3,24 @@ Drumato's Alt-Golang Compiler
 
 ## how to build
 
+### with Ninja
+
 ```
 mkdir build && cd build
-cmake .. -DCMAKE_CC_COMPILER=clang
+export CC=<whatever you what to use> cmake -GNinja ..
+ninja
+
+# or you can use
+./scripts/ninja_build.sh
+```
+
+### with GNU make
+
+```
+mkdir build && cd build
+export CC=<whatever you what to use> cmake ..
 make
 
 # or you can use
-./setup.sh
+./scripts/make_build.sh
 ```
