@@ -28,9 +28,11 @@ static Node *additive(void) {
 
   for (;;) {
     if (eat_if_token_matched(&fg_cur_tok, "+"))
-      node = new_binary_node(ND_ADD, node, primary(), fg_col, fg_row);
+      node = new_binary_node(ND_ADD, node, primary(),
+                             fg_col, fg_row);
     else if (eat_if_token_matched(&fg_cur_tok, "-"))
-      node = new_binary_node(ND_SUB, node, primary(), fg_col, fg_row);
+      node = new_binary_node(ND_SUB, node, primary(),
+                             fg_col, fg_row);
     else
       return node;
   }
@@ -56,7 +58,8 @@ static bool eat_if_token_matched(Token **tok, char *pat) {
 // 数値であれば読み進め,意味値( 整数値 )を返す
 static int expect_intlit_value(Token **tok) {
   if ((*tok)->kind != TK_INTLIT)
-    fprintf(stderr, "%d:%d: expected integer-literal\n",(*tok)->col, (*tok)->row);
+    fprintf(stderr, "%d:%d: expected integer-literal\n",
+            (*tok)->col, (*tok)->row);
   int val = (*tok)->int_value;
   *tok = (*tok)->next;
   fg_col = (*tok)->col;

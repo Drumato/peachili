@@ -6,9 +6,13 @@
 extern Token *tokenize(char *program);
 extern Node *parse(Token *top_token);
 
-void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
+void compiler_main(int argc, char **argv,
+                   DebugOption *debug_opt) {
   if (argc < 2) {
-    fprintf(stderr, "invalid arguments.\n usage: %s <source-file>\n", argv[0]);
+    fprintf(
+        stderr,
+        "invalid arguments.\n usage: %s <source-file>\n",
+        argv[0]);
     exit(1);
   }
 

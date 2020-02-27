@@ -1,4 +1,5 @@
 #include "ast.h"
+
 #include "base.h"
 
 static Node *init_node(NodeKind kind);
@@ -7,21 +8,22 @@ static void debug(Node *n);
 
 void dealloc_node(Node *n) {
   switch (n->kind) {
-  case ND_ADD:
-  case ND_SUB:
-    free(n->left);
-    n->left = NULL;
-    free(n->right);
-    n->right = NULL;
-    break;
-  default:
-    break;
+    case ND_ADD:
+    case ND_SUB:
+      free(n->left);
+      n->left = NULL;
+      free(n->right);
+      n->right = NULL;
+      break;
+    default:
+      break;
   }
   free(n);
 }
 
 // コンストラクタ
-Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_t row) {
+Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs,
+                      uint32_t col, uint32_t row) {
   Node *n = init_node(kind);
   n->left = lhs;
   n->right = rhs;
@@ -30,7 +32,8 @@ Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_
   return n;
 }
 
-Node *new_intlit_node(int value, uint32_t col, uint32_t row) {
+Node *new_intlit_node(int value, uint32_t col,
+                      uint32_t row) {
   Node *n = init_node(ND_INTLIT);
   n->int_value = value;
   n->col = col;
@@ -54,15 +57,15 @@ static Node *init_node(NodeKind kind) {
 
 static void debug(Node *n) {
   switch (n->kind) {
-  case ND_INTLIT:
-    fprintf(stderr, "%d", n->int_value);
-    break;
-  case ND_ADD:
-    debug_binary("ADD", n);
-    break;
-  case ND_SUB:
-    debug_binary("SUB", n);
-    break;
+    case ND_INTLIT:
+      fprintf(stderr, "%d", n->int_value);
+      break;
+    case ND_ADD:
+      debug_binary("ADD", n);
+      break;
+    case ND_SUB:
+      debug_binary("SUB", n);
+      break;
   }
 }
 

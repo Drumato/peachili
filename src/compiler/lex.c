@@ -1,8 +1,9 @@
-#include "token.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "token.h"
 
 static void skip_whitespace(char **ptr);
 static Token *tokenize_symbol(char **ptr, Token *cur);
