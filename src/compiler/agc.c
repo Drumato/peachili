@@ -5,6 +5,7 @@
 
 extern Token *tokenize(char *program);
 extern Node *parse(Token *top_token);
+extern void gen_x64(Node *top_node);
 
 void compiler_main(int argc, char **argv,
                    DebugOption *debug_opt) {
@@ -26,5 +27,6 @@ void compiler_main(int argc, char **argv,
 
   debug_ast_to_stderr(debug_opt->verbose, top_node);
 
+  gen_x64(top_node);
   dealloc_node(top_node);
 }

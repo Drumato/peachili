@@ -3,6 +3,7 @@ add_library(compiler
     agc.c
     lex.c
     parse.c
+    codegen.c
 )
 
 add_subdirectory(resource)
