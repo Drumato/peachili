@@ -2,12 +2,16 @@
 #include "base.h"
 #include "token.h"
 
+static Node *statement(void);
+static Node *return_statement(void);
 static Node *expression(void);
 static Node *multiplicative(void);
 static Node *additive(void);
 static Node *unary(void);
 static Node *primary(void);
-static bool eat_if_token_matched(Token **tok, char *pat);
+static bool eat_if_symbol_matched(Token **tok, char *pat);
+static void expect_keyword(Token **tok, TokenKind kind);
+static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
 
 static Token *fg_cur_tok;
@@ -18,7 +22,18 @@ Node *parse(Token *top_token) {
   fg_cur_tok = top_token;
   fg_col     = fg_cur_tok->col;
   fg_row     = fg_cur_tok->row;
-  return expression();
+  return statement();
+}
+
+// statement = return_stmt
+static Node *statement(void) { return return_statement(); }
+
+// return_statement = "return" expression ";"
+static Node *return_statement(void) {
+  expect_keyword(&fg_cur_tok, TK_RETURN);
+  Node *expr = expression();
+  expect_symbol(&fg_cur_tok, ";");
+  return new_return(expr, fg_col, fg_row);
 }
 
 // expression = unary | expression binary_op expression
@@ -30,9 +45,9 @@ static Node *additive(void) {
   Node *node = multiplicative();
 
   for (;;) {
-    if (eat_if_token_matched(&fg_cur_tok, "+"))
+    if (eat_if_symbol_matched(&fg_cur_tok, "+"))
       node = new_binary_node(ND_ADD, node, multiplicative(), fg_col, fg_row);
-    else if (eat_if_token_matched(&fg_cur_tok, "-"))
+    else if (eat_if_symbol_matched(&fg_cur_tok, "-"))
       node = new_binary_node(ND_SUB, node, multiplicative(), fg_col, fg_row);
     else
       return node;
@@ -44,9 +59,9 @@ static Node *multiplicative(void) {
   Node *node = unary();
 
   for (;;) {
-    if (eat_if_token_matched(&fg_cur_tok, "*"))
+    if (eat_if_symbol_matched(&fg_cur_tok, "*"))
       node = new_binary_node(ND_MUL, node, unary(), fg_col, fg_row);
-    else if (eat_if_token_matched(&fg_cur_tok, "/"))
+    else if (eat_if_symbol_matched(&fg_cur_tok, "/"))
       node = new_binary_node(ND_DIV, node, unary(), fg_col, fg_row);
     else
       return node;
@@ -55,10 +70,10 @@ static Node *multiplicative(void) {
 
 // unary = "+" primary | "-" primary
 static Node *unary(void) {
-  if (eat_if_token_matched(&fg_cur_tok, "-")) {
+  if (eat_if_symbol_matched(&fg_cur_tok, "-")) {
     return new_unary_node(ND_NEG, primary(), fg_col, fg_row);
   }
-  eat_if_token_matched(&fg_cur_tok, "+");  // +の可能性は読みとばす
+  eat_if_symbol_matched(&fg_cur_tok, "+");  // +の可能性は読みとばす
 
   return primary();
 }
@@ -70,7 +85,7 @@ static Node *primary(void) {
 }
 
 // もし指定パターンにマッチすれば読みすすめる
-static bool eat_if_token_matched(Token **tok, char *pat) {
+static bool eat_if_symbol_matched(Token **tok, char *pat) {
   if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str))) return false;
   *tok   = (*tok)->next;
   fg_col = (*tok)->col;
@@ -87,4 +102,23 @@ static int expect_intlit_value(Token **tok) {
   fg_col  = (*tok)->col;
   fg_row  = (*tok)->row;
   return val;
+}
+
+// 指定された予約語であるかチェック，そうでなければエラー
+static void expect_keyword(Token **tok, TokenKind kind) {
+  if ((*tok)->kind != kind)
+    fprintf(stderr, "%d:%d: unexpected %d\n", (*tok)->row, (*tok)->col, (*tok)->kind);
+  *tok   = (*tok)->next;
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
+}
+
+// 指定された記号であるかチェック，そうでなければエラー
+static void expect_symbol(Token **tok, char *pat) {
+  if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str)))
+    fprintf(stderr, "%d:%d: expected %s unexpected %d\n", (*tok)->row, (*tok)->col, pat,
+            (*tok)->kind);
+  *tok   = (*tok)->next;
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
 }

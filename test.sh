@@ -16,13 +16,13 @@ try() {
   fi
 }
 
-try 0 0
-try 42 42
-try 21 "5 + 20 - 4"
-try 1 "1 * 10 / 10"
-try 9 "1 + 2 * 4"
-try 9 "0 + -3 * -3"
-try 0 "0 + -3 + +3"
+try 0 "return 0;"
+try 42 "return 42;"
+try 21 "return 5 + 20 - 4;"
+try 1 "return 1 * 10 / 10;"
+try 9 "return 1 + 2 * 4;"
+try 9 "return 0 + -3 * -3;"
+try 0 "return 0 + -3 + +3;"
 
 echo "OK"
 rm tmp*

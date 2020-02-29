@@ -3,8 +3,7 @@
 #include "base.h"
 #include "structure.h"
 
-static Token *new_token(TokenKind kind, Token **cur,
-                        uint32_t col, uint32_t row);
+static Token *new_token(TokenKind kind, Token **cur, uint32_t col, uint32_t row);
 static void dump_token(Token *t);
 
 // デアロケータ
@@ -12,7 +11,7 @@ static void dump_token(Token *t);
 void dealloc_tokens(Token **token) {
   Token *tmp;
   while (*token != NULL) {
-    tmp = *token;
+    tmp    = *token;
     *token = (*token)->next;
     free(tmp->str);
     free(tmp);
@@ -26,8 +25,7 @@ Token *new_eof(Token *cur, uint32_t col, uint32_t row) {
   return tok;
 }
 
-Token *new_symbol(Token *cur, char *str, int length,
-                  uint32_t col, uint32_t row) {
+Token *new_symbol(Token *cur, char *str, int length, uint32_t col, uint32_t row) {
   Token *tok = new_token(TK_SYMBOL, &cur, col, row);
 
   // 文字列コピー
@@ -38,17 +36,20 @@ Token *new_symbol(Token *cur, char *str, int length,
   return tok;
 }
 
-Token *new_intlit_token(Token *cur, int int_value,
-                        uint32_t col, uint32_t row) {
-  Token *tok = new_token(TK_INTLIT, &cur, col, row);
+Token *new_keyword(TokenKind kind, Token *cur, uint32_t col, uint32_t row) {
+  Token *tok = new_token(kind, &cur, col, row);
+  return tok;
+}
+
+Token *new_intlit_token(Token *cur, int int_value, uint32_t col, uint32_t row) {
+  Token *tok     = new_token(TK_INTLIT, &cur, col, row);
   tok->int_value = int_value;
   return tok;
 }
 
 // デバッグ関数
 
-void debug_tokens_to_stderr(bool verbose,
-                            Token *top_token) {
+void debug_tokens_to_stderr(bool verbose, Token *top_token) {
   if (verbose) {
     fprintf(stderr, "++++++++ debug-tokens ++++++++\n");
     Token *t = top_token;
@@ -64,19 +65,18 @@ void debug_tokens_to_stderr(bool verbose,
 
 // static関数
 
-static Token *new_token(TokenKind kind, Token **cur,
-                        uint32_t col, uint32_t row) {
+static Token *new_token(TokenKind kind, Token **cur, uint32_t col, uint32_t row) {
   // 1. 新しくトークンを生成
   Token *tok = calloc(1, sizeof(Token));
 
   // 2. 渡された情報をセット
   tok->kind = kind;
-  tok->col = col;
-  tok->row = row;
+  tok->col  = col;
+  tok->row  = row;
 
   // 3. 現在のトークンの後ろにappend
   (*cur)->next = tok;
-  tok->prev = *cur;
+  tok->prev    = *cur;
   return tok;
 }
 
@@ -87,6 +87,9 @@ static void dump_token(Token *t) {
       break;
     case TK_SYMBOL:
       fprintf(stderr, "%s", t->str);
+      break;
+    case TK_RETURN:
+      fprintf(stderr, "RETURN");
       break;
     case TK_EOF:
       fprintf(stderr, "EOF");

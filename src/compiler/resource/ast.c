@@ -22,6 +22,10 @@ void dealloc_node(Node *n) {
       free(n->left);
       n->left = NULL;
       break;
+    case ND_RETURN:
+      free(n->expr);
+      n->expr = NULL;
+      break;
     default:
       break;
   }
@@ -29,6 +33,13 @@ void dealloc_node(Node *n) {
 }
 
 // コンストラクタ
+Node *new_return(Node *expr, uint32_t col, uint32_t row) {
+  Node *n = init_node(ND_RETURN);
+  n->expr = expr;
+  n->col  = col;
+  n->row  = row;
+  return n;
+}
 Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_t row) {
   Node *n  = init_node(kind);
   n->left  = lhs;
@@ -87,6 +98,11 @@ static void debug(Node *n) {
       break;
     case ND_NEG:
       debug_unary("NEG", n);
+      break;
+    case ND_RETURN:
+      fprintf(stderr, "return ");
+      debug(n->expr);
+      fprintf(stderr, ";\n");
       break;
   }
 }

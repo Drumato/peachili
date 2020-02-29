@@ -1,5 +1,6 @@
 #include "ast.h"
 
+static void gen_stmt(Node *n);
 static void gen_expr(Node *n);
 static void gen_base_op_expr(NodeKind kind);
 static void gen_binary_expr(Node *n);
@@ -9,11 +10,21 @@ void gen_x64(Node *top_node) {
   printf(".intel_syntax noprefix\n");
   printf(".global main\n");
   printf("main:\n");
-  gen_expr(top_node);
-  printf("  pop rax\n");
-  printf("  ret\n");
+  gen_stmt(top_node);
 }
 
+static void gen_stmt(Node *n) {
+  switch (n->kind) {
+    case ND_RETURN:
+      gen_expr(n->expr);
+      printf("  pop rax\n");
+      printf("  ret\n");
+      break;
+    default:
+      fprintf(stderr, "unexpected NodeKind in gen_stmt()\n");
+      break;
+  }
+}
 static void gen_expr(Node *n) {
   switch (n->kind) {
     case ND_ADD:
@@ -27,6 +38,9 @@ static void gen_expr(Node *n) {
       break;
     case ND_INTLIT:
       printf("  push %d\n", n->int_value);
+      break;
+    default:
+      fprintf(stderr, "unexpected NodeKind in gen_expr()\n");
       break;
   }
 }

@@ -8,6 +8,7 @@
 static void skip_whitespace(char **ptr);
 static Token *tokenize_symbol(char **ptr, Token *cur);
 static Token *tokenize_number(char **ptr, Token *cur);
+static Token *tokenize_keyword(char **ptr, Token *cur);
 static int cut_integer_range(char **ptr, int *value);
 
 static uint32_t fg_col = 1;
@@ -23,12 +24,18 @@ Token *tokenize(char *program) {
     skip_whitespace(&program);
 
     Token *tmp = NULL;
+
     if ((tmp = tokenize_symbol(&program, cur)) != NULL) {
       cur = tmp;
       continue;
     }
 
     if ((tmp = tokenize_number(&program, cur)) != NULL) {
+      cur = tmp;
+      continue;
+    }
+
+    if ((tmp = tokenize_keyword(&program, cur)) != NULL) {
       cur = tmp;
       continue;
     }
@@ -49,12 +56,28 @@ static void skip_whitespace(char **ptr) {
     fg_col++;
   }
 }
+// 予約語のトークナイズ
+static Token *tokenize_keyword(char **ptr, Token *cur) {
+  Token *tok           = NULL;
+  char *keywords[]     = {"return", NULL};
+  TokenKind tk_kinds[] = {TK_RETURN};
+  for (int i = 0; keywords[i] != NULL; i++) {
+    int word_length = strlen(keywords[i]);
+    if (!strncmp(*ptr, keywords[i], word_length)) {
+      tok = new_keyword(tk_kinds[i], cur, fg_col, fg_row);
+      fg_col += word_length;
+      *ptr += word_length;
+      return tok;
+    }
+  }
+  return tok;
+}
 
 // 記号のトークナイズ
 static Token *tokenize_symbol(char **ptr, Token *cur) {
   Token *tok = NULL;
   // 1文字の記号
-  if (strchr("+-*/", **ptr) != NULL) {
+  if (strchr("+-*/;", **ptr) != NULL) {
     tok = new_symbol(cur, *ptr, 1, fg_col++, fg_row);
     (*ptr)++;
   }
