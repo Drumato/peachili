@@ -1,19 +1,14 @@
 #include "ast.h"
 #include "base.h"
 #include "structure.h"
-#include "token.h"
 
 extern Token *tokenize(char *program);
-extern Node *parse(Token *top_token);
-extern void gen_x64(Node *top_node);
+extern Function *parse(Token *top_token);
+extern void gen_x64(Function *func);
 
-void compiler_main(int argc, char **argv,
-                   DebugOption *debug_opt) {
+void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   if (argc < 2) {
-    fprintf(
-        stderr,
-        "invalid arguments.\n usage: %s <source-file>\n",
-        argv[0]);
+    fprintf(stderr, "invalid arguments.\n usage: %s <source-file>\n", argv[0]);
     exit(1);
   }
 
@@ -22,11 +17,11 @@ void compiler_main(int argc, char **argv,
 
   debug_tokens_to_stderr(debug_opt->verbose, top_token);
 
-  Node *top_node = parse(top_token);
+  Function *main_func = parse(top_token);
+
+  debug_func_to_stderr(debug_opt->verbose, main_func);
+
+  gen_x64(main_func);
   dealloc_tokens(&top_token);
-
-  debug_ast_to_stderr(debug_opt->verbose, top_node);
-
-  gen_x64(top_node);
-  dealloc_node(top_node);
+  dealloc_function(main_func);
 }

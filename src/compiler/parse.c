@@ -1,8 +1,8 @@
 #include "ast.h"
 #include "base.h"
-#include "token.h"
 
 static Node *statement(void);
+static Function *function(void);
 static Node *return_statement(void);
 static Node *expression(void);
 static Node *multiplicative(void);
@@ -13,16 +13,36 @@ static bool eat_if_symbol_matched(Token **tok, char *pat);
 static void expect_keyword(Token **tok, TokenKind kind);
 static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
+static char *expect_identifier(Token **tok);
 
 static Token *fg_cur_tok;
 static uint32_t fg_col = 1;
 static uint32_t fg_row = 1;
 
-Node *parse(Token *top_token) {
+Function *parse(Token *top_token) {
   fg_cur_tok = top_token;
   fg_col     = fg_cur_tok->col;
   fg_row     = fg_cur_tok->row;
-  return statement();
+  return function();
+}
+
+Function *function(void) {
+  expect_keyword(&fg_cur_tok, TK_FUNC);
+  char *name = expect_identifier(&fg_cur_tok);
+
+  // とりあえず引数なし
+  expect_symbol(&fg_cur_tok, "(");
+  expect_symbol(&fg_cur_tok, ")");
+
+  Token *ret_type = fg_cur_tok;
+  expect_keyword(&fg_cur_tok, TK_INT);
+
+  expect_symbol(&fg_cur_tok, "{");
+  Node *stmt = statement();
+  expect_symbol(&fg_cur_tok, "}");
+
+  Function *func = new_function(name, stmt, ret_type, fg_col, fg_row);
+  return func;
 }
 
 // statement = return_stmt
@@ -121,4 +141,15 @@ static void expect_symbol(Token **tok, char *pat) {
   *tok   = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
+}
+
+// 識別子であるかチェックし，そうであれば識別子名を返す
+static char *expect_identifier(Token **tok) {
+  if ((*tok)->kind != TK_IDENT)
+    fprintf(stderr, "%d:%d: expected identifier\n", (*tok)->row, (*tok)->col);
+  char *name = (*tok)->str;
+  *tok       = (*tok)->next;
+  fg_col     = (*tok)->col;
+  fg_row     = (*tok)->row;
+  return name;
 }

@@ -41,6 +41,15 @@ Token *new_keyword(TokenKind kind, Token *cur, uint32_t col, uint32_t row) {
   return tok;
 }
 
+Token *new_ident(Token *cur, char *str, int length, uint32_t col, uint32_t row) {
+  Token *tok = new_token(TK_IDENT, &cur, col, row);
+
+  tok->str = (char *)calloc(length, sizeof(char));
+  strncpy(tok->str, str, length);
+  tok->str[length] = 0;
+
+  return tok;
+}
 Token *new_intlit_token(Token *cur, int int_value, uint32_t col, uint32_t row) {
   Token *tok     = new_token(TK_INTLIT, &cur, col, row);
   tok->int_value = int_value;
@@ -85,11 +94,20 @@ static void dump_token(Token *t) {
     case TK_INTLIT:
       fprintf(stderr, "%d", t->int_value);
       break;
+    case TK_IDENT:
+      fprintf(stderr, "%s", t->str);
+      break;
     case TK_SYMBOL:
       fprintf(stderr, "%s", t->str);
       break;
     case TK_RETURN:
       fprintf(stderr, "RETURN");
+      break;
+    case TK_INT:
+      fprintf(stderr, "INT");
+      break;
+    case TK_FUNC:
+      fprintf(stderr, "FUNC");
       break;
     case TK_EOF:
       fprintf(stderr, "EOF");

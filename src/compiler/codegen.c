@@ -6,11 +6,11 @@ static void gen_base_op_expr(NodeKind kind);
 static void gen_binary_expr(Node *n);
 static void gen_unary_expr(Node *n);
 
-void gen_x64(Node *top_node) {
+void gen_x64(Function *func) {
   printf(".intel_syntax noprefix\n");
-  printf(".global main\n");
-  printf("main:\n");
-  gen_stmt(top_node);
+  printf(".global %s\n", func->name);
+  printf("%s:\n", func->name);
+  gen_stmt(func->stmt);
 }
 
 static void gen_stmt(Node *n) {
