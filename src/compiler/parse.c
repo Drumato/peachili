@@ -3,6 +3,7 @@
 #include "token.h"
 
 static Node *expression(void);
+static Node *multiplicative(void);
 static Node *additive(void);
 static Node *primary(void);
 static bool eat_if_token_matched(Token **tok, char *pat);
@@ -22,16 +23,33 @@ Node *parse(Token *top_token) {
 // expression = unary | expression binary_op expression
 static Node *expression(void) { return additive(); }
 
-// additive = primary ( "+" primary | "-" primary )*
+// additive = multiplicative
+//    ( "+" multiplicative | "-" multiplicative )*
 static Node *additive(void) {
-  Node *node = primary();
+  Node *node = multiplicative();
 
   for (;;) {
     if (eat_if_token_matched(&fg_cur_tok, "+"))
-      node = new_binary_node(ND_ADD, node, primary(),
+      node = new_binary_node(ND_ADD, node, multiplicative(),
                              fg_col, fg_row);
     else if (eat_if_token_matched(&fg_cur_tok, "-"))
-      node = new_binary_node(ND_SUB, node, primary(),
+      node = new_binary_node(ND_SUB, node, multiplicative(),
+                             fg_col, fg_row);
+    else
+      return node;
+  }
+}
+
+// multiplicative = primary ( "*" primary | "/" primary )*
+static Node *multiplicative(void) {
+  Node *node = primary();
+
+  for (;;) {
+    if (eat_if_token_matched(&fg_cur_tok, "*"))
+      node = new_binary_node(ND_MUL, node, primary(),
+                             fg_col, fg_row);
+    else if (eat_if_token_matched(&fg_cur_tok, "/"))
+      node = new_binary_node(ND_DIV, node, primary(),
                              fg_col, fg_row);
     else
       return node;

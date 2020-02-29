@@ -17,6 +17,8 @@ static void gen_expr(Node *n) {
   switch (n->kind) {
     case ND_ADD:
     case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
       gen_binary_expr(n);
       break;
     case ND_INTLIT:
@@ -38,6 +40,8 @@ static void gen_binary_expr(Node *n) {
   switch (n->kind) {
     case ND_ADD:
     case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
       gen_base_op_expr(n->kind);
       break;
     default:
@@ -55,6 +59,13 @@ static void gen_base_op_expr(NodeKind kind) {
       break;
     case ND_SUB:
       printf("  sub rax, rdi\n");
+      break;
+    case ND_MUL:
+      printf("  imul rax, rdi\n");
+      break;
+    case ND_DIV:
+      printf("  cqo\n");
+      printf("  idiv rdi\n");
       break;
     default:
       break;
