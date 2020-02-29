@@ -5,6 +5,7 @@
 static Node *expression(void);
 static Node *multiplicative(void);
 static Node *additive(void);
+static Node *unary(void);
 static Node *primary(void);
 static bool eat_if_token_matched(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
@@ -15,8 +16,8 @@ static uint32_t fg_row = 1;
 
 Node *parse(Token *top_token) {
   fg_cur_tok = top_token;
-  fg_col = fg_cur_tok->col;
-  fg_row = fg_cur_tok->row;
+  fg_col     = fg_cur_tok->col;
+  fg_row     = fg_cur_tok->row;
   return expression();
 }
 
@@ -30,30 +31,36 @@ static Node *additive(void) {
 
   for (;;) {
     if (eat_if_token_matched(&fg_cur_tok, "+"))
-      node = new_binary_node(ND_ADD, node, multiplicative(),
-                             fg_col, fg_row);
+      node = new_binary_node(ND_ADD, node, multiplicative(), fg_col, fg_row);
     else if (eat_if_token_matched(&fg_cur_tok, "-"))
-      node = new_binary_node(ND_SUB, node, multiplicative(),
-                             fg_col, fg_row);
+      node = new_binary_node(ND_SUB, node, multiplicative(), fg_col, fg_row);
     else
       return node;
   }
 }
 
-// multiplicative = primary ( "*" primary | "/" primary )*
+// multiplicative = unary ( "*" unary | "/" unary )*
 static Node *multiplicative(void) {
-  Node *node = primary();
+  Node *node = unary();
 
   for (;;) {
     if (eat_if_token_matched(&fg_cur_tok, "*"))
-      node = new_binary_node(ND_MUL, node, primary(),
-                             fg_col, fg_row);
+      node = new_binary_node(ND_MUL, node, unary(), fg_col, fg_row);
     else if (eat_if_token_matched(&fg_cur_tok, "/"))
-      node = new_binary_node(ND_DIV, node, primary(),
-                             fg_col, fg_row);
+      node = new_binary_node(ND_DIV, node, unary(), fg_col, fg_row);
     else
       return node;
   }
+}
+
+// unary = "+" primary | "-" primary
+static Node *unary(void) {
+  if (eat_if_token_matched(&fg_cur_tok, "-")) {
+    return new_unary_node(ND_NEG, primary(), fg_col, fg_row);
+  }
+  eat_if_token_matched(&fg_cur_tok, "+");  // +の可能性は読みとばす
+
+  return primary();
 }
 
 // primary = intlit
@@ -64,10 +71,8 @@ static Node *primary(void) {
 
 // もし指定パターンにマッチすれば読みすすめる
 static bool eat_if_token_matched(Token **tok, char *pat) {
-  if ((*tok)->kind != TK_SYMBOL ||
-      strncmp((*tok)->str, pat, strlen((*tok)->str)))
-    return false;
-  *tok = (*tok)->next;
+  if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str))) return false;
+  *tok   = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
   return true;
@@ -76,11 +81,10 @@ static bool eat_if_token_matched(Token **tok, char *pat) {
 // 数値であれば読み進め,意味値( 整数値 )を返す
 static int expect_intlit_value(Token **tok) {
   if ((*tok)->kind != TK_INTLIT)
-    fprintf(stderr, "%d:%d: expected integer-literal\n",
-            (*tok)->col, (*tok)->row);
+    fprintf(stderr, "%d:%d: expected integer-literal\n", (*tok)->row, (*tok)->col);
   int val = (*tok)->int_value;
-  *tok = (*tok)->next;
-  fg_col = (*tok)->col;
-  fg_row = (*tok)->row;
+  *tok    = (*tok)->next;
+  fg_col  = (*tok)->col;
+  fg_row  = (*tok)->row;
   return val;
 }

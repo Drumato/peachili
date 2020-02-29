@@ -15,7 +15,7 @@ static uint32_t fg_row = 1;
 
 Token *tokenize(char *program) {
   Token head;
-  head.next = NULL;
+  head.next  = NULL;
   Token *cur = &head;
 
   while (*program) {
@@ -37,7 +37,7 @@ Token *tokenize(char *program) {
     exit(1);
   }
 
-  cur = new_eof(cur, fg_col, fg_row);
+  cur       = new_eof(cur, fg_col, fg_row);
   cur->next = NULL;
   return head.next;
 }
@@ -67,7 +67,7 @@ static Token *tokenize_number(char **ptr, Token *cur) {
   int value;
   if (isdigit(**ptr)) {
     int length = cut_integer_range(ptr, &value);
-    tok = new_intlit_token(cur, value, fg_col, fg_row);
+    tok        = new_intlit_token(cur, value, fg_col, fg_row);
 
     // 数字の長さ分進める
     fg_col += length;
@@ -79,7 +79,7 @@ static Token *tokenize_number(char **ptr, Token *cur) {
 static int cut_integer_range(char **ptr, int *value) {
   // 始点を保持
   char *start = *ptr;
-  *value = strtol(*ptr, ptr, 10);
+  *value      = strtol(*ptr, ptr, 10);
 
   // ポインタ演算によって長さを取得
   int length = *ptr - start;
