@@ -4,9 +4,10 @@ add_library(compiler
     lex.c
     parse.c
     codegen.c
+    resource/token.c
+    resource/ast.c
+    resource/agtype.c
 )
-
-add_subdirectory(resource)
 
 target_include_directories(
   compiler

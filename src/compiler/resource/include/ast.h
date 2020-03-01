@@ -1,17 +1,16 @@
-#include "agtype.h"
 #include "base.h"
 #include "token.h"
 
 typedef struct Node Node;
 typedef struct {
   char *name;
-  AGType *return_type;
+  struct AGType *return_type;
   Node *stmt;  // 今は一つの文のみうけとるようにしておく
   uint32_t col;
   uint32_t row;
 } Function;
 
-Function *new_function(char *name, Node *stmt, AGType *ret_type, uint32_t col, uint32_t row);
+Function *new_function(char *name, Node *stmt, struct AGType *ret_type, uint32_t col, uint32_t row);
 
 typedef enum {
   ND_INTLIT,

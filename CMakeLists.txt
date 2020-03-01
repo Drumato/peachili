@@ -9,7 +9,7 @@ add_subdirectory(src)
 
 add_executable(dagc src/main.c src/parse_cmd_args.c)
 
-target_link_libraries(dagc compiler resource)
+target_link_libraries(dagc compiler)
 target_include_directories(dagc 
   PUBLIC ${PROJECT_SOURCE_DIR}/src/include,
   PUBLIC ${PROJECT_SOURCE_DIR}/src/compiler/resource/include

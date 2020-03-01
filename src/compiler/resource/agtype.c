@@ -6,3 +6,10 @@ AGType *new_integer_type(void) {
   agtype->size   = 8;
   return agtype;
 }
+
+void dump_agtype(AGType *agtype) {
+  switch (agtype->kind) {
+    case TY_INT:
+      fprintf(stderr, "int");
+  }
+}

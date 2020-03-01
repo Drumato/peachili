@@ -4,7 +4,11 @@ typedef enum {
   TY_INT,
 } AGTypeKind;
 
-typedef struct {
+struct AGType {
   AGTypeKind kind;
   uint32_t size;
-} AGType;
+};
+typedef struct AGType AGType;
+
+AGType *new_integer_type(void);
+void dump_agtype(AGType *agtype);

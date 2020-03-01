@@ -1,3 +1,4 @@
+#include "agtype.h"
 #include "ast.h"
 #include "base.h"
 
@@ -10,7 +11,7 @@ static Node *additive(void);
 static Node *unary(void);
 static Node *primary(void);
 static bool eat_if_symbol_matched(Token **tok, char *pat);
-static AGType *expect_agtype(Token **tok);
+static struct AGType *expect_agtype(Token **tok);
 static void expect_keyword(Token **tok, TokenKind kind);
 static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
@@ -104,9 +105,12 @@ static Node *primary(void) {
   return new_intlit_node(int_value, fg_col, fg_row);
 }
 
-static AGType *expect_agtype(Token **tok) {
-  if ((*tok)->kind != TK_INT)
-    fprintf(stderr, "%d:%d: unexpected %d\n", (*tok)->row, (*tok)->col, (*tok)->kind);
+static struct AGType *expect_agtype(Token **tok) {
+  if ((*tok)->kind != TK_INT) {
+    fprintf(stderr, "%d:%d: unexpected", (*tok)->row, (*tok)->col);
+    dump_token(*tok);
+    fprintf(stderr, "\n");
+  }
   *tok   = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
@@ -135,8 +139,11 @@ static int expect_intlit_value(Token **tok) {
 
 // 指定された予約語であるかチェック，そうでなければエラー
 static void expect_keyword(Token **tok, TokenKind kind) {
-  if ((*tok)->kind != kind)
-    fprintf(stderr, "%d:%d: unexpected %d\n", (*tok)->row, (*tok)->col, (*tok)->kind);
+  if ((*tok)->kind != kind) {
+    fprintf(stderr, "%d:%d: unexpected", (*tok)->row, (*tok)->col);
+    dump_token(*tok);
+    fprintf(stderr, "\n");
+  }
   *tok   = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
@@ -144,9 +151,11 @@ static void expect_keyword(Token **tok, TokenKind kind) {
 
 // 指定された記号であるかチェック，そうでなければエラー
 static void expect_symbol(Token **tok, char *pat) {
-  if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str)))
-    fprintf(stderr, "%d:%d: expected %s unexpected %d\n", (*tok)->row, (*tok)->col, pat,
-            (*tok)->kind);
+  if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str))) {
+    fprintf(stderr, "%d:%d: expected %s unexpected ", (*tok)->row, (*tok)->col, pat);
+    dump_token(*tok);
+    fprintf(stderr, "\n");
+  }
   *tok   = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;

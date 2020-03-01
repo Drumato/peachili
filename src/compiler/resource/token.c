@@ -4,7 +4,6 @@
 #include "structure.h"
 
 static Token *new_token(TokenKind kind, Token **cur, uint32_t col, uint32_t row);
-static void dump_token(Token *t);
 
 // デアロケータ
 
@@ -89,7 +88,7 @@ static Token *new_token(TokenKind kind, Token **cur, uint32_t col, uint32_t row)
   return tok;
 }
 
-static void dump_token(Token *t) {
+void dump_token(Token *t) {
   switch (t->kind) {
     case TK_INTLIT:
       fprintf(stderr, "%d", t->int_value);

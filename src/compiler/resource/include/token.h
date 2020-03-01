@@ -30,3 +30,4 @@ Token *new_intlit_token(Token *cur, int int_value, uint32_t col, uint32_t row);
 Token *new_ident(Token *cur, char *str, int length, uint32_t col, uint32_t row);
 void debug_tokens_to_stderr(bool verbose, Token *top_token);
 void dealloc_tokens(Token **token);
+void dump_token(Token *t);

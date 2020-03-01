@@ -1,5 +1,6 @@
 #include "ast.h"
 
+#include "agtype.h"
 #include "base.h"
 
 static Node *init_node(NodeKind kind);
@@ -93,7 +94,9 @@ Node *new_intlit_node(int value, uint32_t col, uint32_t row) {
 void debug_func_to_stderr(bool verbose, Function *func) {
   if (verbose) {
     fprintf(stderr, "++++++++ debug-ast ++++++++\n");
-    fprintf(stderr, "func %s() { \n", func->name);
+    fprintf(stderr, "func %s() ", func->name);
+    dump_agtype(func->return_type);
+    fprintf(stderr, " {\n");
     fprintf(stderr, "\t");
     debug(func->stmt);
     fprintf(stderr, "}\n");
