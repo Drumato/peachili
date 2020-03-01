@@ -11,6 +11,8 @@ static void debug(Node *n);
 void dealloc_function(Function *func) {
   free(func->name);
   func->name = NULL;
+  free(func->return_type);
+  func->return_type = NULL;
 
   dealloc_node(func->stmt);
 }
@@ -41,7 +43,7 @@ static void dealloc_node(Node *n) {
 }
 
 // コンストラクタ
-Function *new_function(char *name, Node *stmt, Token *ret_type, uint32_t col, uint32_t row) {
+Function *new_function(char *name, Node *stmt, AGType *ret_type, uint32_t col, uint32_t row) {
   Function *func = (Function *)calloc(1, sizeof(Function));
 
   int length = strlen(name);

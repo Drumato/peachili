@@ -10,6 +10,7 @@ static Node *additive(void);
 static Node *unary(void);
 static Node *primary(void);
 static bool eat_if_symbol_matched(Token **tok, char *pat);
+static AGType *expect_agtype(Token **tok);
 static void expect_keyword(Token **tok, TokenKind kind);
 static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
@@ -34,8 +35,7 @@ Function *function(void) {
   expect_symbol(&fg_cur_tok, "(");
   expect_symbol(&fg_cur_tok, ")");
 
-  Token *ret_type = fg_cur_tok;
-  expect_keyword(&fg_cur_tok, TK_INT);
+  AGType *ret_type = expect_agtype(&fg_cur_tok);
 
   expect_symbol(&fg_cur_tok, "{");
   Node *stmt = statement();
@@ -102,6 +102,15 @@ static Node *unary(void) {
 static Node *primary(void) {
   int int_value = expect_intlit_value(&fg_cur_tok);
   return new_intlit_node(int_value, fg_col, fg_row);
+}
+
+static AGType *expect_agtype(Token **tok) {
+  if ((*tok)->kind != TK_INT)
+    fprintf(stderr, "%d:%d: unexpected %d\n", (*tok)->row, (*tok)->col, (*tok)->kind);
+  *tok   = (*tok)->next;
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
+  return new_integer_type();
 }
 
 // もし指定パターンにマッチすれば読みすすめる
