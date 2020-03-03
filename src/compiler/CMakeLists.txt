@@ -7,6 +7,7 @@ add_library(compiler
     resource/token.c
     resource/ast.c
     resource/agtype.c
+    resource/vector.c
 )
 
 target_include_directories(

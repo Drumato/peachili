@@ -2,6 +2,7 @@
 
 #include "agtype.h"
 #include "base.h"
+#include "vector.h"
 
 static Node *init_node(NodeKind kind);
 static void dealloc_node(Node *n);
@@ -9,13 +10,19 @@ static void debug_binary(char *operator, Node *n);
 static void debug_unary(char *operator, Node *n);
 static void debug(Node *n);
 
+Node *vec_get_as_a_node(Vector *vec, int idx) { return (Node *)vec_get(vec, idx); }
+void push_node_into_vec(Vector *vec, Node *n) { vec_push(vec, (void *)n); }
+
 void dealloc_function(Function *func) {
   free(func->name);
   func->name = NULL;
   free(func->return_type);
   func->return_type = NULL;
 
-  dealloc_node(func->stmt);
+  for (int i = 0; i < func->stmts->length; i++) {
+    Node *n = vec_get_as_a_node(func->stmts, i);
+    dealloc_node(n);
+  }
 }
 
 static void dealloc_node(Node *n) {
@@ -44,7 +51,7 @@ static void dealloc_node(Node *n) {
 }
 
 // コンストラクタ
-Function *new_function(char *name, Node *stmt, AGType *ret_type, uint32_t col, uint32_t row) {
+Function *new_function(char *name, AGType *ret_type, uint32_t col, uint32_t row) {
   Function *func = (Function *)calloc(1, sizeof(Function));
 
   int length = strlen(name);
@@ -52,7 +59,7 @@ Function *new_function(char *name, Node *stmt, AGType *ret_type, uint32_t col, u
   strncpy(func->name, name, length);
   func->name[length] = 0;
 
-  func->stmt        = stmt;
+  func->stmts       = new_vec();
   func->return_type = ret_type;
   func->col         = col;
   func->row         = row;
@@ -97,8 +104,11 @@ void debug_func_to_stderr(bool verbose, Function *func) {
     fprintf(stderr, "func %s() ", func->name);
     dump_agtype(func->return_type);
     fprintf(stderr, " {\n");
-    fprintf(stderr, "\t");
-    debug(func->stmt);
+    for (int i = 0; i < func->stmts->length; i++) {
+      Node *stmt = vec_get_as_a_node(func->stmts, i);
+      fprintf(stderr, "\t");
+      debug(stmt);
+    }
     fprintf(stderr, "}\n");
     fprintf(stderr, "\n\n");
   }

@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "vector.h"
 
 static void gen_stmt(Node *n);
 static void gen_expr(Node *n);
@@ -10,7 +11,10 @@ void gen_x64(Function *func) {
   printf(".intel_syntax noprefix\n");
   printf(".global %s\n", func->name);
   printf("%s:\n", func->name);
-  gen_stmt(func->stmt);
+  for (int i = 0; i < func->stmts->length; i++) {
+    Node *stmt = vec_get_as_a_node(func->stmts, i);
+    gen_stmt(stmt);
+  }
 }
 
 static void gen_stmt(Node *n) {

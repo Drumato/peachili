@@ -1,7 +1,9 @@
 #include "agtype.h"
 #include "ast.h"
 #include "base.h"
+#include "vector.h"
 
+static void compound_statement(Token **tok, Vector **vec);
 static Node *statement(void);
 static Function *function(void);
 static Node *return_statement(void);
@@ -10,6 +12,7 @@ static Node *multiplicative(void);
 static Node *additive(void);
 static Node *unary(void);
 static Node *primary(void);
+static inline bool check_curtoken_is_keyword(Token **tok, TokenKind kind);
 static bool eat_if_symbol_matched(Token **tok, char *pat);
 static struct AGType *expect_agtype(Token **tok);
 static void expect_keyword(Token **tok, TokenKind kind);
@@ -29,6 +32,9 @@ Function *parse(Token *top_token) {
 }
 
 Function *function(void) {
+  uint32_t def_func_col = fg_col;
+  uint32_t def_func_row = fg_row;
+
   expect_keyword(&fg_cur_tok, TK_FUNC);
   char *name = expect_identifier(&fg_cur_tok);
 
@@ -38,16 +44,32 @@ Function *function(void) {
 
   AGType *ret_type = expect_agtype(&fg_cur_tok);
 
-  expect_symbol(&fg_cur_tok, "{");
-  Node *stmt = statement();
-  expect_symbol(&fg_cur_tok, "}");
+  Function *func = new_function(name, ret_type, def_func_col, def_func_row);
 
-  Function *func = new_function(name, stmt, ret_type, fg_col, fg_row);
+  compound_statement(&fg_cur_tok, &func->stmts);
+
   return func;
 }
 
+static void compound_statement(Token **tok, Vector **vec) {
+  expect_symbol(tok, "{");
+
+  Node *iter_stmt = NULL;
+  while ((iter_stmt = statement()) != NULL) {
+    push_node_into_vec(*vec, iter_stmt);
+  }
+
+  expect_symbol(tok, "}");
+}
+
 // statement = return_stmt
-static Node *statement(void) { return return_statement(); }
+static Node *statement(void) {
+  if (check_curtoken_is_keyword(&fg_cur_tok, TK_RETURN)) {
+    return return_statement();
+  } else {
+    return NULL;
+  }
+}
 
 // return_statement = "return" expression ";"
 static Node *return_statement(void) {
@@ -137,9 +159,13 @@ static int expect_intlit_value(Token **tok) {
   return val;
 }
 
+static inline bool check_curtoken_is_keyword(Token **tok, TokenKind kind) {
+  return (*tok)->kind == kind;
+}
+
 // 指定された予約語であるかチェック，そうでなければエラー
 static void expect_keyword(Token **tok, TokenKind kind) {
-  if ((*tok)->kind != kind) {
+  if (!check_curtoken_is_keyword(tok, kind)) {
     fprintf(stderr, "%d:%d: unexpected", (*tok)->row, (*tok)->col);
     dump_token(*tok);
     fprintf(stderr, "\n");
