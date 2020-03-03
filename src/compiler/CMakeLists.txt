@@ -3,11 +3,13 @@ add_library(compiler
     agc.c
     lex.c
     parse.c
+    sema.c
     codegen.c
     resource/token.c
     resource/ast.c
     resource/agtype.c
     resource/vector.c
+    resource/variable.c
 )
 
 target_include_directories(

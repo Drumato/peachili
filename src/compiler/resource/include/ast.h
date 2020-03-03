@@ -8,12 +8,15 @@ typedef struct {
   struct Vector *stmts;
   uint32_t col;
   uint32_t row;
+  struct Vector *locals;
+  int stack_offset;
 } Function;
 
 Function *new_function(char *name, struct AGType *ret_type, uint32_t col, uint32_t row);
 
 typedef enum {
   ND_INTLIT,
+  ND_IDENT,
 
   // binary-operation
   ND_ADD,
@@ -26,6 +29,10 @@ typedef enum {
 
   // statement
   ND_RETURN,
+
+  // etc
+  ND_ASSIGN,
+  ND_NOP,
 } NodeKind;
 
 struct Node {
@@ -33,6 +40,9 @@ struct Node {
   NodeKind kind;
   uint32_t col;
   uint32_t row;
+
+  // for identifier
+  char *name;
 
   // for expressions
   int int_value;
@@ -44,11 +54,17 @@ struct Node {
 };
 
 Node *new_return(Node *expr, uint32_t col, uint32_t row);
+Node *new_nop(void);
+Node *new_assign(Node *lvar, Node *expr, uint32_t col, uint32_t row);
 Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_t row);
 Node *new_unary_node(NodeKind kind, Node *inner, uint32_t col, uint32_t row);
 Node *new_intlit_node(int length, uint32_t col, uint32_t row);
+Node *new_ident_node(char *name, uint32_t col, uint32_t row);
 void debug_func_to_stderr(bool verbose, Function *func);
 void dealloc_function(Function *func);
+struct Variable *find_lvar(Function *func, char *name);
 
-Node *vec_get_as_a_node(struct Vector *vec, int idx);
-void push_node_into_vec(struct Vector *vec, Node *n);
+Node *get_statement(Function *func, int idx);
+void put_statement(Function *func, Node *n);
+struct Variable *get_local_var(Function *func, int idx);
+void put_local_var(Function *func, struct Variable *var);

@@ -2,6 +2,7 @@
 
 #include "agtype.h"
 #include "base.h"
+#include "variable.h"
 #include "vector.h"
 
 static Node *init_node(NodeKind kind);
@@ -10,8 +11,22 @@ static void debug_binary(char *operator, Node *n);
 static void debug_unary(char *operator, Node *n);
 static void debug(Node *n);
 
-Node *vec_get_as_a_node(Vector *vec, int idx) { return (Node *)vec_get(vec, idx); }
-void push_node_into_vec(Vector *vec, Node *n) { vec_push(vec, (void *)n); }
+// related Function
+Node *get_statement(Function *func, int idx) { return (Node *)vec_get(func->stmts, idx); }
+void put_statement(Function *func, Node *n) { vec_push(func->stmts, (void *)n); }
+Variable *get_local_var(Function *func, int idx) { return (Variable *)vec_get(func->locals, idx); }
+void put_local_var(Function *func, Variable *var) { vec_push(func->locals, (void *)var); }
+
+Variable *find_lvar(Function *func, char *name) {
+  for (int i = 0; i < func->locals->length; i++) {
+    Variable *var = get_local_var(func, i);
+    if (!strncmp(var->name, name, strlen(name))) {
+      return var;
+    }
+  }
+
+  return NULL;
+}
 
 void dealloc_function(Function *func) {
   free(func->name);
@@ -20,8 +35,14 @@ void dealloc_function(Function *func) {
   func->return_type = NULL;
 
   for (int i = 0; i < func->stmts->length; i++) {
-    Node *n = vec_get_as_a_node(func->stmts, i);
+    Node *n = get_statement(func, i);
     dealloc_node(n);
+  }
+
+  for (int i = 0; i < func->locals->length; i++) {
+    Variable *var = get_local_var(func, i);
+    free(var->name);
+    free(var);
   }
 }
 
@@ -31,6 +52,7 @@ static void dealloc_node(Node *n) {
     case ND_SUB:
     case ND_MUL:
     case ND_DIV:
+    case ND_ASSIGN:
       free(n->left);
       n->left = NULL;
       free(n->right);
@@ -43,6 +65,10 @@ static void dealloc_node(Node *n) {
     case ND_RETURN:
       free(n->expr);
       n->expr = NULL;
+      break;
+    case ND_IDENT:
+      free(n->name);
+      n->name = NULL;
       break;
     default:
       break;
@@ -60,10 +86,16 @@ Function *new_function(char *name, AGType *ret_type, uint32_t col, uint32_t row)
   func->name[length] = 0;
 
   func->stmts       = new_vec();
+  func->locals      = new_vec();
   func->return_type = ret_type;
   func->col         = col;
   func->row         = row;
   return func;
+}
+
+Node *new_nop(void) {
+  Node *n = init_node(ND_NOP);
+  return n;
 }
 
 Node *new_return(Node *expr, uint32_t col, uint32_t row) {
@@ -73,6 +105,15 @@ Node *new_return(Node *expr, uint32_t col, uint32_t row) {
   n->row  = row;
   return n;
 }
+Node *new_assign(Node *lvar, Node *expr, uint32_t col, uint32_t row) {
+  Node *n  = init_node(ND_ASSIGN);
+  n->left  = lvar;
+  n->right = expr;
+  n->col   = col;
+  n->row   = row;
+  return n;
+}
+
 Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_t row) {
   Node *n  = init_node(kind);
   n->left  = lhs;
@@ -98,6 +139,19 @@ Node *new_intlit_node(int value, uint32_t col, uint32_t row) {
   return n;
 }
 
+Node *new_ident_node(char *name, uint32_t col, uint32_t row) {
+  Node *n = init_node(ND_IDENT);
+  n->col  = col;
+  n->row  = row;
+
+  int length = strlen(name);
+  n->name    = (char *)calloc(length, sizeof(char));
+  strncpy(n->name, name, length);
+  n->name[length] = 0;
+
+  return n;
+}
+
 void debug_func_to_stderr(bool verbose, Function *func) {
   if (verbose) {
     fprintf(stderr, "++++++++ debug-ast ++++++++\n");
@@ -105,11 +159,18 @@ void debug_func_to_stderr(bool verbose, Function *func) {
     dump_agtype(func->return_type);
     fprintf(stderr, " {\n");
     for (int i = 0; i < func->stmts->length; i++) {
-      Node *stmt = vec_get_as_a_node(func->stmts, i);
+      Node *stmt = get_statement(func, i);
       fprintf(stderr, "\t");
       debug(stmt);
     }
     fprintf(stderr, "}\n");
+    fprintf(stderr, "local-var definitions in %s() \n", func->name);
+    for (int i = 0; i < func->locals->length; i++) {
+      Variable *var = get_local_var(func, i);
+      fprintf(stderr, "\t%d: %s ", i, var->name);
+      dump_agtype(var->type);
+      fprintf(stderr, "\n");
+    }
     fprintf(stderr, "\n\n");
   }
 }
@@ -144,6 +205,8 @@ static void debug(Node *n) {
       fprintf(stderr, "return ");
       debug(n->expr);
       fprintf(stderr, ";\n");
+      break;
+    default:
       break;
   }
 }

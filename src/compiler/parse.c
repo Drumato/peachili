@@ -1,18 +1,27 @@
 #include "agtype.h"
 #include "ast.h"
 #include "base.h"
+#include "variable.h"
 #include "vector.h"
 
-static void compound_statement(Token **tok, Vector **vec);
-static Node *statement(void);
 static Function *function(void);
+
+// statements
+static Node *statement(Function **func);
 static Node *return_statement(void);
+static Node *vardecl_statement(Function **func);
+static void compound_statement(Token **tok, Function **func);
+
+// expressions
 static Node *expression(void);
+static Node *assignment(void);
 static Node *multiplicative(void);
 static Node *additive(void);
 static Node *unary(void);
 static Node *primary(void);
-static inline bool check_curtoken_is_keyword(Token **tok, TokenKind kind);
+
+// utilities
+static inline bool check_curtoken_is(Token **tok, TokenKind kind);
 static bool eat_if_symbol_matched(Token **tok, char *pat);
 static struct AGType *expect_agtype(Token **tok);
 static void expect_keyword(Token **tok, TokenKind kind);
@@ -46,41 +55,77 @@ Function *function(void) {
 
   Function *func = new_function(name, ret_type, def_func_col, def_func_row);
 
-  compound_statement(&fg_cur_tok, &func->stmts);
+  compound_statement(&fg_cur_tok, &func);
 
   return func;
 }
 
-static void compound_statement(Token **tok, Vector **vec) {
+static void compound_statement(Token **tok, Function **func) {
   expect_symbol(tok, "{");
 
-  Node *iter_stmt = NULL;
-  while ((iter_stmt = statement()) != NULL) {
-    push_node_into_vec(*vec, iter_stmt);
+  while (true) {
+    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    Node *stmt = statement(func);
+    put_statement(*func, stmt);
   }
-
-  expect_symbol(tok, "}");
 }
 
 // statement = return_stmt
-static Node *statement(void) {
-  if (check_curtoken_is_keyword(&fg_cur_tok, TK_RETURN)) {
+static Node *statement(Function **func) {
+  if (check_curtoken_is(&fg_cur_tok, TK_RETURN)) {
     return return_statement();
+  } else if (check_curtoken_is(&fg_cur_tok, TK_VAR)) {
+    // このノードは何もしないので注意．
+    return vardecl_statement(func);
   } else {
-    return NULL;
+    Node *expr = expression();
+    expect_symbol(&fg_cur_tok, ";");
+    return expr;
   }
 }
 
 // return_statement = "return" expression ";"
 static Node *return_statement(void) {
+  uint32_t return_col = fg_col;
+  uint32_t return_row = fg_row;
+
   expect_keyword(&fg_cur_tok, TK_RETURN);
   Node *expr = expression();
   expect_symbol(&fg_cur_tok, ";");
-  return new_return(expr, fg_col, fg_row);
+  return new_return(expr, return_col, return_row);
 }
 
-// expression = unary | expression binary_op expression
-static Node *expression(void) { return additive(); }
+// vardecl = "var" identifier type
+static Node *vardecl_statement(Function **func) {
+  expect_keyword(&fg_cur_tok, TK_VAR);
+  char *name       = expect_identifier(&fg_cur_tok);
+  AGType *var_type = expect_agtype(&fg_cur_tok);
+
+  Variable *old_var;
+  if ((old_var = find_lvar(*func, name)) == NULL) {
+    Variable *new_var = new_local_var(name, var_type);
+    put_local_var(*func, new_var);
+  }
+
+  expect_symbol(&fg_cur_tok, ";");
+  return new_nop();
+}
+
+// expression = assignment
+static Node *expression(void) { return assignment(); }
+
+// assignment = additive "=" expression
+static Node *assignment(void) {
+  Node *lvar = additive();
+
+  uint32_t col = fg_col;
+  uint32_t row = fg_row;
+
+  if (!eat_if_symbol_matched(&fg_cur_tok, "=")) return lvar;
+
+  Node *expr = expression();
+  return new_assign(lvar, expr, col, row);
+}
 
 // additive = multiplicative
 //    ( "+" multiplicative | "-" multiplicative )*
@@ -123,8 +168,15 @@ static Node *unary(void) {
 
 // primary = intlit
 static Node *primary(void) {
-  int int_value = expect_intlit_value(&fg_cur_tok);
-  return new_intlit_node(int_value, fg_col, fg_row);
+  uint32_t col = fg_col;
+  uint32_t row = fg_row;
+  if (check_curtoken_is(&fg_cur_tok, TK_INTLIT)) {
+    int int_value = expect_intlit_value(&fg_cur_tok);
+    return new_intlit_node(int_value, col, row);
+  } else {
+    char *name = expect_identifier(&fg_cur_tok);
+    return new_ident_node(name, col, row);
+  }
 }
 
 static struct AGType *expect_agtype(Token **tok) {
@@ -159,13 +211,11 @@ static int expect_intlit_value(Token **tok) {
   return val;
 }
 
-static inline bool check_curtoken_is_keyword(Token **tok, TokenKind kind) {
-  return (*tok)->kind == kind;
-}
+static inline bool check_curtoken_is(Token **tok, TokenKind kind) { return (*tok)->kind == kind; }
 
 // 指定された予約語であるかチェック，そうでなければエラー
 static void expect_keyword(Token **tok, TokenKind kind) {
-  if (!check_curtoken_is_keyword(tok, kind)) {
+  if (!check_curtoken_is(tok, kind)) {
     fprintf(stderr, "%d:%d: unexpected", (*tok)->row, (*tok)->col);
     dump_token(*tok);
     fprintf(stderr, "\n");

@@ -4,6 +4,7 @@
 
 extern Token *tokenize(char *program);
 extern Function *parse(Token *top_token);
+extern void semantics(Function **func);
 extern void gen_x64(Function *func);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
@@ -15,12 +16,14 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   // TODO: 後々ファイル読み込みに変更する
   Token *top_token = tokenize(argv[optind]);
 
-  debug_tokens_to_stderr(debug_opt->verbose, top_token);
+  debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
 
   Function *main_func = parse(top_token);
   dealloc_tokens(&top_token);
 
-  debug_func_to_stderr(debug_opt->verbose, main_func);
+  debug_func_to_stderr(debug_opt->dbg_compiler, main_func);
+
+  semantics(&main_func);
 
   gen_x64(main_func);
   dealloc_function(main_func);

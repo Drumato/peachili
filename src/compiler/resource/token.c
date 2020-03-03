@@ -108,6 +108,9 @@ void dump_token(Token *t) {
     case TK_FUNC:
       fprintf(stderr, "FUNC");
       break;
+    case TK_VAR:
+      fprintf(stderr, "VAR");
+      break;
     case TK_EOF:
       fprintf(stderr, "EOF");
       break;

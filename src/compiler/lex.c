@@ -87,7 +87,7 @@ static Token *tokenize_keyword(char **ptr, Token *cur) {
 static Token *tokenize_symbol(char **ptr, Token *cur) {
   Token *tok = NULL;
   // 1文字の記号
-  if (strchr("+-*/;(){}", **ptr) != NULL) {
+  if (strchr("+-*/;(){}=", **ptr) != NULL) {
     tok = new_symbol(cur, *ptr, 1, fg_col++, fg_row);
     (*ptr)++;
   }
