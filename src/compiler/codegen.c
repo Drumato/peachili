@@ -2,12 +2,15 @@
 #include "variable.h"
 #include "vector.h"
 
-static void gen_lval(Function *func, Node *n);
-static void gen_stmt(Function *func, Node *n);
-static void gen_expr(Function *func, Node *n);
+static void gen_lval(Node *n);
+static void gen_stmt(Node *n);
+static void gen_expr(Node *n);
 static void gen_base_op_expr(NodeKind kind);
-static void gen_binary_expr(Function *func, Node *n);
-static void gen_unary_expr(Function *func, Node *n);
+static void gen_binary_expr(Node *n);
+static void gen_unary_expr(Node *n);
+
+static Function *this_func;
+static int label = 0;
 
 void gen_x64(Function *func) {
   printf(".intel_syntax noprefix\n");
@@ -20,54 +23,73 @@ void gen_x64(Function *func) {
     func->stack_offset &= ~7;
     printf("  sub rsp, %d\n", func->stack_offset);
   }
+
+  this_func = func;
   for (int i = 0; i < func->stmts->length; i++) {
     Node *stmt = get_statement(func, i);
-    gen_stmt(func, stmt);
+    gen_stmt(stmt);
   }
 }
 
-static void gen_stmt(Function *func, Node *n) {
+static void gen_stmt(Node *n) {
   switch (n->kind) {
     case ND_RETURN:
-      gen_expr(func, n->expr);
+      gen_expr(n->expr);
       printf("  pop rax\n");
       printf("  mov rsp, rbp\n");
       printf("  pop rbp\n");
       printf("  ret\n");
       break;
+    case ND_IFRET:
+      gen_expr(n->expr);
+      break;
     default:
       // expression-statementとする
-      gen_expr(func, n);
+      gen_expr(n);
       break;
   }
 }
-static void gen_expr(Function *func, Node *n) {
+static void gen_expr(Node *n) {
   switch (n->kind) {
     case ND_ADD:
     case ND_SUB:
     case ND_MUL:
     case ND_DIV:
-      gen_binary_expr(func, n);
+      gen_binary_expr(n);
       break;
     case ND_NEG:
-      gen_unary_expr(func, n);
+      gen_unary_expr(n);
       break;
     case ND_INTLIT:
       printf("  push %d\n", n->int_value);
       break;
     case ND_IDENT:
-      gen_lval(func, n);
+      gen_lval(n);
       printf("  pop rax\n");
       printf("  mov rax, [rax]\n");
       printf("  push rax\n");
       break;
     case ND_ASSIGN:
-      gen_lval(func, n->left);
-      gen_expr(func, n->right);
+      gen_lval(n->left);
+      gen_expr(n->right);
       printf("  pop rdi\n");
       printf("  pop rax\n");
       printf("  mov [rax], rdi\n");
       printf("  push rdi\n");
+      break;
+    case ND_IF:
+      gen_expr(n->expr);
+      int fin_label = label++;
+
+      printf("  pop rax\n");
+      printf("  cmp rax, 0\n");
+      printf("  je .Lend%d\n", fin_label);
+
+      for (int i = 0; i < n->body->length; i++) {
+        Node *st = (Node *)vec_get(n->body, i);
+        gen_stmt(st);
+      }
+      printf(".Lend%d:\n", fin_label);
       break;
     case ND_NOP:
       break;
@@ -77,11 +99,11 @@ static void gen_expr(Function *func, Node *n) {
   }
 }
 
-static void gen_lval(Function *func, Node *n) {
+static void gen_lval(Node *n) {
   Variable *lvar = NULL;
   switch (n->kind) {
     case ND_IDENT:
-      if ((lvar = find_lvar(func, n->name)) == NULL)
+      if ((lvar = find_lvar(this_func, n->name)) == NULL)
         fprintf(stderr, "not found such a variable -> %s\n", n->name);
 
       printf("  mov rax, rbp\n");
@@ -98,10 +120,10 @@ static void gen_lval(Function *func, Node *n) {
   return;
 }
 
-static void gen_binary_expr(Function *func, Node *n) {
+static void gen_binary_expr(Node *n) {
   // 1. 左右子ノードをコンパイル
-  gen_expr(func, n->left);
-  gen_expr(func, n->right);
+  gen_expr(n->left);
+  gen_expr(n->right);
 
   // 2. 演算に必要なオペランドをレジスタに取り出す
   printf("  pop rdi\n");
@@ -123,9 +145,9 @@ static void gen_binary_expr(Function *func, Node *n) {
   printf("  push rax\n");
 }
 
-static void gen_unary_expr(Function *func, Node *n) {
+static void gen_unary_expr(Node *n) {
   // 1. 左子ノードをコンパイル
-  gen_expr(func, n->left);
+  gen_expr(n->left);
 
   // 2. 演算に必要なオペランドをレジスタに取り出す
   printf("  pop rax\n");

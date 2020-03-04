@@ -7,12 +7,14 @@
 static Function *function(void);
 
 // statements
-static Node *statement(Function **func);
+static Node *statement(void);
 static Node *return_statement(void);
-static Node *vardecl_statement(Function **func);
-static void compound_statement(Token **tok, Function **func);
+static Node *ifret_statement(void);
+static Node *vardecl_statement(void);
+static void compound_statement(Token **tok);
 
 // expressions
+static Node *if_expression(void);
 static Node *expression(void);
 static Node *assignment(void);
 static Node *multiplicative(void);
@@ -30,8 +32,10 @@ static int expect_intlit_value(Token **tok);
 static char *expect_identifier(Token **tok);
 
 static Token *fg_cur_tok;
-static uint32_t fg_col = 1;
-static uint32_t fg_row = 1;
+static uint32_t fg_col  = 1;
+static uint32_t fg_row  = 1;
+static bool in_if_scope = false;
+static Function **this_func;
 
 Function *parse(Token *top_token) {
   fg_cur_tok = top_token;
@@ -54,29 +58,32 @@ Function *function(void) {
   AGType *ret_type = expect_agtype(&fg_cur_tok);
 
   Function *func = new_function(name, ret_type, def_func_col, def_func_row);
+  this_func      = &func;
 
-  compound_statement(&fg_cur_tok, &func);
+  compound_statement(&fg_cur_tok);
 
   return func;
 }
 
-static void compound_statement(Token **tok, Function **func) {
+static void compound_statement(Token **tok) {
   expect_symbol(tok, "{");
 
   while (true) {
     if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
-    Node *stmt = statement(func);
-    put_statement(*func, stmt);
+    Node *stmt = statement();
+    put_statement(*this_func, stmt);
   }
 }
 
 // statement = return_stmt
-static Node *statement(Function **func) {
+static Node *statement(void) {
   if (check_curtoken_is(&fg_cur_tok, TK_RETURN)) {
     return return_statement();
+  } else if (check_curtoken_is(&fg_cur_tok, TK_IFRET)) {
+    return ifret_statement();
   } else if (check_curtoken_is(&fg_cur_tok, TK_VAR)) {
     // このノードは何もしないので注意．
-    return vardecl_statement(func);
+    return vardecl_statement();
   } else {
     Node *expr = expression();
     expect_symbol(&fg_cur_tok, ";");
@@ -95,24 +102,73 @@ static Node *return_statement(void) {
   return new_return(expr, return_col, return_row);
 }
 
+// ifret_statement = "ifret" expression ";"
+static Node *ifret_statement(void) {
+  uint32_t col = fg_col;
+  uint32_t row = fg_row;
+
+  if (!in_if_scope) {
+    fprintf(stderr, "%d:%d: ifret-statement can only exist in if-expression block\n", row, col);
+    exit(1);
+  }
+
+  expect_keyword(&fg_cur_tok, TK_IFRET);
+  Node *expr = expression();
+  expect_symbol(&fg_cur_tok, ";");
+  return new_ifret(expr, col, row);
+}
+
 // vardecl = "var" identifier type
-static Node *vardecl_statement(Function **func) {
+static Node *vardecl_statement() {
   expect_keyword(&fg_cur_tok, TK_VAR);
   char *name       = expect_identifier(&fg_cur_tok);
   AGType *var_type = expect_agtype(&fg_cur_tok);
 
   Variable *old_var;
-  if ((old_var = find_lvar(*func, name)) == NULL) {
+  if ((old_var = find_lvar(*this_func, name)) == NULL) {
     Variable *new_var = new_local_var(name, var_type);
-    put_local_var(*func, new_var);
+    put_local_var(*this_func, new_var);
   }
 
   expect_symbol(&fg_cur_tok, ";");
   return new_nop();
 }
 
-// expression = assignment
-static Node *expression(void) { return assignment(); }
+// expression = if-expression | assignment
+static Node *expression(void) {
+  if (check_curtoken_is(&fg_cur_tok, TK_IF)) {
+    return if_expression();
+  }
+
+  return assignment();
+}
+
+// if-expression =
+static Node *if_expression(void) {
+  uint32_t col = fg_col;
+  uint32_t row = fg_row;
+
+  expect_keyword(&fg_cur_tok, TK_IF);
+
+  expect_symbol(&fg_cur_tok, "(");
+  Node *cond = expression();
+  expect_symbol(&fg_cur_tok, ")");
+
+  in_if_scope = true;
+
+  Vector *stmts = new_vec();
+  expect_symbol(&fg_cur_tok, "{");
+
+  while (true) {
+    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    Node *stmt = statement();
+    vec_push(stmts, (void *)stmt);
+  }
+
+  in_if_scope = false;
+
+  return new_if(cond, stmts, NULL, col, row);
+}
 
 // assignment = additive "=" expression
 static Node *assignment(void) {

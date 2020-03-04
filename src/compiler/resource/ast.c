@@ -62,6 +62,7 @@ static void dealloc_node(Node *n) {
       free(n->left);
       n->left = NULL;
       break;
+    case ND_IFRET:
     case ND_RETURN:
       free(n->expr);
       n->expr = NULL;
@@ -69,6 +70,16 @@ static void dealloc_node(Node *n) {
     case ND_IDENT:
       free(n->name);
       n->name = NULL;
+      break;
+    case ND_IF:
+      free(n->expr);
+      n->expr = NULL;
+      free(n->body);
+      n->body = NULL;
+      if (!n->alter) {
+        free(n->alter);
+        n->alter = NULL;
+      }
       break;
     default:
       break;
@@ -98,8 +109,25 @@ Node *new_nop(void) {
   return n;
 }
 
+Node *new_if(Node *cond, Vector *stmts, Vector *alter, uint32_t col, uint32_t row) {
+  Node *n  = init_node(ND_IF);
+  n->expr  = cond;
+  n->body  = stmts;
+  n->alter = alter;
+  n->col   = col;
+  n->row   = row;
+  return n;
+}
+
 Node *new_return(Node *expr, uint32_t col, uint32_t row) {
   Node *n = init_node(ND_RETURN);
+  n->expr = expr;
+  n->col  = col;
+  n->row  = row;
+  return n;
+}
+Node *new_ifret(Node *expr, uint32_t col, uint32_t row) {
+  Node *n = init_node(ND_IFRET);
   n->expr = expr;
   n->col  = col;
   n->row  = row;
@@ -200,6 +228,32 @@ static void debug(Node *n) {
       break;
     case ND_NEG:
       debug_unary("NEG", n);
+      break;
+    case ND_IF:
+      fprintf(stderr, "if (");
+      debug(n->expr);
+      fprintf(stderr, ") {\n");
+      for (int i = 0; i < n->body->length; i++) {
+        Node *stmt = vec_get(n->body, i);
+        fprintf(stderr, "\t");
+        debug(stmt);
+      }
+
+      if (n->alter) {
+        fprintf(stderr, " else {\n");
+        for (int i = 0; i < n->alter->length; i++) {
+          Node *stmt = vec_get(n->alter, i);
+          fprintf(stderr, "\t");
+          debug(stmt);
+        }
+      }
+
+      fprintf(stderr, "\t}\n");
+      break;
+    case ND_IFRET:
+      fprintf(stderr, "ifret ");
+      debug(n->expr);
+      fprintf(stderr, ";\n");
       break;
     case ND_RETURN:
       fprintf(stderr, "return ");

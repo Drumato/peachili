@@ -102,6 +102,12 @@ void dump_token(Token *t) {
     case TK_RETURN:
       fprintf(stderr, "RETURN");
       break;
+    case TK_IF:
+      fprintf(stderr, "IF");
+      break;
+    case TK_IFRET:
+      fprintf(stderr, "IFRET");
+      break;
     case TK_INT:
       fprintf(stderr, "INT");
       break;

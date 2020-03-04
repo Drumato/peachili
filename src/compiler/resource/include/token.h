@@ -8,6 +8,8 @@ typedef enum {
 
   // keyword
   TK_INT,
+  TK_IF,
+  TK_IFRET,
   TK_RETURN,
   TK_FUNC,
   TK_VAR,

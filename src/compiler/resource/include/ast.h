@@ -29,9 +29,11 @@ typedef enum {
 
   // statement
   ND_RETURN,
+  ND_IFRET,
 
   // etc
   ND_ASSIGN,
+  ND_IF,
   ND_NOP,
 } NodeKind;
 
@@ -48,12 +50,16 @@ struct Node {
   int int_value;
   Node *left;
   Node *right;
+  struct Vector *body;
+  struct Vector *alter;
 
   // for statements
   Node *expr;
 };
 
 Node *new_return(Node *expr, uint32_t col, uint32_t row);
+Node *new_ifret(Node *expr, uint32_t col, uint32_t row);
+Node *new_if(Node *cond, struct Vector *stmts, struct Vector *alter, uint32_t col, uint32_t row);
 Node *new_nop(void);
 Node *new_assign(Node *lvar, Node *expr, uint32_t col, uint32_t row);
 Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_t row);
