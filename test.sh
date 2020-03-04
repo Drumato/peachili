@@ -28,6 +28,8 @@ try 3 "func main() int { var x int; var y int; x = 1; y = 3; return x * y; }"
 try 9 "func main() int { var x int; var y int; x = y = 3; return x * y; }"
 try 1 "func main() int { if(1){ return 1; }; return 0;}"
 try 0 "func main() int { if(0){ return 1; }; return 0;}"
+try 1 "func main() int { var x int; x = if(1){ ifret 1; } else { ifret 0; }; return x;}"
+try 0 "func main() int { var x int; x = if(0){ ifret 1; } else { ifret 0; }; return x;}"
 
 echo "OK"
 rm tmp*

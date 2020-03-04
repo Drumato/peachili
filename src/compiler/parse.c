@@ -157,17 +157,36 @@ static Node *if_expression(void) {
   in_if_scope = true;
 
   Vector *stmts = new_vec();
+  Vector *alter = NULL;
   expect_symbol(&fg_cur_tok, "{");
 
+  // ifの本体
   while (true) {
     if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
     Node *stmt = statement();
     vec_push(stmts, (void *)stmt);
   }
 
+  // elseでなければ終了
+  if (!check_curtoken_is(&fg_cur_tok, TK_ELSE)) {
+    in_if_scope = false;
+    return new_if(cond, stmts, alter, col, row);
+  }
+
+  alter = new_vec();
+
+  expect_keyword(&fg_cur_tok, TK_ELSE);
+  expect_symbol(&fg_cur_tok, "{");
+
+  // elseの本体
+  while (true) {
+    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    Node *stmt = statement();
+    vec_push(alter, (void *)stmt);
+  }
   in_if_scope = false;
 
-  return new_if(cond, stmts, NULL, col, row);
+  return new_if(cond, stmts, alter, col, row);
 }
 
 // assignment = additive "=" expression

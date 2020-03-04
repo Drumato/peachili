@@ -5,6 +5,8 @@
 static void gen_lval(Node *n);
 static void gen_stmt(Node *n);
 static void gen_expr(Node *n);
+static void gen_if_expr(Node *n);
+static void gen_if_else_expr(Node *n);
 static void gen_base_op_expr(NodeKind kind);
 static void gen_binary_expr(Node *n);
 static void gen_unary_expr(Node *n);
@@ -78,18 +80,11 @@ static void gen_expr(Node *n) {
       printf("  push rdi\n");
       break;
     case ND_IF:
-      gen_expr(n->expr);
-      int fin_label = label++;
-
-      printf("  pop rax\n");
-      printf("  cmp rax, 0\n");
-      printf("  je .Lend%d\n", fin_label);
-
-      for (int i = 0; i < n->body->length; i++) {
-        Node *st = (Node *)vec_get(n->body, i);
-        gen_stmt(st);
+      if (n->alter) {
+        gen_if_else_expr(n);
+      } else {
+        gen_if_expr(n);
       }
-      printf(".Lend%d:\n", fin_label);
       break;
     case ND_NOP:
       break;
@@ -97,6 +92,44 @@ static void gen_expr(Node *n) {
       fprintf(stderr, "unexpected NodeKind in gen_expr()\n");
       break;
   }
+}
+
+static void gen_if_expr(Node *n) {
+  gen_expr(n->expr);
+  int fin_label = label++;
+
+  printf("  pop rax\n");
+  printf("  cmp rax, 0\n");
+  printf("  je .Lend%d\n", fin_label);
+
+  for (int i = 0; i < n->body->length; i++) {
+    Node *st = (Node *)vec_get(n->body, i);
+    gen_stmt(st);
+  }
+  printf(".Lend%d:\n", fin_label);
+}
+
+static void gen_if_else_expr(Node *n) {
+  gen_expr(n->expr);
+  int fin_label = label++;
+
+  printf("  pop rax\n");
+  printf("  cmp rax, 0\n");
+  printf("  je .Lelse%d\n", fin_label);
+
+  for (int i = 0; i < n->body->length; i++) {
+    Node *st = (Node *)vec_get(n->body, i);
+    gen_stmt(st);
+  }
+
+  printf("  jmp .Lend%d\n", fin_label);
+
+  printf(".Lelse%d:\n", fin_label);
+  for (int i = 0; i < n->alter->length; i++) {
+    Node *st = (Node *)vec_get(n->alter, i);
+    gen_stmt(st);
+  }
+  printf(".Lend%d:\n", fin_label);
 }
 
 static void gen_lval(Node *n) {

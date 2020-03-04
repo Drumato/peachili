@@ -9,6 +9,7 @@ typedef enum {
   // keyword
   TK_INT,
   TK_IF,
+  TK_ELSE,
   TK_IFRET,
   TK_RETURN,
   TK_FUNC,
