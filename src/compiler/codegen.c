@@ -6,6 +6,7 @@ static void gen_lval(Node *n);
 static void gen_stmt(Node *n);
 static void gen_expr(Node *n);
 static void gen_if_expr(Node *n);
+static void gen_countup_stmt(Node *n);
 static void gen_if_else_expr(Node *n);
 static void gen_base_op_expr(NodeKind kind);
 static void gen_binary_expr(Node *n);
@@ -36,21 +37,70 @@ void gen_x64(Function *func) {
 static void gen_stmt(Node *n) {
   switch (n->kind) {
     case ND_RETURN:
+      printf("\n  # start return-statement\n");
       gen_expr(n->expr);
       printf("  pop rax\n");
       printf("  mov rsp, rbp\n");
       printf("  pop rbp\n");
       printf("  ret\n");
+      printf("  # end return-statement\n\n");
       break;
     case ND_IFRET:
+      printf("\n  # start ifret-statement\n");
       gen_expr(n->expr);
+      printf("  # end ifret-statement\n\n");
+      break;
+    case ND_COUNTUP:
+      printf("\n  # start countup-statement\n");
+      gen_countup_stmt(n);
+      printf("  # end countup-statement\n\n");
       break;
     default:
       // expression-statementとする
+      printf("\n  # start expression-statement\n");
       gen_expr(n);
+      printf("  # end expression-statement\n\n");
       break;
   }
 }
+
+static void gen_countup_stmt(Node *n) {
+  int fin_label = label++;
+
+  // initialize
+  gen_lval(n->expr);
+  gen_expr(n->from);
+  printf("  pop rdi\n");
+  printf("  pop rax\n");
+  printf("  mov [rax], rdi\n");
+
+  // in loop
+  printf(".Lstart%d:\n", fin_label);
+
+  // check whether condition is satisfied
+  gen_expr(n->expr);
+  gen_expr(n->to);
+  printf("  pop rdi\n");
+  printf("  pop rax\n");
+  printf("  cmp rax, rdi\n");
+  printf("  je .Lend%d\n", fin_label);
+
+  for (int i = 0; i < n->body->length; i++) {
+    Node *st = (Node *)vec_get(n->body, i);
+    gen_stmt(st);
+  }
+
+  // increment
+  gen_lval(n->expr);
+  printf("  pop rax\n");
+  printf("  mov rdi, [rax]\n");
+  printf("  inc rdi\n");
+  printf("  mov [rax], rdi\n");
+
+  printf("  jmp .Lstart%d\n", fin_label);
+  printf(".Lend%d:\n", fin_label);
+}
+
 static void gen_expr(Node *n) {
   switch (n->kind) {
     case ND_ADD:

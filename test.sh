@@ -30,6 +30,7 @@ try 1 "func main() int { if(1){ return 1; }; return 0;}"
 try 0 "func main() int { if(0){ return 1; }; return 0;}"
 try 1 "func main() int { declare x int; x = if(1){ ifret 1; } else { ifret 0; }; return x;}"
 try 0 "func main() int { declare x int; x = if(0){ ifret 1; } else { ifret 0; }; return x;}"
+try 9 "func main() int { declare res int; countup x int from 0 to 10 { res = x; }; return res; }"
 
 echo "OK"
 rm tmp*

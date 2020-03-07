@@ -30,6 +30,7 @@ typedef enum {
   // statement
   ND_RETURN,
   ND_IFRET,
+  ND_COUNTUP,
 
   // etc
   ND_ASSIGN,
@@ -55,10 +56,14 @@ struct Node {
 
   // for statements
   Node *expr;
+  Node *from;
+  Node *to;
 };
 
 Node *new_return(Node *expr, uint32_t col, uint32_t row);
 Node *new_ifret(Node *expr, uint32_t col, uint32_t row);
+Node *new_countup(Node *lvar, Node *start, Node *end, struct Vector *stmts, uint32_t col,
+                  uint32_t row);
 Node *new_if(Node *cond, struct Vector *stmts, struct Vector *alter, uint32_t col, uint32_t row);
 Node *new_nop(void);
 Node *new_assign(Node *lvar, Node *expr, uint32_t col, uint32_t row);

@@ -59,8 +59,10 @@ static void skip_whitespace(char **ptr) {
 // 予約語のトークナイズ
 static Token *tokenize_keyword(char **ptr, Token *cur) {
   Token *tok           = NULL;
-  char *keywords[]     = {"ifret", "if", "else", "int", "func", "return", "declare", NULL};
-  TokenKind tk_kinds[] = {TK_IFRET, TK_IF, TK_ELSE, TK_INT, TK_FUNC, TK_RETURN, TK_DECLARE};
+  char *keywords[]     = {"ifret",   "if",      "else", "int", "func", "return",
+                      "declare", "countup", "from", "to",  NULL};
+  TokenKind tk_kinds[] = {TK_IFRET,  TK_IF,      TK_ELSE,    TK_INT,  TK_FUNC,
+                          TK_RETURN, TK_DECLARE, TK_COUNTUP, TK_FROM, TK_TO};
   for (int i = 0; keywords[i] != NULL; i++) {
     int word_length = strlen(keywords[i]);
     if (!strncmp(*ptr, keywords[i], word_length)) {

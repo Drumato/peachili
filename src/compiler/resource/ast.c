@@ -67,6 +67,16 @@ static void dealloc_node(Node *n) {
       free(n->expr);
       n->expr = NULL;
       break;
+    case ND_COUNTUP:
+      free(n->expr);
+      n->expr = NULL;
+      free(n->from);
+      n->from = NULL;
+      free(n->to);
+      n->to = NULL;
+      free(n->body);
+      n->body = NULL;
+      break;
     case ND_IDENT:
       free(n->name);
       n->name = NULL;
@@ -122,6 +132,17 @@ Node *new_if(Node *cond, Vector *stmts, Vector *alter, uint32_t col, uint32_t ro
 Node *new_return(Node *expr, uint32_t col, uint32_t row) {
   Node *n = init_node(ND_RETURN);
   n->expr = expr;
+  n->col  = col;
+  n->row  = row;
+  return n;
+}
+Node *new_countup(Node *lvar, Node *start, Node *end, struct Vector *stmts, uint32_t col,
+                  uint32_t row) {
+  Node *n = init_node(ND_COUNTUP);
+  n->expr = lvar;
+  n->body = stmts;
+  n->from = start;
+  n->to   = end;
   n->col  = col;
   n->row  = row;
   return n;
@@ -228,6 +249,9 @@ static void debug(Node *n) {
       break;
     case ND_NEG:
       debug_unary("NEG", n);
+      break;
+    case ND_COUNTUP:
+      fprintf(stderr, "countup");
       break;
     case ND_IF:
       fprintf(stderr, "if (");

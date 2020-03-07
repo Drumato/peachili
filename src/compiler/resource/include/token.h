@@ -14,6 +14,9 @@ typedef enum {
   TK_RETURN,
   TK_FUNC,
   TK_DECLARE,
+  TK_COUNTUP,
+  TK_FROM,
+  TK_TO,
 } TokenKind;
 
 typedef struct Token Token;

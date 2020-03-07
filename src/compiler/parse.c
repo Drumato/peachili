@@ -9,6 +9,7 @@ static Function *function(void);
 // statements
 static Node *statement(void);
 static Node *return_statement(void);
+static Node *countup_statement(void);
 static Node *ifret_statement(void);
 static Node *vardecl_statement(void);
 static void compound_statement(Token **tok);
@@ -79,6 +80,8 @@ static void compound_statement(Token **tok) {
 static Node *statement(void) {
   if (check_curtoken_is(&fg_cur_tok, TK_RETURN)) {
     return return_statement();
+  } else if (check_curtoken_is(&fg_cur_tok, TK_COUNTUP)) {
+    return countup_statement();
   } else if (check_curtoken_is(&fg_cur_tok, TK_IFRET)) {
     return ifret_statement();
   } else if (check_curtoken_is(&fg_cur_tok, TK_DECLARE)) {
@@ -102,6 +105,42 @@ static Node *return_statement(void) {
   return new_return(expr, return_col, return_row);
 }
 
+// countup_statement = "countup" typename primary "from" expr "to" expr
+static Node *countup_statement(void) {
+  uint32_t col = fg_col;
+  uint32_t row = fg_row;
+
+  expect_keyword(&fg_cur_tok, TK_COUNTUP);
+  Node *lvar       = primary();
+  AGType *var_type = expect_agtype(&fg_cur_tok);
+
+  Variable *old_var;
+  // 本当はスコープを新しく定義すべき
+  if ((old_var = find_lvar(*this_func, lvar->name)) == NULL) {
+    Variable *new_var = new_local_var(lvar->name, var_type);
+    put_local_var(*this_func, new_var);
+  }
+
+  expect_keyword(&fg_cur_tok, TK_FROM);
+  Node *start = expression();
+
+  expect_keyword(&fg_cur_tok, TK_TO);
+  Node *end = expression();
+
+  Vector *stmts = new_vec();
+  expect_symbol(&fg_cur_tok, "{");
+
+  // countupの本体
+  while (true) {
+    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    Node *stmt = statement();
+    vec_push(stmts, (void *)stmt);
+  }
+
+  expect_symbol(&fg_cur_tok, ";");
+  return new_countup(lvar, start, end, stmts, col, row);
+}
+
 // ifret_statement = "ifret" expression ";"
 static Node *ifret_statement(void) {
   uint32_t col = fg_col;
@@ -118,7 +157,7 @@ static Node *ifret_statement(void) {
   return new_ifret(expr, col, row);
 }
 
-// vardecl = "var" identifier type
+// vardecl = "declare" identifier typename
 static Node *vardecl_statement() {
   expect_keyword(&fg_cur_tok, TK_DECLARE);
   char *name       = expect_identifier(&fg_cur_tok);
