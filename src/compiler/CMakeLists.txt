@@ -3,7 +3,8 @@ add_library(compiler
     agc.c
     lex.c
     parse.c
-    sema.c
+    alloc_frame.c
+    type_check.c
     codegen.c
     resource/token.c
     resource/ast.c

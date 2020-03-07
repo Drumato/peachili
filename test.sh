@@ -16,6 +16,8 @@ try() {
   fi
 }
 
+echo -e "start to test normal program...\n\n"
+
 try 0 "func main() int { return 0;  }"
 try 42 "func main() int { return 42; }"
 try 21 "func main() int { return 5 + 20 - 4; }"
@@ -32,5 +34,24 @@ try 1 "func main() int { declare x int; x = if(1){ ifret 1; } else { ifret 0; };
 try 0 "func main() int { declare x int; x = if(0){ ifret 1; } else { ifret 0; }; return x;}"
 try 9 "func main() int { declare res int; countup x int from 0 to 10 { res = x; }; return res; }"
 
-echo "OK"
+echo -e "\n\nOK"
+
+error() {
+  input="$1"
+
+  ./build/peachili "$input"
+  actual="$?"
+
+  if [ "$actual" = 1 ]; then
+    echo "$input => $actual"
+  else
+    echo "should invoke an error in $input, but not worked."
+    exit 1
+  fi
+}
+
+echo -e "start to test invalid program...\n\n"
+error "func main() int { declare x int; 3 = 30; return x; }"
+
+echo -e "\n\nOK"
 rm tmp*

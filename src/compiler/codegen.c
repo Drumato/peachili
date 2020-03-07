@@ -55,6 +55,8 @@ static void gen_stmt(Node *n) {
       gen_countup_stmt(n);
       printf("  # end countup-statement\n\n");
       break;
+    case ND_NOP:
+      break;
     default:
       // expression-statementとする
       printf("\n  # start expression-statement\n");

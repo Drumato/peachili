@@ -3,7 +3,7 @@
 #include "variable.h"
 #include "vector.h"
 
-void semantics(Function **func) {
+void allocate_stack_frame(Function **func) {
   int total_offset = 0;
   for (int i = 0; i < (*func)->locals->length; i++) {
     Variable *var = get_local_var(*func, i);

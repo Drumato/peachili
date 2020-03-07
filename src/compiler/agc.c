@@ -4,7 +4,8 @@
 
 extern Token *tokenize(char *program);
 extern Function *parse(Token *top_token);
-extern void semantics(Function **func);
+extern void type_check(Function **func);
+extern void allocate_stack_frame(Function **func);
 extern void gen_x64(Function *func);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
@@ -23,7 +24,9 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
 
   debug_func_to_stderr(debug_opt->dbg_compiler, main_func);
 
-  semantics(&main_func);
+  // 型検査 && 構文検査
+  type_check(&main_func);
+  allocate_stack_frame(&main_func);
 
   gen_x64(main_func);
   dealloc_function(main_func);
