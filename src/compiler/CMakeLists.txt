@@ -4,6 +4,7 @@ add_library(compiler
     lex.c
     parse.c
     alloc_frame.c
+    util.c
     type_check.c
     codegen.c
     resource/token.c

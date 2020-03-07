@@ -2,6 +2,7 @@
 #include "base.h"
 #include "structure.h"
 
+extern char *get_contents(const char *filename);
 extern Token *tokenize(char *program);
 extern Function *parse(Token *top_token);
 extern void type_check(Function **func);
@@ -14,8 +15,10 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
     exit(1);
   }
 
+  char *user_input = get_contents(argv[optind]);
+
   // TODO: 後々ファイル読み込みに変更する
-  Token *top_token = tokenize(argv[optind]);
+  Token *top_token = tokenize(user_input);
 
   debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
 

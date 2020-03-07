@@ -18,21 +18,17 @@ try() {
 
 echo -e "start to test normal program...\n\n"
 
-try 0 "func main() int { return 0;  }"
-try 42 "func main() int { return 42; }"
-try 21 "func main() int { return 5 + 20 - 4; }"
-try 1 "func main() int { return 1 * 10 / 10; }"
-try 9 "func main() int { return 1 + 2 * 4; }"
-try 9 "func main() int { return 0 + -3 * -3; }"
-try 0 "func main() int { return 0 + -3 + +3; }"
-try 30 "func main() int { declare x int; x = 30; return x ; }"
-try 3 "func main() int { declare x int; declare y int; x = 1; y = 3; return x * y; }"
-try 9 "func main() int { declare x int; declare y int; x = y = 3; return x * y; }"
-try 1 "func main() int { if(1){ return 1; }; return 0;}"
-try 0 "func main() int { if(0){ return 1; }; return 0;}"
-try 1 "func main() int { declare x int; x = if(1){ ifret 1; } else { ifret 0; }; return x;}"
-try 0 "func main() int { declare x int; x = if(0){ ifret 1; } else { ifret 0; }; return x;}"
-try 9 "func main() int { declare res int; countup x int from 0 to 10 { res = x; }; return res; }"
+try 0 "examples/intlit.go"
+try 9 "examples/four_arith.go"
+try 9 "examples/unary_minus.go"
+try 0 "examples/unary_plus.go"
+try 30 "examples/declare_autovar.go"
+try 9 "examples/declare_twovar.go"
+try 1 "examples/if_expr_stmt1.go"
+try 0 "examples/if_expr_stmt2.go"
+try 1 "examples/if_expr1.go"
+try 0 "examples/if_expr2.go"
+try 9 "examples/countup.go"
 
 echo -e "\n\nOK"
 
@@ -50,8 +46,4 @@ error() {
   fi
 }
 
-echo -e "start to test invalid program...\n\n"
-error "func main() int { declare x int; 3 = 30; return x; }"
-
-echo -e "\n\nOK"
 rm tmp*
