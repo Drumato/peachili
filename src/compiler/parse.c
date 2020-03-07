@@ -81,7 +81,7 @@ static Node *statement(void) {
     return return_statement();
   } else if (check_curtoken_is(&fg_cur_tok, TK_IFRET)) {
     return ifret_statement();
-  } else if (check_curtoken_is(&fg_cur_tok, TK_VAR)) {
+  } else if (check_curtoken_is(&fg_cur_tok, TK_DECLARE)) {
     // このノードは何もしないので注意．
     return vardecl_statement();
   } else {
@@ -120,7 +120,7 @@ static Node *ifret_statement(void) {
 
 // vardecl = "var" identifier type
 static Node *vardecl_statement() {
-  expect_keyword(&fg_cur_tok, TK_VAR);
+  expect_keyword(&fg_cur_tok, TK_DECLARE);
   char *name       = expect_identifier(&fg_cur_tok);
   AGType *var_type = expect_agtype(&fg_cur_tok);
 

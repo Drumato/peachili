@@ -13,7 +13,7 @@ typedef enum {
   TK_IFRET,
   TK_RETURN,
   TK_FUNC,
-  TK_VAR,
+  TK_DECLARE,
 } TokenKind;
 
 typedef struct Token Token;

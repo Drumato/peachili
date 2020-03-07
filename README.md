@@ -1,5 +1,6 @@
-# dagc
-Drumato's Alt-Golang Compiler
+# Pewachili
+
+This programming language is inspired Golang strongly.
 
 ## how to build
 
