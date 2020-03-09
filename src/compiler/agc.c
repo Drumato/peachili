@@ -1,13 +1,14 @@
 #include "ast.h"
 #include "base.h"
 #include "structure.h"
+#include "vector.h"
 
 extern char *get_contents(const char *filename);
 extern Token *tokenize(char *program);
-extern Function *parse(Token *top_token);
+extern Vector *parse(Token *top_token);
 extern void type_check(Function **func);
 extern void allocate_stack_frame(Function **func);
-extern void gen_x64(Function *func);
+extern void gen_x64(Vector *functions);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   if (argc < 2) {
@@ -22,15 +23,22 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
 
   debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
 
-  Function *main_func = parse(top_token);
+  Vector *functions = parse(top_token);
   dealloc_tokens(&top_token);
 
-  debug_func_to_stderr(debug_opt->dbg_compiler, main_func);
+  for (int i = 0; i < functions->length; i++) {
+    Function *iter_func = (Function *)vec_get(functions, i);
+    debug_func_to_stderr(debug_opt->dbg_compiler, iter_func);
+    // 型検査 && 構文検査
+    type_check(&iter_func);
+    allocate_stack_frame(&iter_func);
+  }
 
-  // 型検査 && 構文検査
-  type_check(&main_func);
-  allocate_stack_frame(&main_func);
+  gen_x64(functions);
 
-  gen_x64(main_func);
-  dealloc_function(main_func);
+  for (int i = 0; i < functions->length; i++) {
+    Function *iter_func = (Function *)vec_get(functions, i);
+
+    dealloc_function(iter_func);
+  }
 }

@@ -38,11 +38,17 @@ static uint32_t fg_row  = 1;
 static bool in_if_scope = false;
 static Function **this_func;
 
-Function *parse(Token *top_token) {
+Vector *parse(Token *top_token) {
   fg_cur_tok = top_token;
   fg_col     = fg_cur_tok->col;
   fg_row     = fg_cur_tok->row;
-  return function();
+
+  Vector *funcs = new_vec();
+
+  while (check_curtoken_is(&fg_cur_tok, TK_FUNC)) {
+    vec_push(funcs, (void *)function());
+  }
+  return funcs;
 }
 
 Function *function(void) {

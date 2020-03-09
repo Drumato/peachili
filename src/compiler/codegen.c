@@ -2,6 +2,7 @@
 #include "variable.h"
 #include "vector.h"
 
+static void gen_func(void);
 static void gen_lval(Node *n);
 static void gen_stmt(Node *n);
 static void gen_expr(Node *n);
@@ -15,21 +16,30 @@ static void gen_unary_expr(Node *n);
 static Function *this_func;
 static int label = 0;
 
-void gen_x64(Function *func) {
+void gen_x64(Vector *functions) {
   printf(".intel_syntax noprefix\n");
-  printf(".global %s\n", func->name);
-  printf("%s:\n", func->name);
+
+  for (int i = 0; i < functions->length; i++) {
+    Function *iter_func = (Function *)vec_get(functions, i);
+    this_func           = iter_func;
+
+    gen_func();
+  }
+}
+
+static void gen_func(void) {
+  printf(".global %s\n", this_func->name);
+  printf("%s:\n", this_func->name);
   printf("  push rbp\n");
   printf("  mov rbp, rsp\n");
-  if (func->stack_offset != 0) {
-    func->stack_offset += 7;
-    func->stack_offset &= ~7;
-    printf("  sub rsp, %d\n", func->stack_offset);
+  if (this_func->stack_offset != 0) {
+    this_func->stack_offset += 7;
+    this_func->stack_offset &= ~7;
+    printf("  sub rsp, %d\n", this_func->stack_offset);
   }
 
-  this_func = func;
-  for (int i = 0; i < func->stmts->length; i++) {
-    Node *stmt = get_statement(func, i);
+  for (int i = 0; i < this_func->stmts->length; i++) {
+    Node *stmt = get_statement(this_func, i);
     gen_stmt(stmt);
   }
 }
