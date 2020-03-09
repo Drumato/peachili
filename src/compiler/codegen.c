@@ -14,7 +14,8 @@ static void gen_binary_expr(Node *n);
 static void gen_unary_expr(Node *n);
 
 static Function *this_func;
-static int label = 0;
+static int label             = 0;
+static char *caller_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9", NULL};
 
 void gen_x64(Vector *functions) {
   printf(".intel_syntax noprefix\n");
@@ -36,6 +37,15 @@ static void gen_func(void) {
     this_func->stack_offset += 7;
     this_func->stack_offset &= ~7;
     printf("  sub rsp, %d\n", this_func->stack_offset);
+  }
+
+  for (int i = 0; i < this_func->args->length; i++) {
+    char *arg_name = (char *)vec_get(this_func->args, i);
+    char *reg      = caller_regs64[i];
+
+    Variable *arg = find_lvar(this_func, arg_name);
+
+    printf("  mov -%d[rbp], %s\n", arg->offset, reg);
   }
 
   for (int i = 0; i < this_func->stmts->length; i++) {
@@ -126,6 +136,20 @@ static void gen_expr(Node *n) {
       break;
     case ND_INTLIT:
       printf("  push %d\n", n->int_value);
+      break;
+    case ND_CALL:
+      for (int i = 0; i < n->args->length; i++) {
+        Node *arg = (Node *)vec_get(n->args, i);
+        gen_expr(arg);
+      }
+
+      for (int i = 0; i < n->args->length; i++) {
+        char *reg = caller_regs64[i];
+        printf("  pop %s\n", reg);
+      }
+
+      printf("  call %s\n", n->name);
+      printf("  push rax\n");
       break;
     case ND_IDENT:
       gen_lval(n);

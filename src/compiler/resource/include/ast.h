@@ -9,6 +9,7 @@ typedef struct {
   uint32_t col;
   uint32_t row;
   struct Vector *locals;
+  struct Vector *args;
   int stack_offset;
 } Function;
 
@@ -35,6 +36,7 @@ typedef enum {
   // etc
   ND_ASSIGN,
   ND_IF,
+  ND_CALL,
   ND_NOP,
 } NodeKind;
 
@@ -53,6 +55,7 @@ struct Node {
   Node *right;
   struct Vector *body;
   struct Vector *alter;
+  struct Vector *args;
 
   // for statements
   Node *expr;
@@ -61,6 +64,7 @@ struct Node {
 };
 
 Node *new_return(Node *expr, uint32_t col, uint32_t row);
+Node *new_call(char *name, struct Vector *args, uint32_t col, uint32_t row);
 Node *new_ifret(Node *expr, uint32_t col, uint32_t row);
 Node *new_countup(Node *lvar, Node *start, Node *end, struct Vector *stmts, uint32_t col,
                   uint32_t row);

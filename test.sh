@@ -29,6 +29,8 @@ try 0 "examples/if_expr_stmt2.go"
 try 1 "examples/if_expr1.go"
 try 0 "examples/if_expr2.go"
 try 9 "examples/countup.go"
+try 30 "examples/with_argument.go"
+try 30 "examples/without_argument.go"
 
 echo -e "\n\nOK"
 

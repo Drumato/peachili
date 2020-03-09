@@ -58,14 +58,38 @@ Function *function(void) {
   expect_keyword(&fg_cur_tok, TK_FUNC);
   char *name = expect_identifier(&fg_cur_tok);
 
-  // とりあえず引数なし
-  expect_symbol(&fg_cur_tok, "(");
-  expect_symbol(&fg_cur_tok, ")");
-
-  AGType *ret_type = expect_agtype(&fg_cur_tok);
-
-  Function *func = new_function(name, ret_type, def_func_col, def_func_row);
+  Function *func = new_function(name, NULL, def_func_col, def_func_row);
   this_func      = &func;
+
+  expect_symbol(&fg_cur_tok, "(");
+
+  Vector *args = new_vec();
+  while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
+    uint32_t def_arg_col = fg_col;
+    uint32_t def_arg_row = fg_row;
+
+    char *name = expect_identifier(&fg_cur_tok);
+
+    int length           = strlen(name);
+    char *allocated_name = (char *)calloc(length, sizeof(char));
+    strncpy(allocated_name, name, length);
+    allocated_name[length] = 0;
+
+    vec_push(args, (void *)allocated_name);
+    AGType *var_type = expect_agtype(&fg_cur_tok);
+
+    if (find_lvar(*this_func, name) != NULL) {
+      fprintf(stderr, "%d:%d: %s already defined\n", def_arg_row, def_arg_col, name);
+    }
+
+    Variable *new_var = new_local_var(name, var_type);
+    put_local_var(*this_func, new_var);
+
+    eat_if_symbol_matched(&fg_cur_tok, ",");
+  }
+
+  (*this_func)->return_type = expect_agtype(&fg_cur_tok);
+  (*this_func)->args        = args;
 
   compound_statement(&fg_cur_tok);
 
@@ -295,7 +319,20 @@ static Node *primary(void) {
     return new_intlit_node(int_value, col, row);
   } else {
     char *name = expect_identifier(&fg_cur_tok);
-    return new_ident_node(name, col, row);
+
+    if (!eat_if_symbol_matched(&fg_cur_tok, "(")) {
+      return new_ident_node(name, col, row);
+    }
+    // call-expression
+
+    Vector *args = new_vec();
+    while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
+      vec_push(args, (void *)expression());
+
+      eat_if_symbol_matched(&fg_cur_tok, ",");
+    }
+
+    return new_call(name, args, col, row);
   }
 }
 

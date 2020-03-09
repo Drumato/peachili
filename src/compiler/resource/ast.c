@@ -20,7 +20,7 @@ void put_local_var(Function *func, Variable *var) { vec_push(func->locals, (void
 Variable *find_lvar(Function *func, char *name) {
   for (int i = 0; i < func->locals->length; i++) {
     Variable *var = get_local_var(func, i);
-    if (!strncmp(var->name, name, strlen(name))) {
+    if (!strncmp(var->name, name, strlen(var->name))) {
       return var;
     }
   }
@@ -108,6 +108,7 @@ Function *new_function(char *name, AGType *ret_type, uint32_t col, uint32_t row)
 
   func->stmts       = new_vec();
   func->locals      = new_vec();
+  func->args        = new_vec();
   func->return_type = ret_type;
   func->col         = col;
   func->row         = row;
@@ -136,6 +137,21 @@ Node *new_return(Node *expr, uint32_t col, uint32_t row) {
   n->row  = row;
   return n;
 }
+
+Node *new_call(char *name, Vector *args, uint32_t col, uint32_t row) {
+  Node *n = init_node(ND_CALL);
+
+  int length = strlen(name);
+  n->name    = (char *)calloc(length, sizeof(char));
+  strncpy(n->name, name, length);
+  n->name[length] = 0;
+
+  n->args = args;
+  n->col  = col;
+  n->row  = row;
+  return n;
+}
+
 Node *new_countup(Node *lvar, Node *start, Node *end, struct Vector *stmts, uint32_t col,
                   uint32_t row) {
   Node *n = init_node(ND_COUNTUP);
