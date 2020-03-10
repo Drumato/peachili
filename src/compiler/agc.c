@@ -18,22 +18,25 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
 
   char *user_input = get_contents(argv[optind]);
 
-  // TODO: 後々ファイル読み込みに変更する
+  // step.1 tokenize
   Token *top_token = tokenize(user_input);
 
   debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
 
+  // step.2 parse
   Vector *functions = parse(top_token);
   dealloc_tokens(&top_token);
 
+  // step.3 typecheck and allocating_stack
   for (int i = 0; i < functions->length; i++) {
     Function *iter_func = (Function *)vec_get(functions, i);
     debug_func_to_stderr(debug_opt->dbg_compiler, iter_func);
-    // 型検査 && 構文検査
+
     type_check(&iter_func);
     allocate_stack_frame(&iter_func);
   }
 
+  // step.4 code-generating finally
   gen_x64(functions);
 
   for (int i = 0; i < functions->length; i++) {

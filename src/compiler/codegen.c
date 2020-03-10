@@ -2,20 +2,42 @@
 #include "variable.h"
 #include "vector.h"
 
+// function
 static void gen_func(void);
-static void gen_lval(Node *n);
+static void gen_function_prologue(char *name, uint32_t offset);
+static void gen_function_epilogue(void);
+
+// statement
 static void gen_stmt(Node *n);
+static void gen_stmts_in_vec(Vector *v);
+static void gen_countup_stmt(Node *n);
+static void gen_return_stmt(Node *n);
+
+// expression
+static void gen_lval(Node *n);
+static void gen_exprs_in_vec(Vector *v);
 static void gen_expr(Node *n);
 static void gen_if_expr(Node *n);
-static void gen_countup_stmt(Node *n);
 static void gen_if_else_expr(Node *n);
 static void gen_base_op_expr(NodeKind kind);
 static void gen_binary_expr(Node *n);
 static void gen_unary_expr(Node *n);
 
+// utilities
+static void store_reg_using_reg(char *addr_reg, char *val_reg);
+static void store_reg(uint32_t offset, char *reg);
+
+// file global definitions
 static Function *this_func;
 static int label             = 0;
 static char *caller_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9", NULL};
+
+#define GEN_COMMENT_AND_NODE_WITH_FUNC(stmt_name, n, f) \
+  do {                                                  \
+    printf("\n  # start %s\n", #stmt_name);             \
+    f(n);                                               \
+    printf("  # end %s\n\n", #stmt_name);               \
+  } while (0)
 
 void gen_x64(Vector *functions) {
   printf(".intel_syntax noprefix\n");
@@ -29,15 +51,7 @@ void gen_x64(Vector *functions) {
 }
 
 static void gen_func(void) {
-  printf(".global %s\n", this_func->name);
-  printf("%s:\n", this_func->name);
-  printf("  push rbp\n");
-  printf("  mov rbp, rsp\n");
-  if (this_func->stack_offset != 0) {
-    this_func->stack_offset += 7;
-    this_func->stack_offset &= ~7;
-    printf("  sub rsp, %d\n", this_func->stack_offset);
-  }
+  gen_function_prologue(this_func->name, this_func->stack_offset);
 
   for (int i = 0; i < this_func->args->length; i++) {
     char *arg_name = (char *)vec_get(this_func->args, i);
@@ -45,45 +59,36 @@ static void gen_func(void) {
 
     Variable *arg = find_lvar(this_func, arg_name);
 
-    printf("  mov -%d[rbp], %s\n", arg->offset, reg);
+    store_reg(arg->offset, reg);
   }
 
-  for (int i = 0; i < this_func->stmts->length; i++) {
-    Node *stmt = get_statement(this_func, i);
-    gen_stmt(stmt);
-  }
+  gen_stmts_in_vec(this_func->stmts);
 }
 
 static void gen_stmt(Node *n) {
   switch (n->kind) {
     case ND_RETURN:
-      printf("\n  # start return-statement\n");
-      gen_expr(n->expr);
-      printf("  pop rax\n");
-      printf("  mov rsp, rbp\n");
-      printf("  pop rbp\n");
-      printf("  ret\n");
-      printf("  # end return-statement\n\n");
+      GEN_COMMENT_AND_NODE_WITH_FUNC(return_statement, n, gen_return_stmt);
       break;
     case ND_IFRET:
-      printf("\n  # start ifret-statement\n");
-      gen_expr(n->expr);
-      printf("  # end ifret-statement\n\n");
+      GEN_COMMENT_AND_NODE_WITH_FUNC(ifret_statement, n->expr, gen_expr);
       break;
     case ND_COUNTUP:
-      printf("\n  # start countup-statement\n");
-      gen_countup_stmt(n);
-      printf("  # end countup-statement\n\n");
+      GEN_COMMENT_AND_NODE_WITH_FUNC(countup_statement, n, gen_countup_stmt);
       break;
     case ND_NOP:
       break;
     default:
       // expression-statementとする
-      printf("\n  # start expression-statement\n");
-      gen_expr(n);
-      printf("  # end expression-statement\n\n");
+      GEN_COMMENT_AND_NODE_WITH_FUNC(expression_statement, n, gen_expr);
       break;
   }
+}
+
+static void gen_return_stmt(Node *n) {
+  gen_expr(n->expr);
+  printf("  pop rax\n");
+  gen_function_epilogue();
 }
 
 static void gen_countup_stmt(Node *n) {
@@ -94,7 +99,8 @@ static void gen_countup_stmt(Node *n) {
   gen_expr(n->from);
   printf("  pop rdi\n");
   printf("  pop rax\n");
-  printf("  mov [rax], rdi\n");
+
+  store_reg_using_reg("rax", "rdi");
 
   // in loop
   printf(".Lstart%d:\n", fin_label);
@@ -107,17 +113,15 @@ static void gen_countup_stmt(Node *n) {
   printf("  cmp rax, rdi\n");
   printf("  je .Lend%d\n", fin_label);
 
-  for (int i = 0; i < n->body->length; i++) {
-    Node *st = (Node *)vec_get(n->body, i);
-    gen_stmt(st);
-  }
+  gen_stmts_in_vec(n->body);
 
   // increment
   gen_lval(n->expr);
   printf("  pop rax\n");
   printf("  mov rdi, [rax]\n");
   printf("  inc rdi\n");
-  printf("  mov [rax], rdi\n");
+
+  store_reg_using_reg("rax", "rdi");
 
   printf("  jmp .Lstart%d\n", fin_label);
   printf(".Lend%d:\n", fin_label);
@@ -138,10 +142,7 @@ static void gen_expr(Node *n) {
       printf("  push %d\n", n->int_value);
       break;
     case ND_CALL:
-      for (int i = 0; i < n->args->length; i++) {
-        Node *arg = (Node *)vec_get(n->args, i);
-        gen_expr(arg);
-      }
+      gen_exprs_in_vec(n->args);
 
       for (int i = 0; i < n->args->length; i++) {
         char *reg = caller_regs64[i];
@@ -154,6 +155,8 @@ static void gen_expr(Node *n) {
     case ND_IDENT:
       gen_lval(n);
       printf("  pop rax\n");
+
+      // get value from address
       printf("  mov rax, [rax]\n");
       printf("  push rax\n");
       break;
@@ -162,7 +165,8 @@ static void gen_expr(Node *n) {
       gen_expr(n->right);
       printf("  pop rdi\n");
       printf("  pop rax\n");
-      printf("  mov [rax], rdi\n");
+
+      store_reg_using_reg("rax", "rdi");
       printf("  push rdi\n");
       break;
     case ND_IF:
@@ -188,10 +192,7 @@ static void gen_if_expr(Node *n) {
   printf("  cmp rax, 0\n");
   printf("  je .Lend%d\n", fin_label);
 
-  for (int i = 0; i < n->body->length; i++) {
-    Node *st = (Node *)vec_get(n->body, i);
-    gen_stmt(st);
-  }
+  gen_stmts_in_vec(n->body);
   printf(".Lend%d:\n", fin_label);
 }
 
@@ -203,18 +204,13 @@ static void gen_if_else_expr(Node *n) {
   printf("  cmp rax, 0\n");
   printf("  je .Lelse%d\n", fin_label);
 
-  for (int i = 0; i < n->body->length; i++) {
-    Node *st = (Node *)vec_get(n->body, i);
-    gen_stmt(st);
-  }
+  gen_stmts_in_vec(n->body);
 
   printf("  jmp .Lend%d\n", fin_label);
 
   printf(".Lelse%d:\n", fin_label);
-  for (int i = 0; i < n->alter->length; i++) {
-    Node *st = (Node *)vec_get(n->alter, i);
-    gen_stmt(st);
-  }
+
+  gen_stmts_in_vec(n->alter);
   printf(".Lend%d:\n", fin_label);
 }
 
@@ -301,5 +297,49 @@ static void gen_base_op_expr(NodeKind kind) {
       break;
     default:
       break;
+  }
+}
+
+static void gen_function_prologue(char *name, uint32_t offset) {
+  // symbol
+  printf(".global %s\n", name);
+  printf("%s:\n", name);
+
+  // save rbp
+  printf("  push rbp\n");
+  printf("  mov rbp, rsp\n");
+
+  // allocating memory area for auto-var
+  //
+  if (offset != 0) {
+    offset += 7;
+    offset &= ~7;
+    printf("  sub rsp, %d\n", offset);
+  }
+}
+
+static void gen_function_epilogue(void) {
+  printf("  mov rsp, rbp\n");
+  printf("  pop rbp\n");
+  printf("  ret\n");
+}
+
+static void store_reg(uint32_t offset, char *reg) { printf("  mov -%d[rbp], %s\n", offset, reg); }
+
+static void store_reg_using_reg(char *addr_reg, char *val_reg) {
+  printf("  mov [%s], %s\n", addr_reg, val_reg);
+}
+
+static void gen_stmts_in_vec(Vector *v) {
+  for (int i = 0; i < v->length; i++) {
+    Node *st = (Node *)vec_get(v, i);
+    gen_stmt(st);
+  }
+}
+
+static void gen_exprs_in_vec(Vector *v) {
+  for (int i = 0; i < v->length; i++) {
+    Node *st = (Node *)vec_get(v, i);
+    gen_expr(st);
   }
 }

@@ -32,6 +32,7 @@ static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
 static char *expect_identifier(Token **tok);
 
+// file global definitions
 static Token *fg_cur_tok;
 static uint32_t fg_col  = 1;
 static uint32_t fg_row  = 1;
