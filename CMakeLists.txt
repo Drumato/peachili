@@ -7,7 +7,8 @@ set(CMAKE_C_COMPILER "/usr/bin/clang")
 # サブディレクトリを登録
 add_subdirectory(src)
 
-add_executable(peachili src/main.c src/parse_cmd_args.c)
+file(GLOB TOP_SOURCE src/*.c)
+add_executable(peachili ${TOP_SOURCE})
 
 target_link_libraries(peachili compiler)
 target_include_directories(peachili 

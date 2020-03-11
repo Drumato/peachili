@@ -1,17 +1,7 @@
+file(GLOB COMPILER_SOURCE *.c resource/*.c)
 add_library(compiler
   SHARED
-    agc.c
-    lex.c
-    parse.c
-    alloc_frame.c
-    util.c
-    type_check.c
-    codegen.c
-    resource/token.c
-    resource/ast.c
-    resource/agtype.c
-    resource/vector.c
-    resource/variable.c
+  ${COMPILER_SOURCE}
 )
 
 target_include_directories(
