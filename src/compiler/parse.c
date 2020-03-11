@@ -60,6 +60,7 @@ Function *function(void) {
   char *name = expect_identifier(&fg_cur_tok);
 
   Function *func = new_function(name, NULL, def_func_col, def_func_row);
+  func->kind     = FN_DEFINED;
   this_func      = &func;
 
   expect_symbol(&fg_cur_tok, "(");

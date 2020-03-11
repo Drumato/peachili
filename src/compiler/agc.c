@@ -6,8 +6,8 @@
 extern char *get_contents(const char *filename);
 extern Token *tokenize(char *program);
 extern Vector *parse(Token *top_token);
-extern void type_check(Function **func);
-extern void allocate_stack_frame(Function **func);
+extern void type_check(Vector **functions);
+extern void allocate_stack_frame(Vector **functions);
 extern void gen_x64(Vector *functions);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
@@ -31,10 +31,10 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   for (int i = 0; i < functions->length; i++) {
     Function *iter_func = (Function *)vec_get(functions, i);
     debug_func_to_stderr(debug_opt->dbg_compiler, iter_func);
-
-    type_check(&iter_func);
-    allocate_stack_frame(&iter_func);
   }
+
+  type_check(&functions);
+  allocate_stack_frame(&functions);
 
   // step.4 code-generating finally
   gen_x64(functions);

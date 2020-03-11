@@ -1,6 +1,11 @@
 #include "base.h"
 #include "token.h"
 
+typedef enum {
+  FN_DEFINED,
+  FN_BUILTIN,
+} FuncKind;
+
 typedef struct Node Node;
 typedef struct {
   char *name;
@@ -10,7 +15,8 @@ typedef struct {
   uint32_t row;
   struct Vector *locals;
   struct Vector *args;
-  int stack_offset;
+  uint32_t stack_offset;
+  FuncKind kind;
 } Function;
 
 Function *new_function(char *name, struct AGType *ret_type, uint32_t col, uint32_t row);
