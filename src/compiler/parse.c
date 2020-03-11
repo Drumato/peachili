@@ -46,6 +46,12 @@ Vector *parse(Token *top_token) {
 
   Vector *funcs = new_vec();
 
+  if (check_curtoken_is(&fg_cur_tok, TK_REQUIRE)) {
+    while (!eat_if_symbol_matched(&fg_cur_tok, ";")) {
+      fg_cur_tok = fg_cur_tok->next;
+    }
+  }
+
   while (check_curtoken_is(&fg_cur_tok, TK_FUNC)) {
     vec_push(funcs, (void *)function());
   }

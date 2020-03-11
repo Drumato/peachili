@@ -7,6 +7,7 @@ typedef enum {
   TK_EOF,
 
   // keyword
+  TK_REQUIRE,
   TK_INT,
   TK_IF,
   TK_ELSE,

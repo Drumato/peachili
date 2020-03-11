@@ -3,6 +3,7 @@
 #include "structure.h"
 #include "vector.h"
 
+extern void bundler_init(char *file_path);
 extern char *get_contents(const char *filename);
 extern Token *tokenize(char *program);
 extern Vector *parse(Token *top_token);
@@ -15,8 +16,19 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
     fprintf(stderr, "invalid arguments.\n usage: %s <source-file>\n", argv[0]);
     exit(1);
   }
+  char *file_path = argv[optind];
 
-  char *user_input = get_contents(argv[optind]);
+  // *********************
+  // *      Bundler      *
+  // *********************
+
+  bundler_init(file_path);
+
+  // *********************
+  // *      Compiler     *
+  // *********************
+
+  char *user_input = get_contents(file_path);
 
   // step.1 tokenize
   Token *top_token = tokenize(user_input);
