@@ -4,7 +4,7 @@ FILE *open_file(const char *filename, const char *mode) {
   FILE *file;
   file = fopen(filename, mode);
   if (file == NULL) {
-    fprintf(stderr, "Error Found:%s\n", strerror(errno));
+    fprintf(stderr, "Error Found: %s\n", strerror(errno));
     exit(1);
   }
   return file;
@@ -33,4 +33,11 @@ char *get_contents(const char *filename) {
   fclose(file);
   buf[nmemb] = '\0';
   return buf;
+}
+
+char *str_alloc_and_copy(char *src, int length) {
+  char *allocated = (char *)calloc(length, sizeof(char));
+  strncpy(allocated, src, length);
+  allocated[length] = 0;
+  return allocated;
 }

@@ -1,10 +1,10 @@
 #include "ast.h"
 #include "base.h"
 #include "structure.h"
+#include "util.h"
 #include "vector.h"
 
-extern void bundler_init(char *file_path);
-extern char *get_contents(const char *filename);
+extern void bundler_init(DebugOption *debug_opt, char *file_path);
 extern Token *tokenize(char *program);
 extern Vector *parse(Token *top_token);
 extern void type_check(Vector **functions);
@@ -22,7 +22,7 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   // *      Bundler      *
   // *********************
 
-  bundler_init(file_path);
+  bundler_init(debug_opt, file_path);
 
   // *********************
   // *      Compiler     *

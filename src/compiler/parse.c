@@ -1,6 +1,7 @@
 #include "agtype.h"
 #include "ast.h"
 #include "base.h"
+#include "util.h"
 #include "variable.h"
 #include "vector.h"
 
@@ -31,6 +32,7 @@ static void expect_keyword(Token **tok, TokenKind kind);
 static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
 static char *expect_identifier(Token **tok);
+static void set_current_position(Token **tok, uint32_t *col, uint32_t *row);
 
 // file global definitions
 static Token *fg_cur_tok;
@@ -41,17 +43,19 @@ static Function **this_func;
 
 Vector *parse(Token *top_token) {
   fg_cur_tok = top_token;
-  fg_col     = fg_cur_tok->col;
-  fg_row     = fg_cur_tok->row;
+  set_current_position(&fg_cur_tok, &fg_col, &fg_row);
 
   Vector *funcs = new_vec();
 
+  // requireはBundlerで処理するので無視
   if (check_curtoken_is(&fg_cur_tok, TK_REQUIRE)) {
     while (!eat_if_symbol_matched(&fg_cur_tok, ";")) {
       fg_cur_tok = fg_cur_tok->next;
     }
   }
 
+  // グローバル変数はないものとする．
+  // 今はグローバルには関数列があるのみ．
   while (check_curtoken_is(&fg_cur_tok, TK_FUNC)) {
     vec_push(funcs, (void *)function());
   }
@@ -59,8 +63,8 @@ Vector *parse(Token *top_token) {
 }
 
 Function *function(void) {
-  uint32_t def_func_col = fg_col;
-  uint32_t def_func_row = fg_row;
+  uint32_t def_func_col, def_func_row;
+  set_current_position(&fg_cur_tok, &def_func_col, &def_func_row);
 
   expect_keyword(&fg_cur_tok, TK_FUNC);
   char *name = expect_identifier(&fg_cur_tok);
@@ -73,15 +77,12 @@ Function *function(void) {
 
   Vector *args = new_vec();
   while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
-    uint32_t def_arg_col = fg_col;
-    uint32_t def_arg_row = fg_row;
+    uint32_t def_arg_col, def_arg_row;
+    set_current_position(&fg_cur_tok, &def_arg_col, &def_arg_row);
 
     char *name = expect_identifier(&fg_cur_tok);
 
-    int length           = strlen(name);
-    char *allocated_name = (char *)calloc(length, sizeof(char));
-    strncpy(allocated_name, name, length);
-    allocated_name[length] = 0;
+    char *allocated_name = str_alloc_and_copy(name, strlen(name));
 
     vec_push(args, (void *)allocated_name);
     AGType *var_type = expect_agtype(&fg_cur_tok);
@@ -134,8 +135,8 @@ static Node *statement(void) {
 
 // return_statement = "return" expression ";"
 static Node *return_statement(void) {
-  uint32_t return_col = fg_col;
-  uint32_t return_row = fg_row;
+  uint32_t return_col, return_row;
+  set_current_position(&fg_cur_tok, &return_col, &return_row);
 
   expect_keyword(&fg_cur_tok, TK_RETURN);
   Node *expr = expression();
@@ -145,8 +146,8 @@ static Node *return_statement(void) {
 
 // countup_statement = "countup" typename primary "from" expr "to" expr
 static Node *countup_statement(void) {
-  uint32_t col = fg_col;
-  uint32_t row = fg_row;
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
 
   expect_keyword(&fg_cur_tok, TK_COUNTUP);
   Node *lvar       = primary();
@@ -176,23 +177,24 @@ static Node *countup_statement(void) {
   }
 
   expect_symbol(&fg_cur_tok, ";");
-  return new_countup(lvar, start, end, stmts, col, row);
+  return new_countup(lvar, start, end, stmts, start_col, start_row);
 }
 
 // ifret_statement = "ifret" expression ";"
 static Node *ifret_statement(void) {
-  uint32_t col = fg_col;
-  uint32_t row = fg_row;
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
 
   if (!in_if_scope) {
-    fprintf(stderr, "%d:%d: ifret-statement can only exist in if-expression block\n", row, col);
+    fprintf(stderr, "%d:%d: ifret-statement can only exist in if-expression block\n", start_row,
+            start_col);
     exit(1);
   }
 
   expect_keyword(&fg_cur_tok, TK_IFRET);
   Node *expr = expression();
   expect_symbol(&fg_cur_tok, ";");
-  return new_ifret(expr, col, row);
+  return new_ifret(expr, start_col, start_row);
 }
 
 // vardecl = "declare" identifier typename
@@ -222,8 +224,8 @@ static Node *expression(void) {
 
 // if-expression =
 static Node *if_expression(void) {
-  uint32_t col = fg_col;
-  uint32_t row = fg_row;
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
 
   expect_keyword(&fg_cur_tok, TK_IF);
 
@@ -247,7 +249,7 @@ static Node *if_expression(void) {
   // elseでなければ終了
   if (!check_curtoken_is(&fg_cur_tok, TK_ELSE)) {
     in_if_scope = false;
-    return new_if(cond, stmts, alter, col, row);
+    return new_if(cond, stmts, alter, start_col, start_row);
   }
 
   alter = new_vec();
@@ -263,20 +265,20 @@ static Node *if_expression(void) {
   }
   in_if_scope = false;
 
-  return new_if(cond, stmts, alter, col, row);
+  return new_if(cond, stmts, alter, start_col, start_row);
 }
 
 // assignment = additive "=" expression
 static Node *assignment(void) {
   Node *lvar = additive();
 
-  uint32_t col = fg_col;
-  uint32_t row = fg_row;
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
 
   if (!eat_if_symbol_matched(&fg_cur_tok, "=")) return lvar;
 
   Node *expr = expression();
-  return new_assign(lvar, expr, col, row);
+  return new_assign(lvar, expr, start_col, start_row);
 }
 
 // additive = multiplicative
@@ -284,11 +286,14 @@ static Node *assignment(void) {
 static Node *additive(void) {
   Node *node = multiplicative();
 
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
+
   for (;;) {
     if (eat_if_symbol_matched(&fg_cur_tok, "+"))
-      node = new_binary_node(ND_ADD, node, multiplicative(), fg_col, fg_row);
+      node = new_binary_node(ND_ADD, node, multiplicative(), start_col, start_row);
     else if (eat_if_symbol_matched(&fg_cur_tok, "-"))
-      node = new_binary_node(ND_SUB, node, multiplicative(), fg_col, fg_row);
+      node = new_binary_node(ND_SUB, node, multiplicative(), start_col, start_row);
     else
       return node;
   }
@@ -298,11 +303,14 @@ static Node *additive(void) {
 static Node *multiplicative(void) {
   Node *node = unary();
 
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
+
   for (;;) {
     if (eat_if_symbol_matched(&fg_cur_tok, "*"))
-      node = new_binary_node(ND_MUL, node, unary(), fg_col, fg_row);
+      node = new_binary_node(ND_MUL, node, unary(), start_col, start_row);
     else if (eat_if_symbol_matched(&fg_cur_tok, "/"))
-      node = new_binary_node(ND_DIV, node, unary(), fg_col, fg_row);
+      node = new_binary_node(ND_DIV, node, unary(), start_col, start_row);
     else
       return node;
   }
@@ -310,8 +318,11 @@ static Node *multiplicative(void) {
 
 // unary = "+" primary | "-" primary
 static Node *unary(void) {
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
+
   if (eat_if_symbol_matched(&fg_cur_tok, "-")) {
-    return new_unary_node(ND_NEG, primary(), fg_col, fg_row);
+    return new_unary_node(ND_NEG, primary(), start_col, start_row);
   }
   eat_if_symbol_matched(&fg_cur_tok, "+");  // +の可能性は読みとばす
 
@@ -320,16 +331,17 @@ static Node *unary(void) {
 
 // primary = intlit
 static Node *primary(void) {
-  uint32_t col = fg_col;
-  uint32_t row = fg_row;
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
+
   if (check_curtoken_is(&fg_cur_tok, TK_INTLIT)) {
     int int_value = expect_intlit_value(&fg_cur_tok);
-    return new_intlit_node(int_value, col, row);
+    return new_intlit_node(int_value, start_col, start_row);
   } else {
     char *name = expect_identifier(&fg_cur_tok);
 
     if (!eat_if_symbol_matched(&fg_cur_tok, "(")) {
-      return new_ident_node(name, col, row);
+      return new_ident_node(name, start_col, start_row);
     }
     // call-expression
 
@@ -340,7 +352,7 @@ static Node *primary(void) {
       eat_if_symbol_matched(&fg_cur_tok, ",");
     }
 
-    return new_call(name, args, col, row);
+    return new_call(name, args, start_col, start_row);
   }
 }
 
@@ -411,4 +423,9 @@ static char *expect_identifier(Token **tok) {
   fg_col     = (*tok)->col;
   fg_row     = (*tok)->row;
   return name;
+}
+
+static void set_current_position(Token **tok, uint32_t *col, uint32_t *row) {
+  *col = (*tok)->col;
+  *row = (*tok)->row;
 }
