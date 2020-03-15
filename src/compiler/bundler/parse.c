@@ -34,7 +34,7 @@ void bundler_parse(Module **mod, Token **top_token) {
   *top_token = (*top_token)->next;
 
   if ((*top_token)->kind != TK_IDENT) {
-    fprintf(stderr, "invalid module name -> %s\n", (*top_token)->str);
+    fprintf(stderr, "module name must be an identifier -> %s\n", (*top_token)->str);
     exit(1);
   }
 
@@ -55,6 +55,7 @@ void bundler_parse(Module **mod, Token **top_token) {
   char *module_input      = get_contents(required_module_name);
   Token *module_token     = tokenize(module_input);
   Module *required_module = new_module(MD_EXTERNAL, required_module_name);
+  vec_push((*mod)->requires, (void *)required_module);
   bundler_parse(&required_module, &module_token);
 
   free(required_module_name);

@@ -1,4 +1,5 @@
 #include "ast.h"
+#include "module.h"
 #include "variable.h"
 #include "vector.h"
 
@@ -24,6 +25,7 @@ static void gen_binary_expr(Node *n);
 static void gen_unary_expr(Node *n);
 
 // utilities
+static char *find_library_api(IdentName *id_name);
 static void store_reg_using_reg(char *addr_reg, char *val_reg);
 static void store_reg(uint32_t offset, char *reg);
 
@@ -39,14 +41,23 @@ static char *caller_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9", NULL};
     printf("  # end %s\n\n", #stmt_name);               \
   } while (0)
 
-void gen_x64(Vector *functions) {
-  printf(".intel_syntax noprefix\n");
-
+void gen_x64_primary(Vector *functions) {
   for (int i = 0; i < functions->length; i++) {
     Function *iter_func = (Function *)vec_get(functions, i);
     this_func           = iter_func;
 
     gen_func();
+  }
+}
+
+void gen_x64_external(Module *mod) {
+  for (int i = 0; i < mod->functions->length; i++) {
+    Function *iter_func = (Function *)vec_get(mod->functions, i);
+    this_func           = iter_func;
+
+    if (function_is_used(mod, this_func->name)) {
+      gen_func();
+    }
   }
 }
 
@@ -149,7 +160,7 @@ static void gen_expr(Node *n) {
         printf("  pop %s\n", reg);
       }
 
-      printf("  call %s\n", n->id_name->name);
+      printf("  call %s\n", find_library_api(n->id_name));
       printf("  push rax\n");
       break;
     case ND_IDENT:
@@ -328,6 +339,16 @@ static void store_reg(uint32_t offset, char *reg) { printf("  mov -%d[rbp], %s\n
 
 static void store_reg_using_reg(char *addr_reg, char *val_reg) {
   printf("  mov [%s], %s\n", addr_reg, val_reg);
+}
+
+static char *find_library_api(IdentName *id_name) {
+  IdentName *iter = id_name;
+  char *name      = iter->name;
+  while (iter->next) {
+    iter = iter->next;
+    name = iter->name;
+  }
+  return name;
 }
 
 static void gen_stmts_in_vec(Vector *v) {

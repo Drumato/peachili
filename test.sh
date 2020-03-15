@@ -3,7 +3,7 @@ try() {
   expected="$1"
   input="$2"
 
-  ./build/peachili "$input" > tmp.s
+  ../build/peachili "$input" > tmp.s
   gcc -o tmp tmp.s
   ./tmp
   actual="$?"
@@ -18,19 +18,22 @@ try() {
 
 echo -e "start to test normal program...\n\n"
 
-try 0 "examples/intlit.go"
-try 9 "examples/four_arith.go"
-try 9 "examples/unary_minus.go"
-try 0 "examples/unary_plus.go"
-try 30 "examples/declare_autovar.go"
-try 9 "examples/declare_twovar.go"
-try 1 "examples/if_expr_stmt1.go"
-try 0 "examples/if_expr_stmt2.go"
-try 1 "examples/if_expr1.go"
-try 0 "examples/if_expr2.go"
-try 9 "examples/countup.go"
-try 30 "examples/with_argument.go"
-try 30 "examples/without_argument.go"
+cd examples
+
+try 0 "intlit.go"
+try 9 "four_arith.go"
+try 9 "unary_minus.go"
+try 0 "unary_plus.go"
+try 30 "declare_autovar.go"
+try 9 "declare_twovar.go"
+try 1 "if_expr_stmt1.go"
+try 0 "if_expr_stmt2.go"
+try 1 "if_expr1.go"
+try 0 "if_expr2.go"
+try 9 "countup.go"
+try 30 "with_argument.go"
+try 30 "without_argument.go"
+try 30 "import.go"
 
 echo -e "\n\nOK"
 

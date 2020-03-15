@@ -1,6 +1,8 @@
 #include "agtype.h"
 #include "ast.h"
 #include "base.h"
+#include "bundler.h"
+#include "module.h"
 #include "util.h"
 #include "variable.h"
 #include "vector.h"
@@ -40,9 +42,11 @@ static uint32_t fg_col  = 1;
 static uint32_t fg_row  = 1;
 static bool in_if_scope = false;
 static Function **this_func;
+static int fg_source_i;
 
-Vector *parse(Token *top_token) {
-  fg_cur_tok = top_token;
+Vector *parse(Token *top_token, int source_i) {
+  fg_source_i = source_i;
+  fg_cur_tok  = top_token;
   set_current_position(&fg_cur_tok, &fg_col, &fg_row);
 
   Vector *funcs = new_vec();
@@ -428,9 +432,17 @@ static IdentName *expect_identifier(Token **tok) {
     if ((*tok)->kind != TK_IDENT)
       fprintf(stderr, "%d:%d: module name must be an identifier\n", (*tok)->row, (*tok)->col);
 
-    char *next_name = (*tok)->str;
-    next            = append_ident_name(next_name, &prev);
-    prev            = next;
+    char *next_name = str_alloc_and_copy((*tok)->str, strlen((*tok)->str));
+
+    // 使ったAPIを記録
+    Module *current_mod = (Module *)vec_get(sources_g, fg_source_i);
+    Module *next_mod;
+    if ((next_mod = find_required_mod(current_mod, name)) != NULL) {
+      vec_push(next_mod->used, (void *)next_name);
+    }
+
+    next = append_ident_name(next_name, &prev);
+    prev = next;
 
     *tok = (*tok)->next;
   }

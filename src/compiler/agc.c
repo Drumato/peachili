@@ -8,10 +8,11 @@
 
 extern void bundler_init(DebugOption *debug_opt, char *file_path);
 extern Token *tokenize(char *program);
-extern Vector *parse(Token *top_token);
+extern Vector *parse(Token *top_token, int source_i);
 extern void type_check(Vector **functions);
 extern void allocate_stack_frame(Vector **functions);
-extern void gen_x64(Vector *functions);
+extern void gen_x64_primary(Vector *functions);
+extern void gen_x64_external(Module *mod);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   if (argc < 2) {
@@ -42,7 +43,7 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
     debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
 
     // step.2 parse
-    Vector *functions = parse(top_token);
+    Vector *functions = parse(top_token, source_i);
     dealloc_tokens(&top_token);
 
     // step.3 typecheck and allocating_stack
@@ -57,12 +58,23 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
     mod->functions = functions;
   }
 
+  // TODO: 実際に外部ファイルに識別子が宣言されているかチェックする意味解析
+
   // step.4 code-generating finally
-  // gen_x64(functions);
+  printf(".intel_syntax noprefix\n");
 
-  // for (int i = 0; i < functions->length; i++) {
-  // Function *iter_func = (Function *)vec_get(functions, i);
+  for (int source_i = 0; source_i < sources_g->length; source_i++) {
+    Module *mod = (Module *)vec_get(sources_g, source_i);
+    if (mod->kind == MD_PRIMARY) {
+      gen_x64_primary(mod->functions);
+    } else {
+      gen_x64_external(mod);
+    }
 
-  // dealloc_function(iter_func);
-  // }
+    for (int i = 0; i < mod->functions->length; i++) {
+      Function *iter_func = (Function *)vec_get(mod->functions, i);
+
+      dealloc_function(iter_func);
+    }
+  }
 }

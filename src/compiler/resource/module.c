@@ -1,17 +1,39 @@
 #include "module.h"
 
+#include "util.h"
 #include "vector.h"
+
+#define FILE_SUFFIX_LEN 3
+
+Module *find_required_mod(Module *base, char *name) {
+  for (int i = 0; i < base->requires->length; i++) {
+    Module *req_mod = (Module *)vec_get(base->requires, i);
+    if (!strncmp(req_mod->file_path, name, strlen(req_mod->file_path) - FILE_SUFFIX_LEN)) {
+      return req_mod;
+    }
+  }
+
+  return NULL;
+}
 
 Module *new_module(ModuleKind kind, char *file_path) {
   Module *mod    = (Module *)calloc(1, sizeof(Module));
   mod->kind      = kind;
   mod->functions = new_vec();
   mod->requires  = new_vec();
+  mod->used      = new_vec();
   mod->visited   = false;
 
-  int length     = strlen(file_path);
-  mod->file_path = (char *)calloc(length, sizeof(char));
-  strncpy(mod->file_path, file_path, length);
-  mod->file_path[length] = 0;
+  mod->file_path = str_alloc_and_copy(file_path, strlen(file_path));
   return mod;
+}
+
+bool function_is_used(Module *mod, char *name) {
+  for (int i = 0; i < mod->used->length; i++) {
+    char *api_name = (char *)vec_get(mod->used, i);
+    if (!strncmp(api_name, name, strlen(api_name))) {
+      return true;
+    }
+  }
+  return false;
 }
