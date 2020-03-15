@@ -149,7 +149,7 @@ static void gen_expr(Node *n) {
         printf("  pop %s\n", reg);
       }
 
-      printf("  call %s\n", n->name);
+      printf("  call %s\n", n->id_name->name);
       printf("  push rax\n");
       break;
     case ND_IDENT:
@@ -218,8 +218,8 @@ static void gen_lval(Node *n) {
   Variable *lvar = NULL;
   switch (n->kind) {
     case ND_IDENT:
-      if ((lvar = find_lvar(this_func, n->name)) == NULL)
-        fprintf(stderr, "not found such a variable -> %s\n", n->name);
+      if ((lvar = find_lvar(this_func, n->id_name->name)) == NULL)
+        fprintf(stderr, "not found such a variable -> %s\n", n->id_name->name);
 
       printf("  mov rax, rbp\n");
       printf("  sub rax, %d\n", lvar->offset);

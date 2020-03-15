@@ -31,7 +31,7 @@ static struct AGType *expect_agtype(Token **tok);
 static void expect_keyword(Token **tok, TokenKind kind);
 static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
-static char *expect_identifier(Token **tok);
+static IdentName *expect_identifier(Token **tok);
 static void set_current_position(Token **tok, uint32_t *col, uint32_t *row);
 
 // file global definitions
@@ -67,7 +67,7 @@ Function *function(void) {
   set_current_position(&fg_cur_tok, &def_func_col, &def_func_row);
 
   expect_keyword(&fg_cur_tok, TK_FUNC);
-  char *name = expect_identifier(&fg_cur_tok);
+  char *name = expect_identifier(&fg_cur_tok)->name;
 
   Function *func = new_function(name, NULL, def_func_col, def_func_row);
   func->kind     = FN_DEFINED;
@@ -80,7 +80,7 @@ Function *function(void) {
     uint32_t def_arg_col, def_arg_row;
     set_current_position(&fg_cur_tok, &def_arg_col, &def_arg_row);
 
-    char *name = expect_identifier(&fg_cur_tok);
+    char *name = expect_identifier(&fg_cur_tok)->name;
 
     char *allocated_name = str_alloc_and_copy(name, strlen(name));
 
@@ -155,8 +155,8 @@ static Node *countup_statement(void) {
 
   Variable *old_var;
   // 本当はスコープを新しく定義すべき
-  if ((old_var = find_lvar(*this_func, lvar->name)) == NULL) {
-    Variable *new_var = new_local_var(lvar->name, var_type);
+  if ((old_var = find_lvar(*this_func, lvar->id_name->name)) == NULL) {
+    Variable *new_var = new_local_var(lvar->id_name->name, var_type);
     put_local_var(*this_func, new_var);
   }
 
@@ -200,7 +200,7 @@ static Node *ifret_statement(void) {
 // vardecl = "declare" identifier typename
 static Node *vardecl_statement() {
   expect_keyword(&fg_cur_tok, TK_DECLARE);
-  char *name       = expect_identifier(&fg_cur_tok);
+  char *name       = expect_identifier(&fg_cur_tok)->name;
   AGType *var_type = expect_agtype(&fg_cur_tok);
 
   Variable *old_var;
@@ -338,10 +338,10 @@ static Node *primary(void) {
     int int_value = expect_intlit_value(&fg_cur_tok);
     return new_intlit_node(int_value, start_col, start_row);
   } else {
-    char *name = expect_identifier(&fg_cur_tok);
+    IdentName *id_name = expect_identifier(&fg_cur_tok);
 
     if (!eat_if_symbol_matched(&fg_cur_tok, "(")) {
-      return new_ident_node(name, start_col, start_row);
+      return new_ident_node(id_name, start_col, start_row);
     }
     // call-expression
 
@@ -352,7 +352,7 @@ static Node *primary(void) {
       eat_if_symbol_matched(&fg_cur_tok, ",");
     }
 
-    return new_call(name, args, start_col, start_row);
+    return new_call(id_name, args, start_col, start_row);
   }
 }
 
@@ -415,14 +415,29 @@ static void expect_symbol(Token **tok, char *pat) {
 }
 
 // 識別子であるかチェックし，そうであれば識別子名を返す
-static char *expect_identifier(Token **tok) {
+static IdentName *expect_identifier(Token **tok) {
   if ((*tok)->kind != TK_IDENT)
     fprintf(stderr, "%d:%d: expected identifier\n", (*tok)->row, (*tok)->col);
   char *name = (*tok)->str;
   *tok       = (*tok)->next;
-  fg_col     = (*tok)->col;
-  fg_row     = (*tok)->row;
-  return name;
+
+  IdentName *base = new_ident_name(name, NULL);
+  IdentName *prev = base;
+  IdentName *next = NULL;
+  while (eat_if_symbol_matched(&fg_cur_tok, "::")) {
+    if ((*tok)->kind != TK_IDENT)
+      fprintf(stderr, "%d:%d: module name must be an identifier\n", (*tok)->row, (*tok)->col);
+
+    char *next_name = (*tok)->str;
+    next            = append_ident_name(next_name, &prev);
+    prev            = next;
+
+    *tok = (*tok)->next;
+  }
+
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
+  return base;
 }
 
 static void set_current_position(Token **tok, uint32_t *col, uint32_t *row) {

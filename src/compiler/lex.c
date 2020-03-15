@@ -88,6 +88,18 @@ static Token *tokenize_keyword(char **ptr, Token *cur) {
 // 記号のトークナイズ
 static Token *tokenize_symbol(char **ptr, Token *cur) {
   Token *tok = NULL;
+
+  // 複数文字の記号
+  char *multilen_symbols[] = {"::", NULL};
+  for (int i = 0; multilen_symbols[i] != NULL; i++) {
+    if (!strncmp(*ptr, multilen_symbols[i], 2)) {
+      tok = new_symbol(cur, *ptr, 2, fg_col, fg_row);
+      fg_col += 2;
+      *ptr += 2;
+      return tok;
+    }
+  }
+
   // 1文字の記号
   if (strchr("+-*/;(){}=,\"", **ptr) != NULL) {
     tok = new_symbol(cur, *ptr, 1, fg_col++, fg_row);

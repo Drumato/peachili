@@ -120,6 +120,9 @@ void dump_token(Token *t) {
     case TK_DECLARE:
       fprintf(stderr, "DECLARE");
       break;
+    case TK_REQUIRE:
+      fprintf(stderr, "REQUIRE");
+      break;
     case TK_EOF:
       fprintf(stderr, "EOF");
       break;

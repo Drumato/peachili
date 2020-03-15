@@ -2,6 +2,7 @@
 
 #include "agtype.h"
 #include "base.h"
+#include "util.h"
 #include "variable.h"
 #include "vector.h"
 
@@ -78,8 +79,10 @@ static void dealloc_node(Node *n) {
       n->body = NULL;
       break;
     case ND_IDENT:
-      free(n->name);
-      n->name = NULL;
+      free(n->id_name->name);
+      n->id_name->name = NULL;
+      free(n->id_name);
+      n->id_name = NULL;
       break;
     case ND_IF:
       free(n->expr);
@@ -98,13 +101,23 @@ static void dealloc_node(Node *n) {
 }
 
 // コンストラクタ
+IdentName *new_ident_name(char *name, IdentName *next) {
+  IdentName *id = (IdentName *)calloc(1, sizeof(IdentName));
+  id->name      = str_alloc_and_copy(name, strlen(name));
+  id->next      = next;
+  return id;
+}
+
+IdentName *append_ident_name(char *name, IdentName **cur) {
+  IdentName *next = new_ident_name(name, NULL);
+  (*cur)->next    = next;
+  return next;
+}
+
 Function *new_function(char *name, AGType *ret_type, uint32_t col, uint32_t row) {
   Function *func = (Function *)calloc(1, sizeof(Function));
 
-  int length = strlen(name);
-  func->name = (char *)calloc(length, sizeof(char));
-  strncpy(func->name, name, length);
-  func->name[length] = 0;
+  func->name = str_alloc_and_copy(name, strlen(name));
 
   func->stmts       = new_vec();
   func->locals      = new_vec();
@@ -138,17 +151,13 @@ Node *new_return(Node *expr, uint32_t col, uint32_t row) {
   return n;
 }
 
-Node *new_call(char *name, Vector *args, uint32_t col, uint32_t row) {
+Node *new_call(IdentName *id_name, Vector *args, uint32_t col, uint32_t row) {
   Node *n = init_node(ND_CALL);
 
-  int length = strlen(name);
-  n->name    = (char *)calloc(length, sizeof(char));
-  strncpy(n->name, name, length);
-  n->name[length] = 0;
-
-  n->args = args;
-  n->col  = col;
-  n->row  = row;
+  n->id_name = id_name;
+  n->args    = args;
+  n->col     = col;
+  n->row     = row;
   return n;
 }
 
@@ -204,15 +213,12 @@ Node *new_intlit_node(int value, uint32_t col, uint32_t row) {
   return n;
 }
 
-Node *new_ident_node(char *name, uint32_t col, uint32_t row) {
+Node *new_ident_node(IdentName *id_name, uint32_t col, uint32_t row) {
   Node *n = init_node(ND_IDENT);
   n->col  = col;
   n->row  = row;
 
-  int length = strlen(name);
-  n->name    = (char *)calloc(length, sizeof(char));
-  strncpy(n->name, name, length);
-  n->name[length] = 0;
+  n->id_name = id_name;
 
   return n;
 }
@@ -251,6 +257,25 @@ static void debug(Node *n) {
     case ND_INTLIT:
       fprintf(stderr, "%d", n->int_value);
       break;
+    case ND_IDENT: {
+      fprintf(stderr, "%s", n->id_name->name);
+      IdentName *id_name = n->id_name;
+      while (id_name->next) {
+        fprintf(stderr, "::%s", id_name->next->name);
+        id_name = id_name->next;
+      }
+      break;
+    }
+    case ND_CALL: {
+      fprintf(stderr, "%s", n->id_name->name);
+      IdentName *id_name = n->id_name;
+      while (id_name->next) {
+        fprintf(stderr, "::%s", id_name->next->name);
+        id_name = id_name->next;
+      }
+      fprintf(stderr, "()");
+      break;
+    }
     case ND_ADD:
       debug_binary("ADD", n);
       break;

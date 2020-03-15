@@ -1,5 +1,7 @@
 #include "ast.h"
 #include "base.h"
+#include "bundler.h"
+#include "module.h"
 #include "structure.h"
 #include "util.h"
 #include "vector.h"
@@ -28,32 +30,39 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   // *      Compiler     *
   // *********************
 
-  char *user_input = get_contents(file_path);
+  // 最初，すべてのソースに対しフロントエンド処理を終わらせる．
+  for (int source_i = 0; source_i < sources_g->length; source_i++) {
+    Module *mod = (Module *)vec_get(sources_g, source_i);
 
-  // step.1 tokenize
-  Token *top_token = tokenize(user_input);
+    char *user_input = get_contents(mod->file_path);
 
-  debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
+    // step.1 tokenize
+    Token *top_token = tokenize(user_input);
 
-  // step.2 parse
-  Vector *functions = parse(top_token);
-  dealloc_tokens(&top_token);
+    debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
 
-  // step.3 typecheck and allocating_stack
-  for (int i = 0; i < functions->length; i++) {
-    Function *iter_func = (Function *)vec_get(functions, i);
-    debug_func_to_stderr(debug_opt->dbg_compiler, iter_func);
+    // step.2 parse
+    Vector *functions = parse(top_token);
+    dealloc_tokens(&top_token);
+
+    // step.3 typecheck and allocating_stack
+    for (int i = 0; i < functions->length; i++) {
+      Function *iter_func = (Function *)vec_get(functions, i);
+      debug_func_to_stderr(debug_opt->dbg_compiler, iter_func);
+    }
+
+    type_check(&functions);
+    allocate_stack_frame(&functions);
+
+    mod->functions = functions;
   }
-
-  type_check(&functions);
-  allocate_stack_frame(&functions);
 
   // step.4 code-generating finally
-  gen_x64(functions);
+  // gen_x64(functions);
 
-  for (int i = 0; i < functions->length; i++) {
-    Function *iter_func = (Function *)vec_get(functions, i);
+  // for (int i = 0; i < functions->length; i++) {
+  // Function *iter_func = (Function *)vec_get(functions, i);
 
-    dealloc_function(iter_func);
-  }
+  // dealloc_function(iter_func);
+  // }
 }

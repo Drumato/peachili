@@ -46,6 +46,15 @@ typedef enum {
   ND_NOP,
 } NodeKind;
 
+typedef struct IdentName IdentName;
+struct IdentName {
+  char *name;
+  IdentName *next;
+};
+
+IdentName *new_ident_name(char *name, IdentName *next);
+IdentName *append_ident_name(char *name, IdentName **cur);
+
 struct Node {
   // general
   NodeKind kind;
@@ -53,7 +62,7 @@ struct Node {
   uint32_t row;
 
   // for identifier
-  char *name;
+  IdentName *id_name;
 
   // for expressions
   int int_value;
@@ -70,7 +79,7 @@ struct Node {
 };
 
 Node *new_return(Node *expr, uint32_t col, uint32_t row);
-Node *new_call(char *name, struct Vector *args, uint32_t col, uint32_t row);
+Node *new_call(IdentName *id_name, struct Vector *args, uint32_t col, uint32_t row);
 Node *new_ifret(Node *expr, uint32_t col, uint32_t row);
 Node *new_countup(Node *lvar, Node *start, Node *end, struct Vector *stmts, uint32_t col,
                   uint32_t row);
@@ -80,7 +89,7 @@ Node *new_assign(Node *lvar, Node *expr, uint32_t col, uint32_t row);
 Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col, uint32_t row);
 Node *new_unary_node(NodeKind kind, Node *inner, uint32_t col, uint32_t row);
 Node *new_intlit_node(int length, uint32_t col, uint32_t row);
-Node *new_ident_node(char *name, uint32_t col, uint32_t row);
+Node *new_ident_node(IdentName *id_name, uint32_t col, uint32_t row);
 void debug_func_to_stderr(bool verbose, Function *func);
 void dealloc_function(Function *func);
 struct Variable *find_lvar(Function *func, char *name);
