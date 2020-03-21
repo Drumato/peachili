@@ -4,6 +4,7 @@
 #include "module.h"
 #include "token.h"
 #include "vector.h"
+#include "util.h"
 
 #define FILE_SUFFIX_LENGTH 3
 
@@ -11,6 +12,7 @@ extern Token *tokenize(char *program);
 extern char *get_contents(const char *filename);
 static bool symbol_matched(Token **tok, char *pat);
 static bool check_module_exists(char *path);
+static char *check_module_exists_from_envvar(char *path);
 
 void bundler_parse(Module **mod, Token **top_token) {
   vec_push(sources_g, *mod);
@@ -39,16 +41,19 @@ void bundler_parse(Module **mod, Token **top_token) {
   }
 
   char *ptr                  = (*top_token)->str;
-  char *required_module_name = (char *)calloc(strlen(ptr) + FILE_SUFFIX_LENGTH, sizeof(char));
-  strncpy(required_module_name, ptr, strlen(ptr));
+  char *required_module_name = str_alloc_and_copy(ptr, strlen(ptr));
   ptr = required_module_name + strlen(ptr);
   strncpy(ptr, ".go", FILE_SUFFIX_LENGTH);
   ptr[FILE_SUFFIX_LENGTH] = '\0';
 
   // $PEACHILI_STD_PATH か 相対パスのどちらかに同名ファイルが存在しなければエラー．
+  char *full_path = check_module_exists_from_envvar(required_module_name);
   if (!check_module_exists(required_module_name)) {
-    fprintf(stderr, "not found such a module -> %s\n", required_module_name);
-    exit(1);
+      if (full_path == NULL) {
+          fprintf(stderr, "not found such a module -> %s\n", required_module_name);
+          exit(1);
+      }
+      required_module_name = full_path;
   }
 
   // 再帰的に呼び出す
@@ -62,13 +67,36 @@ void bundler_parse(Module **mod, Token **top_token) {
 }
 
 static bool check_module_exists(char *path) {
-  // TODO: 環境変数には今の所対応させない．
   struct stat st;
-  if (stat(path, &st) == 0) {
-    return true;
-  }
-  return false;
+  return stat(path, &st) == 0;
 }
+
+static char *check_module_exists_from_envvar(char *path) {
+    struct stat st;
+
+    char *env_string = getenv("PEACHILI_STD_PATH");
+    assert(env_string);
+
+    // 環境変数からのフルパスを構築
+    char *full_path = str_alloc_and_copy(env_string, strlen(env_string) + strlen(path) + 1);
+
+    int length = strlen(env_string);
+    // "/"があるかないか
+    if (full_path[length] != '/'){
+        strncpy(&(full_path[length]), "/", 1);
+        length++;
+    }
+
+    strncpy(&(full_path[length]), path, strlen(path));
+    full_path[length + strlen(path)] = '\0';
+
+    if (stat(full_path, &st) == 0) {
+        return full_path;
+    }
+
+    return NULL;
+}
+
 static bool symbol_matched(Token **tok, char *pat) {
   if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str))) return false;
   return true;

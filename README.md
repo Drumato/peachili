@@ -1,4 +1,4 @@
-# Pewachili
+# Peachili
 
 This programming language is inspired Golang strongly.
 

@@ -34,6 +34,7 @@ try 9 "countup.go"
 try 30 "with_argument.go"
 try 30 "without_argument.go"
 try 30 "import.go"
+try 1 "import_from_stdpath.go"
 
 echo -e "\n\nOK"
 
