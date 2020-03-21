@@ -7,11 +7,17 @@
 #include "vector.h"
 
 extern void bundler_init(DebugOption *debug_opt, char *file_path);
+
 extern Token *tokenize(char *program);
+
 extern Vector *parse(Token *top_token, int source_i);
+
 extern void type_check(Vector **functions);
+
 extern void allocate_stack_frame(Vector **functions);
+
 extern void gen_x64_primary(Vector *functions);
+
 extern void gen_x64_external(Module *mod);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
@@ -34,7 +40,7 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   // 最初，すべてのソースに対しフロントエンド処理を終わらせる．
   for (int source_i = 0; source_i < sources_g->length; source_i++) {
     Module *mod = (Module *)vec_get(sources_g, source_i);
-
+    
     char *user_input = get_contents(mod->file_path);
 
     // step.1 tokenize

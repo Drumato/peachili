@@ -22,10 +22,10 @@ struct stat get_file_info(FILE *file) {
 }
 
 char *get_contents(const char *filename) {
-  FILE *file     = open_file(filename, "rb");
+  FILE *file = open_file(filename, "rb");
   struct stat st = get_file_info(file);
-  size_t nmemb   = (size_t)(st.st_size);
-  char *buf      = (char *)malloc(nmemb);
+  size_t nmemb = (size_t)(st.st_size);
+  char *buf = (char *)malloc(nmemb);
   if (fread(buf, (size_t)(1), nmemb, file) < nmemb) {
     fprintf(stderr, "Error Found:%s\n", strerror(errno));
     exit(1);
@@ -40,4 +40,18 @@ char *str_alloc_and_copy(char *src, int length) {
   strncpy(allocated, src, length);
   allocated[length] = 0;
   return allocated;
+}
+
+char *get_last_path(char *filename) {
+  if (strchr(filename, '/') == NULL){
+    return filename;
+  }
+  char *fp = filename;
+  char *prev;
+  char *next = strtok(fp, "/");
+  while (next != NULL) {
+    prev = next;
+    next = strtok(NULL, "/");
+  }
+  return prev;
 }

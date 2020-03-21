@@ -4,10 +4,10 @@
 #include <stdlib.h>
 
 Vector *new_vec(void) {
-  Vector *vec   = malloc(sizeof(Vector));
-  vec->data     = malloc(sizeof(void *) * 16);
+  Vector *vec = malloc(sizeof(Vector));
+  vec->data = malloc(sizeof(void *) * 16);
   vec->capacity = 16;
-  vec->length   = 0;
+  vec->length = 0;
   return vec;
 };
 
@@ -22,6 +22,7 @@ void vec_resize(Vector *vec) {
 }
 
 void vec_push(Vector *vector, void *elem) {
-  if (vector->length >= vector->capacity) vec_resize(vector);
+  if (vector->length >= vector->capacity)
+    vec_resize(vector);
   vector->data[vector->length++] = elem;
 }

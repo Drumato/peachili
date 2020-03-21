@@ -6,6 +6,7 @@
 static void alloc_frame_in_func(Function **func);
 
 static Vector *fg_vec;
+
 void allocate_stack_frame(Vector **functions) {
   fg_vec = *functions;
 

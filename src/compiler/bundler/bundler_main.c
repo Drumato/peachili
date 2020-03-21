@@ -25,7 +25,10 @@ void bundler_init(DebugOption *debug_opt, char *file_path) {
     fprintf(stderr, "\tenumerate files\n");
     for (int i = 0; i < sources_g->length; i++) {
       Module *m = (Module *)vec_get(sources_g, i);
-      fprintf(stderr, "\t\t%s\n", m->file_path);
+      fprintf(stderr, "\t\tfile_path -> %s\n", m->file_path);
+      fprintf(stderr, "\t\tthe number of defined functions -> %d\n", m->functions->length);
+      fprintf(stderr, "\t\tthe number of requires -> %d\n", m->requires->length);
+      fprintf(stderr, "\t\tthe number of using external api -> %d\n", m->used->length);
     }
   }
 

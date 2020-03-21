@@ -1,6 +1,6 @@
 struct Vector {
-  int length;    // elements of number
-  int capacity;  // size of array(allocated)
+  int length;   // elements of number
+  int capacity; // size of array(allocated)
   void **data;
 };
 typedef struct Vector Vector;

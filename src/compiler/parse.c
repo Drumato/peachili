@@ -11,42 +11,60 @@ static Function *function(void);
 
 // statements
 static Node *statement(void);
+
 static Node *return_statement(void);
+
 static Node *countup_statement(void);
+
 static Node *ifret_statement(void);
+
 static Node *vardecl_statement(void);
+
 static void compound_statement(Token **tok);
 
 // expressions
 static Node *if_expression(void);
+
 static Node *expression(void);
+
 static Node *assignment(void);
+
 static Node *multiplicative(void);
+
 static Node *additive(void);
+
 static Node *unary(void);
+
 static Node *primary(void);
 
 // utilities
 static inline bool check_curtoken_is(Token **tok, TokenKind kind);
+
 static bool eat_if_symbol_matched(Token **tok, char *pat);
+
 static struct AGType *expect_agtype(Token **tok);
+
 static void expect_keyword(Token **tok, TokenKind kind);
+
 static void expect_symbol(Token **tok, char *pat);
+
 static int expect_intlit_value(Token **tok);
+
 static IdentName *expect_identifier(Token **tok);
+
 static void set_current_position(Token **tok, uint32_t *col, uint32_t *row);
 
 // file global definitions
 static Token *fg_cur_tok;
-static uint32_t fg_col  = 1;
-static uint32_t fg_row  = 1;
+static uint32_t fg_col = 1;
+static uint32_t fg_row = 1;
 static bool in_if_scope = false;
 static Function **this_func;
 static int fg_source_i;
 
 Vector *parse(Token *top_token, int source_i) {
   fg_source_i = source_i;
-  fg_cur_tok  = top_token;
+  fg_cur_tok = top_token;
   set_current_position(&fg_cur_tok, &fg_col, &fg_row);
 
   Vector *funcs = new_vec();
@@ -74,8 +92,8 @@ Function *function(void) {
   char *name = expect_identifier(&fg_cur_tok)->name;
 
   Function *func = new_function(name, NULL, def_func_col, def_func_row);
-  func->kind     = FN_DEFINED;
-  this_func      = &func;
+  func->kind = FN_DEFINED;
+  this_func = &func;
 
   expect_symbol(&fg_cur_tok, "(");
 
@@ -92,7 +110,8 @@ Function *function(void) {
     AGType *var_type = expect_agtype(&fg_cur_tok);
 
     if (find_lvar(*this_func, name) != NULL) {
-      fprintf(stderr, "%d:%d: %s already defined\n", def_arg_row, def_arg_col, name);
+      fprintf(stderr, "%d:%d: %s already defined\n", def_arg_row, def_arg_col,
+              name);
     }
 
     Variable *new_var = new_local_var(name, var_type);
@@ -102,7 +121,7 @@ Function *function(void) {
   }
 
   (*this_func)->return_type = expect_agtype(&fg_cur_tok);
-  (*this_func)->args        = args;
+  (*this_func)->args = args;
 
   compound_statement(&fg_cur_tok);
 
@@ -113,7 +132,8 @@ static void compound_statement(Token **tok) {
   expect_symbol(tok, "{");
 
   while (true) {
-    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
+      break;
     Node *stmt = statement();
     put_statement(*this_func, stmt);
   }
@@ -154,7 +174,7 @@ static Node *countup_statement(void) {
   set_current_position(&fg_cur_tok, &start_col, &start_row);
 
   expect_keyword(&fg_cur_tok, TK_COUNTUP);
-  Node *lvar       = primary();
+  Node *lvar = primary();
   AGType *var_type = expect_agtype(&fg_cur_tok);
 
   Variable *old_var;
@@ -175,7 +195,8 @@ static Node *countup_statement(void) {
 
   // countupの本体
   while (true) {
-    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
+      break;
     Node *stmt = statement();
     vec_push(stmts, (void *)stmt);
   }
@@ -190,8 +211,9 @@ static Node *ifret_statement(void) {
   set_current_position(&fg_cur_tok, &start_col, &start_row);
 
   if (!in_if_scope) {
-    fprintf(stderr, "%d:%d: ifret-statement can only exist in if-expression block\n", start_row,
-            start_col);
+    fprintf(stderr,
+            "%d:%d: ifret-statement can only exist in if-expression block\n",
+            start_row, start_col);
     exit(1);
   }
 
@@ -204,7 +226,7 @@ static Node *ifret_statement(void) {
 // vardecl = "declare" identifier typename
 static Node *vardecl_statement() {
   expect_keyword(&fg_cur_tok, TK_DECLARE);
-  char *name       = expect_identifier(&fg_cur_tok)->name;
+  char *name = expect_identifier(&fg_cur_tok)->name;
   AGType *var_type = expect_agtype(&fg_cur_tok);
 
   Variable *old_var;
@@ -245,7 +267,8 @@ static Node *if_expression(void) {
 
   // ifの本体
   while (true) {
-    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
+      break;
     Node *stmt = statement();
     vec_push(stmts, (void *)stmt);
   }
@@ -263,7 +286,8 @@ static Node *if_expression(void) {
 
   // elseの本体
   while (true) {
-    if (eat_if_symbol_matched(&fg_cur_tok, "}")) break;
+    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
+      break;
     Node *stmt = statement();
     vec_push(alter, (void *)stmt);
   }
@@ -279,7 +303,8 @@ static Node *assignment(void) {
   uint32_t start_col, start_row;
   set_current_position(&fg_cur_tok, &start_col, &start_row);
 
-  if (!eat_if_symbol_matched(&fg_cur_tok, "=")) return lvar;
+  if (!eat_if_symbol_matched(&fg_cur_tok, "="))
+    return lvar;
 
   Node *expr = expression();
   return new_assign(lvar, expr, start_col, start_row);
@@ -295,9 +320,11 @@ static Node *additive(void) {
 
   for (;;) {
     if (eat_if_symbol_matched(&fg_cur_tok, "+"))
-      node = new_binary_node(ND_ADD, node, multiplicative(), start_col, start_row);
+      node =
+          new_binary_node(ND_ADD, node, multiplicative(), start_col, start_row);
     else if (eat_if_symbol_matched(&fg_cur_tok, "-"))
-      node = new_binary_node(ND_SUB, node, multiplicative(), start_col, start_row);
+      node =
+          new_binary_node(ND_SUB, node, multiplicative(), start_col, start_row);
     else
       return node;
   }
@@ -328,7 +355,7 @@ static Node *unary(void) {
   if (eat_if_symbol_matched(&fg_cur_tok, "-")) {
     return new_unary_node(ND_NEG, primary(), start_col, start_row);
   }
-  eat_if_symbol_matched(&fg_cur_tok, "+");  // +の可能性は読みとばす
+  eat_if_symbol_matched(&fg_cur_tok, "+"); // +の可能性は読みとばす
 
   return primary();
 }
@@ -366,7 +393,7 @@ static struct AGType *expect_agtype(Token **tok) {
     dump_token(*tok);
     fprintf(stderr, "\n");
   }
-  *tok   = (*tok)->next;
+  *tok = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
   return new_integer_type();
@@ -374,8 +401,10 @@ static struct AGType *expect_agtype(Token **tok) {
 
 // もし指定パターンにマッチすれば読みすすめる
 static bool eat_if_symbol_matched(Token **tok, char *pat) {
-  if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str))) return false;
-  *tok   = (*tok)->next;
+  if ((*tok)->kind != TK_SYMBOL ||
+      strncmp((*tok)->str, pat, strlen((*tok)->str)))
+    return false;
+  *tok = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
   return true;
@@ -384,15 +413,18 @@ static bool eat_if_symbol_matched(Token **tok, char *pat) {
 // 数値であれば読み進め,意味値( 整数値 )を返す
 static int expect_intlit_value(Token **tok) {
   if ((*tok)->kind != TK_INTLIT)
-    fprintf(stderr, "%d:%d: expected integer-literal\n", (*tok)->row, (*tok)->col);
+    fprintf(stderr, "%d:%d: expected integer-literal\n", (*tok)->row,
+            (*tok)->col);
   int val = (*tok)->int_value;
-  *tok    = (*tok)->next;
-  fg_col  = (*tok)->col;
-  fg_row  = (*tok)->row;
+  *tok = (*tok)->next;
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
   return val;
 }
 
-static inline bool check_curtoken_is(Token **tok, TokenKind kind) { return (*tok)->kind == kind; }
+static inline bool check_curtoken_is(Token **tok, TokenKind kind) {
+  return (*tok)->kind == kind;
+}
 
 // 指定された予約語であるかチェック，そうでなければエラー
 static void expect_keyword(Token **tok, TokenKind kind) {
@@ -401,19 +433,21 @@ static void expect_keyword(Token **tok, TokenKind kind) {
     dump_token(*tok);
     fprintf(stderr, "\n");
   }
-  *tok   = (*tok)->next;
+  *tok = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
 }
 
 // 指定された記号であるかチェック，そうでなければエラー
 static void expect_symbol(Token **tok, char *pat) {
-  if ((*tok)->kind != TK_SYMBOL || strncmp((*tok)->str, pat, strlen((*tok)->str))) {
-    fprintf(stderr, "%d:%d: expected %s unexpected ", (*tok)->row, (*tok)->col, pat);
+  if ((*tok)->kind != TK_SYMBOL ||
+      strncmp((*tok)->str, pat, strlen((*tok)->str))) {
+    fprintf(stderr, "%d:%d: expected %s unexpected ", (*tok)->row, (*tok)->col,
+            pat);
     dump_token(*tok);
     fprintf(stderr, "\n");
   }
-  *tok   = (*tok)->next;
+  *tok = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
 }
@@ -423,14 +457,15 @@ static IdentName *expect_identifier(Token **tok) {
   if ((*tok)->kind != TK_IDENT)
     fprintf(stderr, "%d:%d: expected identifier\n", (*tok)->row, (*tok)->col);
   char *name = (*tok)->str;
-  *tok       = (*tok)->next;
+  *tok = (*tok)->next;
 
   IdentName *base = new_ident_name(name, NULL);
   IdentName *prev = base;
   IdentName *next = NULL;
   while (eat_if_symbol_matched(&fg_cur_tok, "::")) {
     if ((*tok)->kind != TK_IDENT)
-      fprintf(stderr, "%d:%d: module name must be an identifier\n", (*tok)->row, (*tok)->col);
+      fprintf(stderr, "%d:%d: module name must be an identifier\n", (*tok)->row,
+              (*tok)->col);
 
     char *next_name = str_alloc_and_copy((*tok)->str, strlen((*tok)->str));
 

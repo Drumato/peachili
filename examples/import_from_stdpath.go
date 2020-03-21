@@ -1,5 +1,5 @@
-require "peachili";
+require "std";
 
-func main() int{
-    return peachili::currentPeachiliVersion();
+func main() int {
+    return std::peachili_version();
 }

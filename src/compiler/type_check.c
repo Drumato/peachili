@@ -6,6 +6,7 @@
 static void type_check_in_func(Function **func);
 
 static Vector *fg_vec;
+
 void type_check(Vector **functions) {
   fg_vec = *functions;
 
@@ -22,22 +23,25 @@ void type_check_in_func(Function **func) {
   for (int i = 0; i < (*func)->stmts->length; i++) {
     Node *n = get_statement(*func, i);
     switch (n->kind) {
-      case ND_COUNTUP:
-        if (n->expr->kind != ND_IDENT) {
-          fprintf(stderr, "%d:%d: countup-expr must be an identifier in countup-statement\n",
-                  n->row, n->col);
-          exit(1);
-        }
-        break;
-      case ND_ASSIGN:
-        if (n->left->kind != ND_IDENT) {
-          fprintf(stderr, "%d:%d: left-value must be an identifier in assignment\n", n->row,
-                  n->col);
-          exit(1);
-        }
-        break;
-      default:
-        break;
+    case ND_COUNTUP:
+      if (n->expr->kind != ND_IDENT) {
+        fprintf(
+            stderr,
+            "%d:%d: countup-expr must be an identifier in countup-statement\n",
+            n->row, n->col);
+        exit(1);
+      }
+      break;
+    case ND_ASSIGN:
+      if (n->left->kind != ND_IDENT) {
+        fprintf(stderr,
+                "%d:%d: left-value must be an identifier in assignment\n",
+                n->row, n->col);
+        exit(1);
+      }
+      break;
+    default:
+      break;
     }
   }
 }

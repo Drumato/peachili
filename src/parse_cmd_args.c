@@ -8,15 +8,14 @@ void parse_arguments(int argc, char **argv, DebugOption *debug_opt) {
   int opt, longindex;
   while ((opt = getopt_long(argc, argv, "vd:::", longopts, &longindex)) != -1) {
     switch (opt) {
-      case 'v':
-        debug_opt->verbose = true;
-        break;
-      case 'd':
-        debug_opt->dbg_compiler = true;
-        break;
-      default:
-        break;
+    case 'v':
+      debug_opt->verbose = true;
+      break;
+    case 'd':
+      debug_opt->dbg_compiler = true;
+      break;
+    default:
+      break;
     }
   }
 }
-

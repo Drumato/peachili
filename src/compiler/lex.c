@@ -6,9 +6,13 @@
 #include "token.h"
 
 static void skip_whitespace(char **ptr);
+
 static Token *tokenize_symbol(char **ptr, Token *cur);
+
 static Token *tokenize_number(char **ptr, Token *cur);
+
 static Token *tokenize_keyword(char **ptr, Token *cur);
+
 static int cut_integer_range(char **ptr, int *value);
 
 static uint32_t fg_col = 1;
@@ -16,7 +20,7 @@ static uint32_t fg_row = 1;
 
 Token *tokenize(char *program) {
   Token head;
-  head.next  = NULL;
+  head.next = NULL;
   Token *cur = &head;
 
   while (*program) {
@@ -44,7 +48,7 @@ Token *tokenize(char *program) {
     exit(1);
   }
 
-  cur       = new_eof(cur, fg_col, fg_row);
+  cur = new_eof(cur, fg_col, fg_row);
   cur->next = NULL;
   return head.next;
 }
@@ -56,13 +60,15 @@ static void skip_whitespace(char **ptr) {
     fg_col++;
   }
 }
+
 // 予約語のトークナイズ
 static Token *tokenize_keyword(char **ptr, Token *cur) {
-  Token *tok           = NULL;
-  char *keywords[]     = {"ifret",   "if",      "else", "int", "func",    "return",
+  Token *tok = NULL;
+  char *keywords[] = {"ifret",   "if",      "else", "int", "func",    "return",
                       "declare", "countup", "from", "to",  "require", NULL};
-  TokenKind tk_kinds[] = {TK_IFRET,   TK_IF,      TK_ELSE, TK_INT, TK_FUNC,   TK_RETURN,
-                          TK_DECLARE, TK_COUNTUP, TK_FROM, TK_TO,  TK_REQUIRE};
+  TokenKind tk_kinds[] = {TK_IFRET, TK_IF,     TK_ELSE,    TK_INT,
+                          TK_FUNC,  TK_RETURN, TK_DECLARE, TK_COUNTUP,
+                          TK_FROM,  TK_TO,     TK_REQUIRE};
   for (int i = 0; keywords[i] != NULL; i++) {
     int word_length = strlen(keywords[i]);
     if (!strncmp(*ptr, keywords[i], word_length)) {
@@ -114,7 +120,7 @@ static Token *tokenize_number(char **ptr, Token *cur) {
   int value;
   if (isdigit(**ptr)) {
     int length = cut_integer_range(ptr, &value);
-    tok        = new_intlit_token(cur, value, fg_col, fg_row);
+    tok = new_intlit_token(cur, value, fg_col, fg_row);
 
     // 数字の長さ分進める
     fg_col += length;
@@ -126,7 +132,7 @@ static Token *tokenize_number(char **ptr, Token *cur) {
 static int cut_integer_range(char **ptr, int *value) {
   // 始点を保持
   char *start = *ptr;
-  *value      = strtol(*ptr, ptr, 10);
+  *value = strtol(*ptr, ptr, 10);
 
   // ポインタ演算によって長さを取得
   int length = *ptr - start;
