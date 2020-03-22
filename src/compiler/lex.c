@@ -14,9 +14,19 @@ static Token *tokenize_number(char **ptr, Token *cur);
 static Token *tokenize_keyword(char **ptr, Token *cur);
 
 static int cut_integer_range(char **ptr, int *value);
+static Token *matched_symbol(char **ptr, Token **cur, char *multilen,
+                             int length);
+static void update_column_and_pointer(char **ptr, uint32_t offset);
 
 static uint32_t fg_col = 1;
 static uint32_t fg_row = 1;
+static char *fg_keywords[] = {"ifret", "if",     "else",    "int",
+                              "func",  "return", "declare", "countup",
+                              "from",  "to",     "require", NULL};
+static TokenKind fg_tk_kinds[] = {TK_IFRET, TK_IF,     TK_ELSE,    TK_INT,
+                                  TK_FUNC,  TK_RETURN, TK_DECLARE, TK_COUNTUP,
+                                  TK_FROM,  TK_TO,     TK_REQUIRE};
+static char *fg_multilen_symbols[] = {"::", NULL};
 
 Token *tokenize(char *program) {
   Token head;
@@ -44,7 +54,7 @@ Token *tokenize(char *program) {
       continue;
     }
 
-    fprintf(stderr, "can't tokenize\n");
+    fprintf(stderr, "can't tokenize -> '%s'\n", program);
     exit(1);
   }
 
@@ -56,29 +66,32 @@ Token *tokenize(char *program) {
 // 空白類文字の読み飛ばし
 static void skip_whitespace(char **ptr) {
   while (isspace(**ptr)) {
-    (*ptr)++;
-    fg_col++;
+    if (**ptr == '\n') {
+      fg_col = 1;
+      fg_row++;
+      (*ptr)++;
+      continue;
+    }
+
+    update_column_and_pointer(ptr, 1);
   }
 }
 
-// 予約語のトークナイズ
+// 予約語･識別子のトークナイズ
 static Token *tokenize_keyword(char **ptr, Token *cur) {
   Token *tok = NULL;
-  char *keywords[] = {"ifret",   "if",      "else", "int", "func",    "return",
-                      "declare", "countup", "from", "to",  "require", NULL};
-  TokenKind tk_kinds[] = {TK_IFRET, TK_IF,     TK_ELSE,    TK_INT,
-                          TK_FUNC,  TK_RETURN, TK_DECLARE, TK_COUNTUP,
-                          TK_FROM,  TK_TO,     TK_REQUIRE};
-  for (int i = 0; keywords[i] != NULL; i++) {
-    int word_length = strlen(keywords[i]);
-    if (!strncmp(*ptr, keywords[i], word_length)) {
-      tok = new_keyword(tk_kinds[i], cur, fg_col, fg_row);
-      fg_col += word_length;
-      *ptr += word_length;
+
+  // 予約語
+  for (int i = 0; fg_keywords[i] != NULL; i++) {
+    int word_length = strlen(fg_keywords[i]);
+    if (!strncmp(*ptr, fg_keywords[i], word_length)) {
+      tok = new_keyword(fg_tk_kinds[i], cur, fg_col, fg_row);
+      update_column_and_pointer(ptr, word_length);
       return tok;
     }
   }
 
+  // 識別子
   if (isalpha(**ptr)) {
     char *start = *ptr;
     (*ptr)++;
@@ -96,12 +109,9 @@ static Token *tokenize_symbol(char **ptr, Token *cur) {
   Token *tok = NULL;
 
   // 複数文字の記号
-  char *multilen_symbols[] = {"::", NULL};
-  for (int i = 0; multilen_symbols[i] != NULL; i++) {
-    if (!strncmp(*ptr, multilen_symbols[i], 2)) {
-      tok = new_symbol(cur, *ptr, 2, fg_col, fg_row);
-      fg_col += 2;
-      *ptr += 2;
+  for (int i = 0; fg_multilen_symbols[i] != NULL; i++) {
+    char *multilen = fg_multilen_symbols[i];
+    if ((tok = matched_symbol(ptr, &cur, multilen, 2)) != NULL) {
       return tok;
     }
   }
@@ -137,4 +147,20 @@ static int cut_integer_range(char **ptr, int *value) {
   // ポインタ演算によって長さを取得
   int length = *ptr - start;
   return length;
+}
+
+static Token *matched_symbol(char **ptr, Token **cur, char *multilen,
+                             int length) {
+  if (!strncmp(*ptr, multilen, length)) {
+    Token *tok = new_symbol(*cur, *ptr, length, fg_col, fg_row);
+    fg_col += length;
+    *ptr += length;
+    return tok;
+  }
+  return NULL;
+}
+
+static void update_column_and_pointer(char **ptr, uint32_t offset) {
+  *ptr += offset;
+  fg_col += offset;
 }

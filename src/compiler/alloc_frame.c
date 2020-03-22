@@ -5,17 +5,12 @@
 
 static void alloc_frame_in_func(Function **func);
 
-static Vector *fg_vec;
-
 void allocate_stack_frame(Vector **functions) {
-  fg_vec = *functions;
 
   for (int i = 0; i < (*functions)->length; i++) {
     Function *iter_func = (Function *)vec_get(*functions, i);
 
-    if (iter_func->kind == FN_DEFINED) {
-      alloc_frame_in_func(&iter_func);
-    }
+    alloc_frame_in_func(&iter_func);
   }
 }
 

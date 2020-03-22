@@ -51,14 +51,15 @@ static void expect_symbol(Token **tok, char *pat);
 static int expect_intlit_value(Token **tok);
 
 static IdentName *expect_identifier(Token **tok);
-
+static void parse_body(Vector **sequence);
 static void set_current_position(Token **tok, uint32_t *col, uint32_t *row);
 
 // file global definitions
-static Token *fg_cur_tok;
+static Token *fg_cur_tok; // ファイルグローバルなトークン
 static uint32_t fg_col = 1;
 static uint32_t fg_row = 1;
-static bool in_if_scope = false;
+static bool in_if_scope =
+    false; // ifret を検出するために使用． 意味解析でやるべきかも
 static Function **this_func;
 static int fg_source_i;
 
@@ -88,40 +89,44 @@ Function *function(void) {
   uint32_t def_func_col, def_func_row;
   set_current_position(&fg_cur_tok, &def_func_col, &def_func_row);
 
-  expect_keyword(&fg_cur_tok, TK_FUNC);
-  char *name = expect_identifier(&fg_cur_tok)->name;
-
-  Function *func = new_function(name, NULL, def_func_col, def_func_row);
-  func->kind = FN_DEFINED;
-  this_func = &func;
-
-  expect_symbol(&fg_cur_tok, "(");
-
+  // func <identifier> ( args ) ag_type までのパース
+  Function *func;
   Vector *args = new_vec();
-  while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
-    uint32_t def_arg_col, def_arg_row;
-    set_current_position(&fg_cur_tok, &def_arg_col, &def_arg_row);
-
+  {
+    expect_keyword(&fg_cur_tok, TK_FUNC);
     char *name = expect_identifier(&fg_cur_tok)->name;
 
-    char *allocated_name = str_alloc_and_copy(name, strlen(name));
+    func = new_function(name, NULL, def_func_col, def_func_row);
+    func->kind = FN_DEFINED;
+    this_func = &func;
 
-    vec_push(args, (void *)allocated_name);
-    AGType *var_type = expect_agtype(&fg_cur_tok);
+    expect_symbol(&fg_cur_tok, "(");
 
-    if (find_lvar(*this_func, name) != NULL) {
-      fprintf(stderr, "%d:%d: %s already defined\n", def_arg_row, def_arg_col,
-              name);
+    while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
+      uint32_t def_arg_col, def_arg_row;
+      set_current_position(&fg_cur_tok, &def_arg_col, &def_arg_row);
+
+      char *name = expect_identifier(&fg_cur_tok)->name;
+
+      char *allocated_name = str_alloc_and_copy(name, strlen(name));
+
+      vec_push(args, (void *)allocated_name);
+      AGType *var_type = expect_agtype(&fg_cur_tok);
+
+      if (find_lvar(func, name) != NULL) {
+        fprintf(stderr, "%d:%d: %s already defined\n", def_arg_row, def_arg_col,
+                name);
+      }
+
+      Variable *new_var = new_local_var(name, var_type);
+      put_local_var(func, new_var);
+
+      eat_if_symbol_matched(&fg_cur_tok, ",");
     }
-
-    Variable *new_var = new_local_var(name, var_type);
-    put_local_var(*this_func, new_var);
-
-    eat_if_symbol_matched(&fg_cur_tok, ",");
   }
 
-  (*this_func)->return_type = expect_agtype(&fg_cur_tok);
-  (*this_func)->args = args;
+  func->return_type = expect_agtype(&fg_cur_tok);
+  func->args = args;
 
   compound_statement(&fg_cur_tok);
 
@@ -141,19 +146,23 @@ static void compound_statement(Token **tok) {
 
 // statement = return_stmt
 static Node *statement(void) {
-  if (check_curtoken_is(&fg_cur_tok, TK_RETURN)) {
+  TokenKind cur_kind = fg_cur_tok->kind;
+
+  // 開始記号から処理を分ける
+  switch (cur_kind) {
+  case TK_RETURN:
     return return_statement();
-  } else if (check_curtoken_is(&fg_cur_tok, TK_COUNTUP)) {
+  case TK_COUNTUP:
     return countup_statement();
-  } else if (check_curtoken_is(&fg_cur_tok, TK_IFRET)) {
+  case TK_IFRET:
     return ifret_statement();
-  } else if (check_curtoken_is(&fg_cur_tok, TK_DECLARE)) {
-    // このノードは何もしないので注意．
+  case TK_DECLARE:
     return vardecl_statement();
-  } else {
+  default: {
     Node *expr = expression();
     expect_symbol(&fg_cur_tok, ";");
     return expr;
+  }
   }
 }
 
@@ -173,36 +182,39 @@ static Node *countup_statement(void) {
   uint32_t start_col, start_row;
   set_current_position(&fg_cur_tok, &start_col, &start_row);
 
-  expect_keyword(&fg_cur_tok, TK_COUNTUP);
-  Node *lvar = primary();
-  AGType *var_type = expect_agtype(&fg_cur_tok);
+  Node *countup_node;
+  Vector *stmts = new_vec();
 
-  Variable *old_var;
-  // 本当はスコープを新しく定義すべき
-  if ((old_var = find_lvar(*this_func, lvar->id_name->name)) == NULL) {
-    Variable *new_var = new_local_var(lvar->id_name->name, var_type);
-    put_local_var(*this_func, new_var);
+  // "countup" typename primary "from" expr "to" expr のパース
+  {
+    expect_keyword(&fg_cur_tok, TK_COUNTUP);
+    Node *loop_var = primary();
+    AGType *var_type = expect_agtype(&fg_cur_tok);
+
+    Variable *old_var;
+    // 本当はスコープを新しく定義すべき
+    if ((old_var = find_lvar(*this_func, loop_var->id_name->name)) == NULL) {
+      Variable *new_var = new_local_var(loop_var->id_name->name, var_type);
+      put_local_var(*this_func, new_var);
+    }
+
+    expect_keyword(&fg_cur_tok, TK_FROM);
+    Node *start_expr = expression();
+
+    expect_keyword(&fg_cur_tok, TK_TO);
+    Node *end_expr = expression();
+
+    countup_node = new_countup(loop_var, start_expr, end_expr, stmts, start_col,
+                               start_row);
   }
 
-  expect_keyword(&fg_cur_tok, TK_FROM);
-  Node *start = expression();
-
-  expect_keyword(&fg_cur_tok, TK_TO);
-  Node *end = expression();
-
-  Vector *stmts = new_vec();
   expect_symbol(&fg_cur_tok, "{");
 
   // countupの本体
-  while (true) {
-    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
-      break;
-    Node *stmt = statement();
-    vec_push(stmts, (void *)stmt);
-  }
+  parse_body(&countup_node->body);
 
   expect_symbol(&fg_cur_tok, ";");
-  return new_countup(lvar, start, end, stmts, start_col, start_row);
+  return countup_node;
 }
 
 // ifret_statement = "ifret" expression ";"
@@ -248,52 +260,51 @@ static Node *expression(void) {
   return assignment();
 }
 
-// if-expression =
 static Node *if_expression(void) {
   uint32_t start_col, start_row;
   set_current_position(&fg_cur_tok, &start_col, &start_row);
 
-  expect_keyword(&fg_cur_tok, TK_IF);
-
-  expect_symbol(&fg_cur_tok, "(");
-  Node *cond = expression();
-  expect_symbol(&fg_cur_tok, ")");
-
-  in_if_scope = true;
-
+  Node *if_node;
   Vector *stmts = new_vec();
   Vector *alter = NULL;
-  expect_symbol(&fg_cur_tok, "{");
 
-  // ifの本体
-  while (true) {
-    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
-      break;
-    Node *stmt = statement();
-    vec_push(stmts, (void *)stmt);
+  // "if" ( condition ) までのパース
+  {
+    expect_keyword(&fg_cur_tok, TK_IF);
+
+    expect_symbol(&fg_cur_tok, "(");
+    Node *cond = expression();
+    expect_symbol(&fg_cur_tok, ")");
+
+    if_node = new_if(cond, stmts, alter, start_col, start_row);
   }
 
-  // elseでなければ終了
-  if (!check_curtoken_is(&fg_cur_tok, TK_ELSE)) {
+  in_if_scope = true;
+  expect_symbol(&fg_cur_tok, "{");
+
+  // ifの本体のパース
+  {
+    parse_body(&if_node->body);
+
+    // elseでなければ終了
+    if (!check_curtoken_is(&fg_cur_tok, TK_ELSE)) {
+      in_if_scope = false;
+      return if_node;
+    }
+  }
+
+  // elseがある場合のパース
+  {
+    if_node->alter = new_vec();
+    expect_keyword(&fg_cur_tok, TK_ELSE);
+    expect_symbol(&fg_cur_tok, "{");
+
+    // elseの本体
+    parse_body(&if_node->alter);
     in_if_scope = false;
-    return new_if(cond, stmts, alter, start_col, start_row);
   }
 
-  alter = new_vec();
-
-  expect_keyword(&fg_cur_tok, TK_ELSE);
-  expect_symbol(&fg_cur_tok, "{");
-
-  // elseの本体
-  while (true) {
-    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
-      break;
-    Node *stmt = statement();
-    vec_push(alter, (void *)stmt);
-  }
-  in_if_scope = false;
-
-  return new_if(cond, stmts, alter, start_col, start_row);
+  return if_node;
 }
 
 // assignment = additive "=" expression
@@ -384,6 +395,15 @@ static Node *primary(void) {
     }
 
     return new_call(id_name, args, start_col, start_row);
+  }
+}
+
+static void parse_body(Vector **sequence) {
+  while (true) {
+    if (eat_if_symbol_matched(&fg_cur_tok, "}"))
+      break;
+    Node *stmt = statement();
+    vec_push(*sequence, (void *)stmt);
   }
 }
 

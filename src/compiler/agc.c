@@ -19,6 +19,8 @@ extern void allocate_stack_frame(Vector **functions);
 extern void gen_x64_primary(Vector *functions);
 
 extern void gen_x64_external(Module *mod);
+static void proc_frontend(int source_i, DebugOption *debug_opt, Module **mod);
+static void proc_backend(Module **mod);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   if (argc < 2) {
@@ -40,28 +42,7 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   // 最初，すべてのソースに対しフロントエンド処理を終わらせる．
   for (int source_i = 0; source_i < sources_g->length; source_i++) {
     Module *mod = (Module *)vec_get(sources_g, source_i);
-    
-    char *user_input = get_contents(mod->file_path);
-
-    // step.1 tokenize
-    Token *top_token = tokenize(user_input);
-
-    debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
-
-    // step.2 parse
-    Vector *functions = parse(top_token, source_i);
-    dealloc_tokens(&top_token);
-
-    // step.3 typecheck and allocating_stack
-    for (int i = 0; i < functions->length; i++) {
-      Function *iter_func = (Function *)vec_get(functions, i);
-      debug_func_to_stderr(debug_opt->dbg_compiler, iter_func);
-    }
-
-    type_check(&functions);
-    allocate_stack_frame(&functions);
-
-    mod->functions = functions;
+    proc_frontend(source_i, debug_opt, &mod);
   }
 
   // TODO: 実際に外部ファイルに識別子が宣言されているかチェックする意味解析
@@ -71,16 +52,43 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
 
   for (int source_i = 0; source_i < sources_g->length; source_i++) {
     Module *mod = (Module *)vec_get(sources_g, source_i);
-    if (mod->kind == MD_PRIMARY) {
-      gen_x64_primary(mod->functions);
-    } else {
-      gen_x64_external(mod);
-    }
+    proc_backend(&mod);
+  }
+}
 
-    for (int i = 0; i < mod->functions->length; i++) {
-      Function *iter_func = (Function *)vec_get(mod->functions, i);
+static void proc_frontend(int source_i, DebugOption *debug_opt, Module **mod) {
+  char *user_input = get_contents((*mod)->file_path);
 
-      dealloc_function(iter_func);
-    }
+  // step.1 tokenize
+  Token *top_token = tokenize(user_input);
+  debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
+
+  // step.2 parse
+  Vector *functions = parse(top_token, source_i);
+  dealloc_tokens(&top_token);
+
+  // step.3 typecheck and allocating_stack
+  for (int i = 0; i < functions->length; i++) {
+    Function *iter_func = (Function *)vec_get(functions, i);
+    debug_func_to_stderr(debug_opt->dbg_compiler, iter_func);
+  }
+
+  type_check(&functions);
+  allocate_stack_frame(&functions);
+
+  (*mod)->functions = functions;
+}
+
+static void proc_backend(Module **mod) {
+  if ((*mod)->kind == MD_PRIMARY) {
+    gen_x64_primary((*mod)->functions);
+  } else {
+    gen_x64_external(*mod);
+  }
+
+  for (int i = 0; i < (*mod)->functions->length; i++) {
+    Function *iter_func = (Function *)vec_get((*mod)->functions, i);
+
+    dealloc_function(iter_func);
   }
 }
