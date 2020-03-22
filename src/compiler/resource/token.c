@@ -2,6 +2,7 @@
 
 #include "base.h"
 #include "structure.h"
+#include "util.h"
 
 static Token *new_token(TokenKind kind, Token **cur, uint32_t col,
                         uint32_t row);
@@ -57,6 +58,11 @@ Token *new_intlit_token(Token *cur, int int_value, uint32_t col, uint32_t row) {
   tok->int_value = int_value;
   return tok;
 }
+Token *new_strlit_token(Token *cur, char *str, int length, uint32_t col, uint32_t row) {
+  Token *tok = new_token(TK_STRLIT, &cur, col, row);
+  tok->str = str_alloc_and_copy(str, length);
+  return tok;
+}
 
 // デバッグ関数
 
@@ -96,6 +102,9 @@ void dump_token(Token *t) {
   switch (t->kind) {
   case TK_INTLIT:
     fprintf(stderr, "%d", t->int_value);
+    break;
+  case TK_STRLIT:
+    fprintf(stderr, "\"%s\"", t->str);
     break;
   case TK_IDENT:
     fprintf(stderr, "%s", t->str);

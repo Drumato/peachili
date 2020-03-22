@@ -19,6 +19,7 @@ extern void allocate_stack_frame(Vector **functions);
 extern void gen_x64_primary(Vector *functions);
 
 extern void gen_x64_external(Module *mod);
+extern void gen_x64_strlit(Module *mod);
 static void proc_frontend(int source_i, DebugOption *debug_opt, Module **mod);
 static void proc_backend(Module **mod);
 
@@ -84,6 +85,10 @@ static void proc_backend(Module **mod) {
     gen_x64_primary((*mod)->functions);
   } else {
     gen_x64_external(*mod);
+  }
+
+  if ((*mod)->strings->length > 0) {
+    gen_x64_strlit(*mod);
   }
 
   for (int i = 0; i < (*mod)->functions->length; i++) {

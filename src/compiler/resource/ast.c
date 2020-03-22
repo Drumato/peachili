@@ -224,6 +224,15 @@ Node *new_intlit_node(int value, uint32_t col, uint32_t row) {
   return n;
 }
 
+Node *new_strlit_node(char *str, uint32_t str_n, uint32_t col, uint32_t row) {
+  Node *n = init_node(ND_STRLIT);
+  n->contents = str;
+  n->str_n = str_n;
+  n->col = col;
+  n->row = row;
+  return n;
+}
+
 Node *new_ident_node(IdentName *id_name, uint32_t col, uint32_t row) {
   Node *n = init_node(ND_IDENT);
   n->col = col;

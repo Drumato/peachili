@@ -49,7 +49,10 @@ static void expect_keyword(Token **tok, TokenKind kind);
 static void expect_symbol(Token **tok, char *pat);
 
 static int expect_intlit_value(Token **tok);
-
+static char *expect_strlit_contents(Token **tok);
+static Node *construct_intlit_node(uint32_t col, uint32_t row);
+static Node *construct_strlit_node(uint32_t col, uint32_t row);
+static Node *construct_ident_node(uint32_t col, uint32_t row);
 static IdentName *expect_identifier(Token **tok);
 static void parse_body(Vector **sequence);
 static void set_current_position(Token **tok, uint32_t *col, uint32_t *row);
@@ -58,6 +61,7 @@ static void set_current_position(Token **tok, uint32_t *col, uint32_t *row);
 static Token *fg_cur_tok; // ファイルグローバルなトークン
 static uint32_t fg_col = 1;
 static uint32_t fg_row = 1;
+static uint32_t fg_str_n = 1;
 static bool in_if_scope =
     false; // ifret を検出するために使用． 意味解析でやるべきかも
 static Function **this_func;
@@ -371,31 +375,30 @@ static Node *unary(void) {
   return primary();
 }
 
-// primary = intlit
+// primary = intlit | strlit
 static Node *primary(void) {
   uint32_t start_col, start_row;
   set_current_position(&fg_cur_tok, &start_col, &start_row);
 
-  if (check_curtoken_is(&fg_cur_tok, TK_INTLIT)) {
-    int int_value = expect_intlit_value(&fg_cur_tok);
-    return new_intlit_node(int_value, start_col, start_row);
-  } else {
-    IdentName *id_name = expect_identifier(&fg_cur_tok);
-
-    if (!eat_if_symbol_matched(&fg_cur_tok, "(")) {
-      return new_ident_node(id_name, start_col, start_row);
-    }
-    // call-expression
-
-    Vector *args = new_vec();
-    while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
-      vec_push(args, (void *)expression());
-
-      eat_if_symbol_matched(&fg_cur_tok, ",");
-    }
-
-    return new_call(id_name, args, start_col, start_row);
+  TokenKind cur_kind = fg_cur_tok->kind;
+  Node *n;
+  switch (cur_kind) {
+  case TK_INTLIT: {
+    n = construct_intlit_node(start_col, start_row);
+    break;
   }
+  case TK_STRLIT: {
+    n = construct_strlit_node(start_col, start_row);
+    Module *cur_mod = (Module *)vec_get(sources_g, fg_source_i);
+    vec_push(cur_mod->strings, (void *)n);
+    break;
+  }
+  default: {
+    n = construct_ident_node(start_col, start_row);
+    break;
+  }
+  }
+  return n;
 }
 
 static void parse_body(Vector **sequence) {
@@ -428,6 +431,18 @@ static bool eat_if_symbol_matched(Token **tok, char *pat) {
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
   return true;
+}
+
+static char *expect_strlit_contents(Token **tok) {
+  if ((*tok)->kind != TK_STRLIT) {
+    fprintf(stderr, "%d:%d: expected string-literal\n", (*tok)->row,
+            (*tok)->col);
+  }
+  char *contents = (*tok)->str;
+  *tok = (*tok)->next;
+  fg_col = (*tok)->col;
+  fg_row = (*tok)->row;
+  return contents;
 }
 
 // 数値であれば読み進め,意味値( 整数値 )を返す
@@ -510,4 +525,32 @@ static IdentName *expect_identifier(Token **tok) {
 static void set_current_position(Token **tok, uint32_t *col, uint32_t *row) {
   *col = (*tok)->col;
   *row = (*tok)->row;
+}
+
+static Node *construct_intlit_node(uint32_t col, uint32_t row) {
+  int int_value = expect_intlit_value(&fg_cur_tok);
+  return new_intlit_node(int_value, col, row);
+}
+
+static Node *construct_strlit_node(uint32_t col, uint32_t row) {
+  char *str = expect_strlit_contents(&fg_cur_tok);
+  char *contents = str_alloc_and_copy(str, strlen(str));
+  return new_strlit_node(contents, fg_str_n++, col, row);
+}
+
+static Node *construct_ident_node(uint32_t col, uint32_t row) {
+  IdentName *id_name = expect_identifier(&fg_cur_tok);
+
+  if (!eat_if_symbol_matched(&fg_cur_tok, "(")) {
+    return new_ident_node(id_name, col, row);
+  }
+  // call-expression
+
+  Vector *args = new_vec();
+  while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
+    vec_push(args, (void *)expression());
+
+    eat_if_symbol_matched(&fg_cur_tok, ",");
+  }
+  return new_call(id_name, args, col, row);
 }

@@ -74,6 +74,16 @@ void gen_x64_external(Module *mod) {
     }
   }
 }
+void gen_x64_strlit(Module *mod) {
+  for (int i = 0; i < mod->strings->length; i++) {
+    Node *strlit = (Node *)vec_get(mod->strings, i);
+    printf(".LS%d:\n", strlit->str_n);
+    printf("  .string \"%s\"\n", strlit->contents);
+    printf(".LS%dLEN:\n", strlit->str_n);
+    printf("  .long %lu\n", strlen(strlit->contents));
+
+  }
+}
 
 static void gen_func(void) {
   gen_function_prologue(this_func->name, this_func->stack_offset);
@@ -165,6 +175,9 @@ static void gen_expr(Node *n) {
     break;
   case ND_INTLIT:
     printf("  push %d\n", n->int_value);
+    break;
+  case ND_STRLIT:
+    printf("  push offset .LS%d\n", n->str_n);
     break;
   case ND_CALL:
     gen_exprs_in_vec(n->args);

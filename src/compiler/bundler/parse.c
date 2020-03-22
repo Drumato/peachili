@@ -9,7 +9,6 @@
 #define FILE_SUFFIX_LENGTH 3
 
 extern Token *tokenize(char *program);
-static bool symbol_matched(Token **tok, char *pat);
 static bool check_module_exists(char *path);
 static char *check_module_exists_from_envvar(char *path);
 
@@ -26,20 +25,14 @@ void bundler_parse(Module **mod, Token **top_token) {
   *top_token = (*top_token)->next;
 
   // TODO: 今は()， つまり複数インポートには対応しない
-  if (!symbol_matched(top_token, "\"")) {
+  if ((*top_token)->kind != TK_STRLIT) {
     fprintf(stderr, "module name must start with '\"'\n");
     exit(1);
   }
 
+  char *ptr = (*top_token)->str;
   *top_token = (*top_token)->next;
 
-  if ((*top_token)->kind != TK_IDENT) {
-    fprintf(stderr, "module name must be an identifier -> %s\n",
-            (*top_token)->str);
-    exit(1);
-  }
-
-  char *ptr = (*top_token)->str;
   char *required_module_name = str_alloc_and_copy(ptr, strlen(ptr));
   ptr = required_module_name + strlen(ptr);
   strncpy(ptr, ".go", FILE_SUFFIX_LENGTH);
@@ -95,11 +88,4 @@ static char *check_module_exists_from_envvar(char *path) {
   }
 
   return NULL;
-}
-
-static bool symbol_matched(Token **tok, char *pat) {
-  if ((*tok)->kind != TK_SYMBOL ||
-      strncmp((*tok)->str, pat, strlen((*tok)->str)))
-    return false;
-  return true;
 }

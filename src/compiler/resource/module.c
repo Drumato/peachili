@@ -27,6 +27,7 @@ Module *new_module(ModuleKind kind, char *file_path) {
   mod->functions = new_vec();
   mod->requires = new_vec();
   mod->used = new_vec();
+  mod->strings = new_vec();
   mod->visited = false;
 
   mod->file_path = str_alloc_and_copy(file_path, strlen(file_path));

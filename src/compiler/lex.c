@@ -13,6 +13,8 @@ static Token *tokenize_number(char **ptr, Token *cur);
 
 static Token *tokenize_keyword(char **ptr, Token *cur);
 
+static Token *tokenize_strlit(char **ptr, Token *cur);
+
 static int cut_integer_range(char **ptr, int *value);
 static Token *matched_symbol(char **ptr, Token **cur, char *multilen,
                              int length);
@@ -39,6 +41,10 @@ Token *tokenize(char *program) {
 
     Token *tmp = NULL;
 
+    if ((tmp = tokenize_strlit(&program, cur)) != NULL) {
+      cur = tmp;
+      continue;
+    }
     if ((tmp = tokenize_symbol(&program, cur)) != NULL) {
       cur = tmp;
       continue;
@@ -117,7 +123,7 @@ static Token *tokenize_symbol(char **ptr, Token *cur) {
   }
 
   // 1文字の記号
-  if (strchr("+-*/;(){}=,\"", **ptr) != NULL) {
+  if (strchr("+-*/;(){}=,", **ptr) != NULL) {
     tok = new_symbol(cur, *ptr, 1, fg_col++, fg_row);
     (*ptr)++;
   }
@@ -135,6 +141,27 @@ static Token *tokenize_number(char **ptr, Token *cur) {
     // 数字の長さ分進める
     fg_col += length;
   }
+  return tok;
+}
+
+static Token *tokenize_strlit(char **ptr, Token *cur) {
+  Token *tok = NULL;
+  if (**ptr != '"') {
+    return tok;
+  }
+  (*ptr)++;
+
+  char *start = *ptr;
+  while(**ptr != '"') {
+    (*ptr)++;
+  }
+
+  int len = *ptr - start;
+
+  (*ptr)++; // 終端の'"' を読み飛ばす．
+  tok = new_strlit_token(cur, start, len, fg_col, fg_row);
+
+  fg_col += (len + 2);
   return tok;
 }
 

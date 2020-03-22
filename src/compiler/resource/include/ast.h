@@ -24,6 +24,7 @@ Function *new_function(char *name, struct AGType *ret_type, uint32_t col,
 
 typedef enum {
   ND_INTLIT,
+  ND_STRLIT,
   ND_IDENT,
 
   // binary-operation
@@ -67,6 +68,8 @@ struct Node {
 
   // for expressions
   int int_value;
+  char *contents;
+  uint32_t str_n;
   Node *left;
   Node *right;
   struct Vector *body;
@@ -93,6 +96,7 @@ Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col,
                       uint32_t row);
 Node *new_unary_node(NodeKind kind, Node *inner, uint32_t col, uint32_t row);
 Node *new_intlit_node(int length, uint32_t col, uint32_t row);
+Node *new_strlit_node(char *str, uint32_t str_n, uint32_t col, uint32_t row);
 Node *new_ident_node(IdentName *id_name, uint32_t col, uint32_t row);
 void debug_func_to_stderr(bool verbose, Function *func);
 void dealloc_function(Function *func);

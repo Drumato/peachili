@@ -11,6 +11,7 @@ struct Module {
   struct Vector *functions;
   struct Vector *requires;
   struct Vector *used;
+  struct Vector *strings;
   bool visited;
 };
 
