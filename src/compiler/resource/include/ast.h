@@ -40,6 +40,7 @@ typedef enum {
   ND_RETURN,
   ND_IFRET,
   ND_COUNTUP,
+  ND_ASM,
 
   // etc
   ND_ASSIGN,
@@ -92,6 +93,7 @@ Node *new_if(Node *cond, struct Vector *stmts, struct Vector *alter,
              uint32_t col, uint32_t row);
 Node *new_nop(void);
 Node *new_assign(Node *lvar, Node *expr, uint32_t col, uint32_t row);
+Node *new_asm_node(struct Vector *strs, uint32_t col, uint32_t row);
 Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col,
                       uint32_t row);
 Node *new_unary_node(NodeKind kind, Node *inner, uint32_t col, uint32_t row);

@@ -198,6 +198,14 @@ Node *new_assign(Node *lvar, Node *expr, uint32_t col, uint32_t row) {
   return n;
 }
 
+Node *new_asm_node(Vector *strs, uint32_t col, uint32_t row) {
+  Node *n = init_node(ND_ASM);
+  n->args = strs;
+  n->col = col;
+  n->row = row;
+  return n;
+}
+
 Node *new_binary_node(NodeKind kind, Node *lhs, Node *rhs, uint32_t col,
                       uint32_t row) {
   Node *n = init_node(kind);

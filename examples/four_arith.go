@@ -1,3 +1,4 @@
-func main() int {
-	return 1 + 2 * 4;
+require "os";
+func main() noreturn {
+	os::exit_with(1 + 2 * 4);
 }

@@ -19,6 +19,8 @@ typedef enum {
   TK_COUNTUP,
   TK_FROM,
   TK_TO,
+  TK_ASM,
+  TK_NORETURN,
 } TokenKind;
 
 typedef struct Token Token;
@@ -33,10 +35,12 @@ struct Token {
 };
 
 Token *new_eof(Token *cur, uint32_t col, uint32_t row);
-Token *new_symbol(Token *cur, char *str, int length, uint32_t col, uint32_t row);
+Token *new_symbol(Token *cur, char *str, int length, uint32_t col,
+                  uint32_t row);
 Token *new_keyword(TokenKind kind, Token *cur, uint32_t col, uint32_t row);
 Token *new_intlit_token(Token *cur, int int_value, uint32_t col, uint32_t row);
-Token *new_strlit_token(Token *cur, char *str, int length, uint32_t col, uint32_t row);
+Token *new_strlit_token(Token *cur, char *str, int length, uint32_t col,
+                        uint32_t row);
 Token *new_ident(Token *cur, char *str, int length, uint32_t col, uint32_t row);
 void debug_tokens_to_stderr(bool verbose, Token *top_token);
 void dealloc_tokens(Token **token);

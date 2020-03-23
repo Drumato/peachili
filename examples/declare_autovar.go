@@ -1,5 +1,7 @@
-func main() int {
+require "os";
+
+func main() noreturn {
 	declare x int;
 	x = 30;
-	return x;
+	os::exit_with(x);
 }

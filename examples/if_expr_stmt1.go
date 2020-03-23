@@ -1,6 +1,7 @@
-func main() int {
+require "os";
+func main() noreturn {
 	if (1) {
-		return 1;
+		os::exit_with(1);
 	};
-	return 0;
+	os::exit_with(0);
 }

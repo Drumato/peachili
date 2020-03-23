@@ -20,6 +20,7 @@ static Node *ifret_statement(void);
 
 static Node *vardecl_statement(void);
 
+static Node *asm_statement(void);
 static void compound_statement(Token **tok);
 
 // expressions
@@ -162,6 +163,8 @@ static Node *statement(void) {
     return ifret_statement();
   case TK_DECLARE:
     return vardecl_statement();
+  case TK_ASM:
+    return asm_statement();
   default: {
     Node *expr = expression();
     expect_symbol(&fg_cur_tok, ";");
@@ -253,6 +256,36 @@ static Node *vardecl_statement() {
 
   expect_symbol(&fg_cur_tok, ";");
   return new_nop();
+}
+
+static Node *asm_statement(void) {
+  uint32_t start_col, start_row;
+  set_current_position(&fg_cur_tok, &start_col, &start_row);
+  expect_keyword(&fg_cur_tok, TK_ASM);
+  expect_symbol(&fg_cur_tok, "{");
+
+  Vector *args = new_vec();
+  Node *asm_inline_node = new_asm_node(args, start_col, start_row);
+
+  // 複数のアセンブリをパース
+  {
+    while (true) {
+      if (eat_if_symbol_matched(&fg_cur_tok, "}"))
+        break;
+      Node *str = construct_strlit_node(fg_col, fg_row);
+      if (str->kind != ND_STRLIT) {
+        fprintf(stderr,
+                "%d:%d: each sentence must be a string-literal in asm{}",
+                start_row, start_col);
+        exit(1);
+      }
+      eat_if_symbol_matched(&fg_cur_tok, ",");
+      vec_push(asm_inline_node->args, (void *)str);
+    }
+  }
+
+  expect_symbol(&fg_cur_tok, ";");
+  return asm_inline_node;
 }
 
 // expression = if-expression | assignment
@@ -411,15 +444,29 @@ static void parse_body(Vector **sequence) {
 }
 
 static struct AGType *expect_agtype(Token **tok) {
-  if ((*tok)->kind != TK_INT) {
-    fprintf(stderr, "%d:%d: unexpected", (*tok)->row, (*tok)->col);
-    dump_token(*tok);
-    fprintf(stderr, "\n");
-  }
+  TokenKind type_kind = (*tok)->kind;
   *tok = (*tok)->next;
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
-  return new_integer_type();
+
+  AGType *agtype = NULL;
+  switch (type_kind) {
+  case TK_INT: {
+    agtype = new_integer_type();
+    break;
+  }
+  case TK_NORETURN: {
+    agtype = new_noreturn_type();
+    break;
+  }
+  default:
+    fprintf(stderr, "%d:%d: unexpected ", (*tok)->row, (*tok)->col);
+    dump_token(*tok);
+    fprintf(stderr, "\n");
+    break;
+  }
+
+  return agtype;
 }
 
 // もし指定パターンにマッチすれば読みすすめる

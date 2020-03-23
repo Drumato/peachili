@@ -22,12 +22,12 @@ static void update_column_and_pointer(char **ptr, uint32_t offset);
 
 static uint32_t fg_col = 1;
 static uint32_t fg_row = 1;
-static char *fg_keywords[] = {"ifret", "if",     "else",    "int",
-                              "func",  "return", "declare", "countup",
-                              "from",  "to",     "require", NULL};
-static TokenKind fg_tk_kinds[] = {TK_IFRET, TK_IF,     TK_ELSE,    TK_INT,
-                                  TK_FUNC,  TK_RETURN, TK_DECLARE, TK_COUNTUP,
-                                  TK_FROM,  TK_TO,     TK_REQUIRE};
+static char *fg_keywords[] = {"ifret",   "if",      "else",     "int",  "func",
+                              "return",  "declare", "countup",  "from", "to",
+                              "require", "asm",     "noreturn", NULL};
+static TokenKind fg_tk_kinds[] = {
+    TK_IFRET,   TK_IF,   TK_ELSE, TK_INT,     TK_FUNC, TK_RETURN,  TK_DECLARE,
+    TK_COUNTUP, TK_FROM, TK_TO,   TK_REQUIRE, TK_ASM,  TK_NORETURN};
 static char *fg_multilen_symbols[] = {"::", NULL};
 
 Token *tokenize(char *program) {
@@ -152,7 +152,7 @@ static Token *tokenize_strlit(char **ptr, Token *cur) {
   (*ptr)++;
 
   char *start = *ptr;
-  while(**ptr != '"') {
+  while (**ptr != '"') {
     (*ptr)++;
   }
 

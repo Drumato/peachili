@@ -40,6 +40,13 @@ void type_check_in_func(Function **func) {
         exit(1);
       }
       break;
+    case ND_RETURN:
+      if ((*func)->return_type->kind == TY_NORETURN) {
+        fprintf(stderr, "%d:%d: can't return any value in noreturn function\n",
+                n->row, n->col);
+        exit(1);
+      }
+      break;
     default:
       break;
     }

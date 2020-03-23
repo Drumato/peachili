@@ -19,6 +19,8 @@ static void gen_countup_stmt(Node *n);
 
 static void gen_return_stmt(Node *n);
 
+static void gen_asm_stmt(Node *n);
+
 // expression
 static void gen_lval(Node *n);
 
@@ -81,7 +83,6 @@ void gen_x64_strlit(Module *mod) {
     printf("  .string \"%s\"\n", strlit->contents);
     printf(".LS%dLEN:\n", strlit->str_n);
     printf("  .long %lu\n", strlen(strlit->contents));
-
   }
 }
 
@@ -111,6 +112,9 @@ static void gen_stmt(Node *n) {
   case ND_COUNTUP:
     GEN_COMMENT_AND_NODE_WITH_FUNC(countup_statement, n, gen_countup_stmt);
     break;
+  case ND_ASM:
+    GEN_COMMENT_AND_NODE_WITH_FUNC(asm_statement, n, gen_asm_stmt);
+    break;
   case ND_NOP:
     break;
   default:
@@ -124,6 +128,13 @@ static void gen_return_stmt(Node *n) {
   gen_expr(n->expr);
   printf("  pop rax\n");
   gen_function_epilogue();
+}
+
+static void gen_asm_stmt(Node *n) {
+  for (int i = 0; i < n->args->length; i++) {
+    Node *str = (Node *)vec_get(n->args, i);
+    printf("  %s\n", str->contents);
+  }
 }
 
 static void gen_countup_stmt(Node *n) {
