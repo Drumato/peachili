@@ -1,4 +1,6 @@
-require "os";
+require (
+    "os"
+)
 
 func main() noreturn {
 	declare res int; 

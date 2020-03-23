@@ -60,8 +60,8 @@ Token *tokenize(char *program) {
       continue;
     }
 
-    fprintf(stderr, "can't tokenize -> '%s'\n", program);
-    exit(1);
+    // --debug
+    break;
   }
 
   cur = new_eof(cur, fg_col, fg_row);

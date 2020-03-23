@@ -9,6 +9,8 @@
 extern Token *tokenize(char *program);
 extern void bundler_parse(Module **mod, Token **top_token);
 
+static void debug_bundler(void);
+
 void bundler_init(DebugOption *debug_opt, char *file_path) {
   char *user_input = get_contents(file_path);
   Token *top_token = tokenize(user_input);
@@ -21,16 +23,22 @@ void bundler_init(DebugOption *debug_opt, char *file_path) {
   bundler_parse(&main_module, &top_token);
 
   if (debug_opt->dbg_compiler) {
-    fprintf(stderr, "++++++++ debug bundler ++++++++\n");
-    fprintf(stderr, "\tenumerate files\n");
-    for (int i = 0; i < sources_g->length; i++) {
-      Module *m = (Module *)vec_get(sources_g, i);
-      fprintf(stderr, "\t\tfile_path -> %s\n", m->file_path);
-      fprintf(stderr, "\t\tthe number of defined functions -> %d\n", m->functions->length);
-      fprintf(stderr, "\t\tthe number of requires -> %d\n", m->requires->length);
-      fprintf(stderr, "\t\tthe number of using external api -> %d\n", m->used->length);
-    }
+    debug_bundler();
   }
 
   dealloc_tokens(&top_token);
+}
+
+static void debug_bundler(void) {
+  fprintf(stderr, "++++++++ debug bundler ++++++++\n");
+  fprintf(stderr, "\tenumerate files\n");
+  for (int i = 0; i < sources_g->length; i++) {
+    Module *m = (Module *)vec_get(sources_g, i);
+    fprintf(stderr, "\t\tfile_path -> %s\n", m->file_path);
+    fprintf(stderr, "\t\tthe number of defined functions -> %d\n",
+            m->functions->length);
+    fprintf(stderr, "\t\tthe number of requires -> %d\n", m->requires->length);
+    fprintf(stderr, "\t\tthe number of using external api -> %d\n",
+            m->used->length);
+  }
 }

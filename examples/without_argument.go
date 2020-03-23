@@ -1,4 +1,6 @@
-require "os";
+require (
+    "os"
+)
 func foo() int {
 	return 30; 
 }

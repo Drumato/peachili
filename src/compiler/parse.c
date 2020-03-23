@@ -77,7 +77,7 @@ Vector *parse(Token *top_token, int source_i) {
 
   // requireはBundlerで処理するので無視
   if (check_curtoken_is(&fg_cur_tok, TK_REQUIRE)) {
-    while (!eat_if_symbol_matched(&fg_cur_tok, ";")) {
+    while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
       fg_cur_tok = fg_cur_tok->next;
     }
   }

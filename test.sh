@@ -34,6 +34,7 @@ try 9 "countup.go"
 try 30 "with_argument.go"
 try 30 "without_argument.go"
 try 3 "exit.go"
+try 1 "use_version.go"
 
 echo -e "\n\nOK"
 
