@@ -13,7 +13,7 @@ void dealloc_tokens(Token **token) {
   Token *tmp;
   while (*token != NULL) {
     tmp = *token;
-    *token = (*token)->next;
+    progress_token(token);
     free(tmp->str);
     free(tmp);
   }
@@ -142,4 +142,8 @@ void dump_token(Token *t) {
   default:
     break;
   }
+}
+
+void progress_token(Token **tok) {
+  *tok = (*tok)->next;
 }

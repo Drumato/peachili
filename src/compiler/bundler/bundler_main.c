@@ -15,6 +15,9 @@ void bundler_init(DebugOption *debug_opt, char *file_path) {
   char *user_input = get_contents(file_path);
   Token *top_token = tokenize(user_input);
 
+  lib_path_env = getenv("PEACHILI_LIB_PATH");
+  assert(lib_path_env);
+
   sources_g = new_vec();
 
   // コンパイル対象は先に追加しておく

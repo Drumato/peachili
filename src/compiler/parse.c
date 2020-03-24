@@ -78,7 +78,7 @@ Vector *parse(Token *top_token, int source_i) {
   // requireはBundlerで処理するので無視
   if (check_curtoken_is(&fg_cur_tok, TK_REQUIRE)) {
     while (!eat_if_symbol_matched(&fg_cur_tok, ")")) {
-      fg_cur_tok = fg_cur_tok->next;
+      progress_token(&fg_cur_tok);
     }
   }
 
@@ -445,7 +445,7 @@ static void parse_body(Vector **sequence) {
 
 static struct AGType *expect_agtype(Token **tok) {
   TokenKind type_kind = (*tok)->kind;
-  *tok = (*tok)->next;
+  progress_token(tok);
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
 
@@ -474,7 +474,7 @@ static bool eat_if_symbol_matched(Token **tok, char *pat) {
   if ((*tok)->kind != TK_SYMBOL ||
       strncmp((*tok)->str, pat, strlen((*tok)->str)))
     return false;
-  *tok = (*tok)->next;
+  progress_token(tok);
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
   return true;
@@ -486,7 +486,7 @@ static char *expect_strlit_contents(Token **tok) {
             (*tok)->col);
   }
   char *contents = (*tok)->str;
-  *tok = (*tok)->next;
+  progress_token(tok);
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
   return contents;
@@ -498,7 +498,7 @@ static int expect_intlit_value(Token **tok) {
     fprintf(stderr, "%d:%d: expected integer-literal\n", (*tok)->row,
             (*tok)->col);
   int val = (*tok)->int_value;
-  *tok = (*tok)->next;
+  progress_token(tok);
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
   return val;
@@ -515,7 +515,7 @@ static void expect_keyword(Token **tok, TokenKind kind) {
     dump_token(*tok);
     fprintf(stderr, "\n");
   }
-  *tok = (*tok)->next;
+  progress_token(tok);
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
 }
@@ -529,7 +529,7 @@ static void expect_symbol(Token **tok, char *pat) {
     dump_token(*tok);
     fprintf(stderr, "\n");
   }
-  *tok = (*tok)->next;
+  progress_token(tok);
   fg_col = (*tok)->col;
   fg_row = (*tok)->row;
 }
@@ -539,7 +539,7 @@ static IdentName *expect_identifier(Token **tok) {
   if ((*tok)->kind != TK_IDENT)
     fprintf(stderr, "%d:%d: expected identifier\n", (*tok)->row, (*tok)->col);
   char *name = (*tok)->str;
-  *tok = (*tok)->next;
+  progress_token(tok);
 
   IdentName *base = new_ident_name(name, NULL);
   IdentName *prev = base;
@@ -561,7 +561,7 @@ static IdentName *expect_identifier(Token **tok) {
     next = append_ident_name(next_name, &prev);
     prev = next;
 
-    *tok = (*tok)->next;
+    progress_token(tok);
   }
 
   fg_col = (*tok)->col;
