@@ -4,7 +4,7 @@ try() {
   input="$2"
 
   ../build/peachili "$input" > tmp.s
-  gcc -o tmp tmp.s
+  gcc -static -o tmp tmp.s
   ./tmp
   actual="$?"
 
@@ -35,6 +35,7 @@ try 30 "with_argument.go"
 try 30 "without_argument.go"
 try 3 "exit.go"
 try 1 "use_version.go"
+try 0 "hello_world.go"
 
 echo -e "\n\nOK"
 

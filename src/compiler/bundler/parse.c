@@ -87,9 +87,7 @@ static void process_each_module_name(Module **mod, Token **tok) {
         Module *in_dir_mod;
 
         int length = strlen(dp->d_name);
-        char *sub_mod = (char *)calloc(length, sizeof(char));
-        strncpy(sub_mod, dp->d_name, length);
-        sub_mod[length] = '\0';
+        char *sub_mod = str_alloc_and_copy(dp->d_name, length);
 
         char *dir_path = concat_dir_and_sub(&resolved, &sub_mod);
 
@@ -185,9 +183,7 @@ static char *try_get_module_path_from_envvar(char *path) {
 static Token *prepare_for_next_module(char *module_name, int s_len,
                                       Module **required_module) {
 
-  char *file_path = (char *)calloc(s_len + 1, sizeof(char));
-  strncpy(file_path, module_name, s_len);
-  file_path[s_len] = 0x00;
+  char *file_path = str_alloc_and_copy(module_name, s_len);
 
   char *module_input = get_contents(file_path);
   Token *module_token = tokenize(module_input);
@@ -239,16 +235,14 @@ static char *expect_module_literal(Token **tok) {
 
 static char *copy_name_from_token(char **str) {
   int length = strlen(*str);
-  char *ptr = (char *)calloc(length + 1, sizeof(char));
-  strncpy(ptr, *str, length);
-  ptr[length] = 0;
+  char *ptr = str_alloc_and_copy(*str, length);
   return ptr;
 }
 
 static char *append_extension(char **str) {
-  int length = strlen(*str);
-  char *ptr = (char *)calloc(length + FILE_SUFFIX_LENGTH + 1, sizeof(char));
-  strncpy(ptr, *str, length);
+
+  int length = strlen(*str) + FILE_SUFFIX_LENGTH;
+  char *ptr = str_alloc_and_copy(*str, length);
 
   // freeしたくなるが，すべきではない．
   // 拡張子を連結する前の文字列も使用するからである．

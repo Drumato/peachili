@@ -454,6 +454,10 @@ static struct AGType *expect_agtype(Token **tok) {
     agtype = new_integer_type();
     break;
   }
+  case TK_STR: {
+    agtype = new_string_type();
+    break;
+  }
   case TK_NORETURN: {
     agtype = new_noreturn_type();
     break;

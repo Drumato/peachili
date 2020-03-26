@@ -43,7 +43,7 @@ int aligned_strlen(char *ptr) {
 }
 char *str_alloc_and_copy(char *src, int length) {
 
-  char *allocated = (char *)calloc(length, sizeof(char));
+  char *allocated = (char *)calloc(length + 1, sizeof(char));
   strncpy(allocated, src, length);
   allocated[length] = 0;
   return allocated;

@@ -10,6 +10,7 @@ typedef enum {
   // keyword
   TK_REQUIRE,
   TK_INT,
+  TK_STR,
   TK_IF,
   TK_ELSE,
   TK_IFRET,

@@ -22,9 +22,7 @@ void bundler_init(DebugOption *debug_opt, char *file_path) {
   sources_g = new_vec();
 
   // コンパイル対象は先に追加しておく
-  char *mod_path = (char *)calloc(strlen(file_path), sizeof(char));
-  strncpy(mod_path, file_path, strlen(file_path));
-  file_path[strlen(mod_path)] = '\0';
+  char *mod_path = str_alloc_and_copy(file_path, strlen(file_path));
   Module *main_module = new_module(MD_PRIMARY, mod_path);
   vec_push(sources_g, (void *)main_module);
   bundler_parse(&main_module, &top_token);

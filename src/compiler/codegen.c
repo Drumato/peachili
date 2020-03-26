@@ -63,6 +63,11 @@ void gen_x64(Vector *functions) {
     this_func = iter_func;
 
     gen_func();
+
+    if (!strncmp(this_func->name, "main", strlen(this_func->name))) {
+      printf("  mov rax, 0\n");
+    }
+    gen_function_epilogue();
   }
 }
 
@@ -71,8 +76,6 @@ void gen_x64_strlit(Module *mod) {
     Node *strlit = (Node *)vec_get(mod->strings, i);
     printf(".LS%d:\n", strlit->str_n);
     printf("  .string \"%s\"\n", strlit->contents);
-    printf(".LS%dLEN:\n", strlit->str_n);
-    printf("  .long %lu\n", strlen(strlit->contents));
   }
 }
 
@@ -117,7 +120,6 @@ static void gen_stmt(Node *n) {
 static void gen_return_stmt(Node *n) {
   gen_expr(n->expr);
   printf("  pop rax\n");
-  gen_function_epilogue();
 }
 
 static void gen_asm_stmt(Node *n) {
@@ -135,7 +137,6 @@ static void gen_countup_stmt(Node *n) {
   gen_expr(n->from);
   printf("  pop rdi\n");
   printf("  pop rax\n");
-
   store_reg_using_reg("rax", "rdi");
 
   // in loop
@@ -183,7 +184,7 @@ static void gen_expr(Node *n) {
   case ND_CALL:
     gen_exprs_in_vec(n->args);
 
-    for (int i = 0; i < n->args->length; i++) {
+    for (int i = n->args->length - 1; i >= 0; i--) {
       char *reg = caller_regs64[i];
       printf("  pop %s\n", reg);
     }
