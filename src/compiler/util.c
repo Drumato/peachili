@@ -4,7 +4,7 @@ FILE *open_file(const char *filename, const char *mode) {
   FILE *file;
   file = fopen(filename, mode);
   if (file == NULL) {
-    fprintf(stderr, "Error Found: %s\n", strerror(errno));
+    fprintf(stderr, "Error Found: %s -> '%s'\n", strerror(errno), filename);
     exit(1);
   }
   return file;
@@ -27,7 +27,7 @@ char *get_contents(const char *filename) {
   size_t nmemb = (size_t)(st.st_size);
   char *buf = (char *)malloc(nmemb);
   if (fread(buf, (size_t)(1), nmemb, file) < nmemb) {
-    fprintf(stderr, "Error Found:%s\n", strerror(errno));
+    fprintf(stderr, "Error Found:%s -> %s\n", strerror(errno), filename);
     exit(1);
   }
   fclose(file);
@@ -35,7 +35,14 @@ char *get_contents(const char *filename) {
   return buf;
 }
 
+int aligned_strlen(char *ptr) {
+  int length = strlen(ptr);
+  int aligned = length + 15;
+  aligned &= ~15;
+  return aligned;
+}
 char *str_alloc_and_copy(char *src, int length) {
+
   char *allocated = (char *)calloc(length, sizeof(char));
   strncpy(allocated, src, length);
   allocated[length] = 0;
@@ -43,7 +50,7 @@ char *str_alloc_and_copy(char *src, int length) {
 }
 
 char *get_last_path(char *filename) {
-  if (strchr(filename, '/') == NULL){
+  if (strchr(filename, '/') == NULL) {
     return filename;
   }
   char *fp = filename;

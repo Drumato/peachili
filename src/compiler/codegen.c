@@ -57,7 +57,7 @@ static char *caller_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9", NULL};
     printf("  # end %s\n\n", #stmt_name);                                      \
   } while (0)
 
-void gen_x64_primary(Vector *functions) {
+void gen_x64(Vector *functions) {
   for (int i = 0; i < functions->length; i++) {
     Function *iter_func = (Function *)vec_get(functions, i);
     this_func = iter_func;
@@ -66,16 +66,6 @@ void gen_x64_primary(Vector *functions) {
   }
 }
 
-void gen_x64_external(Module *mod) {
-  for (int i = 0; i < mod->functions->length; i++) {
-    Function *iter_func = (Function *)vec_get(mod->functions, i);
-    this_func = iter_func;
-
-    if (function_is_used(mod, this_func->name)) {
-      gen_func();
-    }
-  }
-}
 void gen_x64_strlit(Module *mod) {
   for (int i = 0; i < mod->strings->length; i++) {
     Node *strlit = (Node *)vec_get(mod->strings, i);

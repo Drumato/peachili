@@ -1,9 +1,9 @@
 require (
-    "os"
+    "std"
 )
 func foo() int {
 	return 30; 
 }
 func main() noreturn {
-	os::exit_with(foo());
+	std::os::exit_with(foo());
 }

@@ -1,5 +1,5 @@
 require (
-    "os"
+    "std"
 )
 func main() noreturn {
 	declare x int; 
@@ -8,5 +8,5 @@ func main() noreturn {
 	} else { 
 		ifret 0; 
 	}; 
-	os::exit_with(x);
+	std::os::exit_with(x);
 }

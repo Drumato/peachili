@@ -10,17 +10,15 @@ extern void bundler_init(DebugOption *debug_opt, char *file_path);
 
 extern Token *tokenize(char *program);
 
-extern Vector *parse(Token *top_token, int source_i);
+extern Vector *parse(Token *top_token, Module **mod);
 
 extern void type_check(Vector **functions);
 
 extern void allocate_stack_frame(Vector **functions);
 
-extern void gen_x64_primary(Vector *functions);
-
-extern void gen_x64_external(Module *mod);
+extern void gen_x64(Vector *functions);
 extern void gen_x64_strlit(Module *mod);
-static void proc_frontend(int source_i, DebugOption *debug_opt, Module **mod);
+static void proc_frontend(DebugOption *debug_opt, Module **mod);
 static void proc_backend(Module **mod);
 
 void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
@@ -43,7 +41,17 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
   // 最初，すべてのソースに対しフロントエンド処理を終わらせる．
   for (int source_i = 0; source_i < sources_g->length; source_i++) {
     Module *mod = (Module *)vec_get(sources_g, source_i);
-    proc_frontend(source_i, debug_opt, &mod);
+
+    if (mod->subs->length == 0) {
+      proc_frontend(debug_opt, &mod);
+
+      continue;
+    }
+
+    for (int in_dir = 0; in_dir < mod->subs->length; in_dir++) {
+      Module *in_dir_mod = (Module *)vec_get(mod->subs, in_dir);
+      proc_frontend(debug_opt, &in_dir_mod);
+    }
   }
 
   // TODO: 実際に外部ファイルに識別子が宣言されているかチェックする意味解析
@@ -53,11 +61,20 @@ void compiler_main(int argc, char **argv, DebugOption *debug_opt) {
 
   for (int source_i = 0; source_i < sources_g->length; source_i++) {
     Module *mod = (Module *)vec_get(sources_g, source_i);
-    proc_backend(&mod);
+
+    if (mod->subs->length == 0) {
+      proc_backend(&mod);
+      continue;
+    }
+
+    for (int in_dir = 0; in_dir < mod->subs->length; in_dir++) {
+      Module *in_dir_mod = (Module *)vec_get(mod->subs, in_dir);
+      proc_backend(&in_dir_mod);
+    }
   }
 }
 
-static void proc_frontend(int source_i, DebugOption *debug_opt, Module **mod) {
+static void proc_frontend(DebugOption *debug_opt, Module **mod) {
   char *user_input = get_contents((*mod)->file_path);
 
   // step.1 tokenize
@@ -65,7 +82,7 @@ static void proc_frontend(int source_i, DebugOption *debug_opt, Module **mod) {
   debug_tokens_to_stderr(debug_opt->dbg_compiler, top_token);
 
   // step.2 parse
-  Vector *functions = parse(top_token, source_i);
+  Vector *functions = parse(top_token, mod);
   dealloc_tokens(&top_token);
 
   // step.3 typecheck and allocating_stack
@@ -81,11 +98,7 @@ static void proc_frontend(int source_i, DebugOption *debug_opt, Module **mod) {
 }
 
 static void proc_backend(Module **mod) {
-  if ((*mod)->kind == MD_PRIMARY) {
-    gen_x64_primary((*mod)->functions);
-  } else {
-    gen_x64_external(*mod);
-  }
+  gen_x64((*mod)->functions);
 
   if ((*mod)->strings->length > 0) {
     gen_x64_strlit(*mod);

@@ -1,7 +1,7 @@
 require (
-    "os"
+    "std"
 )
 
 func main() int {
-  os::exit_with(3);
+  std::os::exit_with(3);
 }

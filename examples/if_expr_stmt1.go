@@ -1,9 +1,9 @@
 require (
-    "os"
+    "std"
 )
 func main() noreturn {
 	if (1) {
-		os::exit_with(1);
+		std::os::exit_with(1);
 	};
-	os::exit_with(0);
+	std::os::exit_with(0);
 }

@@ -60,16 +60,16 @@ static void set_current_position(Token **tok, uint32_t *col, uint32_t *row);
 
 // file global definitions
 static Token *fg_cur_tok; // ファイルグローバルなトークン
+static Module *fg_current_mod;
 static uint32_t fg_col = 1;
 static uint32_t fg_row = 1;
 static uint32_t fg_str_n = 1;
 static bool in_if_scope =
     false; // ifret を検出するために使用． 意味解析でやるべきかも
 static Function **this_func;
-static int fg_source_i;
 
-Vector *parse(Token *top_token, int source_i) {
-  fg_source_i = source_i;
+Vector *parse(Token *top_token, Module **mod) {
+  fg_current_mod = *mod;
   fg_cur_tok = top_token;
   set_current_position(&fg_cur_tok, &fg_col, &fg_row);
 
@@ -422,8 +422,7 @@ static Node *primary(void) {
   }
   case TK_STRLIT: {
     n = construct_strlit_node(start_col, start_row);
-    Module *cur_mod = (Module *)vec_get(sources_g, fg_source_i);
-    vec_push(cur_mod->strings, (void *)n);
+    vec_push(fg_current_mod->strings, (void *)n);
     break;
   }
   default: {
@@ -544,19 +543,13 @@ static IdentName *expect_identifier(Token **tok) {
   IdentName *base = new_ident_name(name, NULL);
   IdentName *prev = base;
   IdentName *next = NULL;
+
   while (eat_if_symbol_matched(&fg_cur_tok, "::")) {
     if ((*tok)->kind != TK_IDENT)
       fprintf(stderr, "%d:%d: module name must be an identifier\n", (*tok)->row,
               (*tok)->col);
 
     char *next_name = str_alloc_and_copy((*tok)->str, strlen((*tok)->str));
-
-    // 使ったAPIを記録
-    Module *current_mod = (Module *)vec_get(sources_g, fg_source_i);
-    Module *next_mod;
-    if ((next_mod = find_required_mod(current_mod, name)) != NULL) {
-      vec_push(next_mod->used, (void *)next_name);
-    }
 
     next = append_ident_name(next_name, &prev);
     prev = next;

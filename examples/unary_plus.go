@@ -1,6 +1,6 @@
 require (
-    "os"
+    "std"
 )
 func main() noreturn {
-    os::exit_with(0 + -3 + +3);
+    std::os::exit_with(0 + -3 + +3);
 }

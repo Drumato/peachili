@@ -1,7 +1,6 @@
 require (
-    "os"
-    "version"
+    "std"
 )
 func main() noreturn {
-    os::exit_with(version::peachili_version());
+    std::os::exit_with(std::version::peachili_version());
 }
