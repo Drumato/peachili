@@ -1,5 +1,3 @@
-.idea/*
-.idea
-/build/
-*.s
-cmake-build-debug/*
+/target
+/.idea
+/.idea/*
