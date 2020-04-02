@@ -1,0 +1,17 @@
+name: c--
+version: "1.0"
+author: Drumato <drumatech109@gmail.com>
+about: "C Compiler Driver From Scratch"
+args:
+  - source:
+      help: Sets the input file to use
+      required: true
+      index: 1
+  - debug:
+      long: debug
+      short: d
+      help: dump all internal representations
+  - verbose:
+      long: verbose
+      short: v
+      help: dump build-log to stderr
