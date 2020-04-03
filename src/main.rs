@@ -13,6 +13,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let yaml = load_yaml!("cli.yml");
     let matches = App::from(yaml).get_matches();
 
+    // TODO: --llvm-ir フラグが指定されたとき, 別にinitialize関数を定義する．
+    // Module構造体にわたす型パラメータが異なるものになるため．
+
     let (mut main_mod, build_options) = initialize(matches);
 
     if build_options.verbose {
@@ -31,7 +34,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn initialize(matches: clap::ArgMatches) -> (module::Module, option::BuildOption) {
+fn initialize(
+    matches: clap::ArgMatches,
+) -> (
+    module::Module<compiler::resource::PFunction>,
+    option::BuildOption,
+) {
     let d_flag = matches.is_present("debug");
     let v_flag = matches.is_present("verbose");
     let main_path = matches.value_of("source").unwrap();
