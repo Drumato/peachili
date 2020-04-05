@@ -140,7 +140,7 @@ impl<'a> res::Lexer<'a> {
             "ifret" => Some(res::TokenKind::IFRET),
             "if" => Some(res::TokenKind::IF),
             "else" => Some(res::TokenKind::ELSE),
-            "int" => Some(res::TokenKind::INT),
+            "int64" => Some(res::TokenKind::INT64),
             "func" => Some(res::TokenKind::FUNC),
             "return" => Some(res::TokenKind::RETURN),
             "declare" => Some(res::TokenKind::DECLARE),

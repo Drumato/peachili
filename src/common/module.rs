@@ -1,21 +1,15 @@
-use crate::common::position;
+use crate::compiler::resource as res;
 
-pub trait Functionable {
-    fn get_name(&self) -> &String;
-    fn def_position(&self) -> &position::Position;
-    // fn return_type(&self) -> PType;
-}
-
-pub struct Module<T: Functionable> {
+pub struct Module {
     pub kind: ModuleKind,
     pub visited: bool,
     pub file_path: String,
-    pub requires: Vec<Module<T>>,
-    pub functions: Vec<T>,
+    pub requires: Vec<Module>,
+    pub functions: Vec<res::PFunction>,
 }
 
 #[allow(dead_code)]
-impl<T: Functionable> Module<T> {
+impl Module {
     fn new(kind: ModuleKind, file_path: String) -> Self {
         Self {
             kind,
