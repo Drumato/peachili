@@ -27,6 +27,20 @@ impl Token {
         let (row, column) = self.position.get_pos();
         pos::Position::new(row, column)
     }
+
+    pub fn get_int_value(&self) -> Option<i128> {
+        match self.kind {
+            TokenKind::INTEGER(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn copy_ident_name(&self) -> Option<String> {
+        match &self.kind {
+            TokenKind::IDENTIFIER(name) => Some(name.to_string()),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for Token {
@@ -78,7 +92,7 @@ pub enum TokenKind {
     ASM,
     RETURN,
     NORETURN,
-    INT,
+    INT64,
     STR,
 }
 
@@ -138,7 +152,7 @@ impl TokenKind {
             Self::ASM => "asm",
             Self::RETURN => "return",
             Self::NORETURN => "noreturn",
-            Self::INT => "int",
+            Self::INT64 => "int64",
             Self::STR => "str",
         }
     }

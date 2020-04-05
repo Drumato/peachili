@@ -1,6 +1,7 @@
 use crate::common::{operate, option, position};
 use crate::compiler::resource as res;
 
+#[allow(dead_code)]
 pub struct Lexer<'a> {
     build_option: &'a option::BuildOption,
     col: usize,
