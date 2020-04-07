@@ -1,10 +1,12 @@
 use crate::compiler::resource as res;
 
+#[derive(Clone)]
 pub struct Module {
     pub kind: ModuleKind,
     pub visited: bool,
     pub file_path: String,
     pub requires: Vec<Module>,
+    pub subs: Vec<Module>,
     pub functions: Vec<res::PFunction>,
 }
 
@@ -16,6 +18,7 @@ impl Module {
             visited: false,
             file_path,
             requires: Vec::new(),
+            subs: Vec::new(),
             functions: Vec::new(),
         }
     }
@@ -27,6 +30,7 @@ impl Module {
     }
 }
 
+#[derive(Clone)]
 #[allow(dead_code)]
 pub enum ModuleKind {
     PRIMARY,

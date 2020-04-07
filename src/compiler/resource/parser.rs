@@ -42,19 +42,34 @@ impl<'a> Parser<'a> {
         self.functions
     }
 
-    pub fn cur_token_is(&self, tk: res::TokenKind) -> bool {
+    pub fn add_local_var_to_curfunc(&mut self, name: String, pvar: res::PVariable) {
+        let func_offset = self.functions.len() - 1;
+        self.functions[func_offset].add_local(name, pvar);
+    }
+
+    pub fn cur_token_is(&self, tk: &res::TokenKind) -> bool {
         self.current_token_kind() == tk
     }
 
-    pub fn current_token_kind(&self) -> res::TokenKind {
-        self.tokens[self.cur_token].kind.clone()
+    pub fn current_token_kind(&self) -> &res::TokenKind {
+        &self.tokens[self.cur_token].kind
+    }
+    pub fn get_specified_token(&self, offset: usize) -> &res::TokenKind {
+        &self.tokens[offset].kind
+    }
+    pub fn replace_statements(&mut self, stmts: Vec<res::StatementNode>) {
+        let func_offset = self.functions.len() - 1;
+        self.functions[func_offset].replace_statements(stmts);
     }
 
+    pub fn save_current_offset(&self) -> usize {
+        self.cur_token
+    }
     pub fn current_token(&self) -> &res::Token {
         &self.tokens[self.cur_token]
     }
 
-    pub fn eat_if_matched(&mut self, tk: res::TokenKind) -> bool {
+    pub fn eat_if_matched(&mut self, tk: &res::TokenKind) -> bool {
         if self.current_token_kind() != tk {
             return false;
         }
@@ -67,7 +82,7 @@ impl<'a> Parser<'a> {
         let cur_pos = self.current_position();
         let tk_str = tk.to_str();
 
-        if !self.eat_if_matched(tk) {
+        if !self.eat_if_matched(&tk) {
             panic!(
                 "{} expected {} but got {}",
                 cur_pos,

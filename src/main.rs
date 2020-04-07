@@ -4,8 +4,10 @@ extern crate yaml_rust;
 
 use clap::App;
 
-use common::{module, option};
+use bundler::bundler_main;
+use common::option;
 
+mod bundler;
 mod common;
 mod compiler;
 
@@ -13,9 +15,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let yaml = load_yaml!("cli.yml");
     let matches = App::from(yaml).get_matches();
 
-    let (main_mod, build_options) = initialize(matches);
+    let (main_fp, build_option) = initialize(matches);
 
-    if build_options.verbose {
+    if build_option.verbose {
         eprintln!("verbose mode is on...");
     }
 
@@ -23,21 +25,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // *    Bundler     *
     // ******************
 
+    let main_mod = bundler_main::bundle_main(&build_option, main_fp);
+
     // ******************
     // *    Compiler    *
     // ******************
 
-    let _main_mod = compiler::proc_frontend(&build_options, main_mod);
+    compiler::compile_main(&build_option, main_mod);
+
     Ok(())
 }
 
-fn initialize(matches: clap::ArgMatches) -> (module::Module, option::BuildOption) {
+fn initialize(matches: clap::ArgMatches) -> (String, option::BuildOption) {
     let d_flag = matches.is_present("debug");
     let v_flag = matches.is_present("verbose");
-    let main_path = matches.value_of("source").unwrap();
-
     let build_option = option::BuildOption::new(d_flag, v_flag);
 
-    let main_module = module::Module::new_primary(main_path.to_string());
-    (main_module, build_option)
+    (
+        matches.value_of("source").unwrap().to_string(),
+        build_option,
+    )
 }
