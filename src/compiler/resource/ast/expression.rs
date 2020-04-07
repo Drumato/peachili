@@ -1,5 +1,6 @@
 use crate::common::position as pos;
 
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct ExpressionNode {
     kind: ExpressionNodeKind,
@@ -25,6 +26,7 @@ impl std::fmt::Display for ExpressionNode {
     }
 }
 
+#[derive(Clone)]
 pub enum ExpressionNodeKind {
     INTEGER(i128),
 }

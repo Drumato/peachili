@@ -41,6 +41,13 @@ impl Token {
             _ => None,
         }
     }
+
+    pub fn copy_strlit_contents(&self) -> Option<String> {
+        match &self.kind {
+            TokenKind::STRLIT(contents) => Some(contents.to_string()),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for Token {

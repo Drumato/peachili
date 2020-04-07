@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct BuildOption {
     pub debug: bool,
     pub verbose: bool,

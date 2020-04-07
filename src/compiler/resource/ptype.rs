@@ -1,4 +1,5 @@
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct PType {
     kind: PTypeKind,
     size: usize,
@@ -20,6 +21,7 @@ impl std::fmt::Display for PType {
     }
 }
 
+#[derive(Clone)]
 pub enum PTypeKind {
     INT64,
 }
