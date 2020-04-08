@@ -36,6 +36,17 @@ impl PFunction {
             panic!("detected duplicated variable declaration in {}", self.name);
         }
     }
+    pub fn get_statements(&self) -> &Vec<res::StatementNode> {
+        &self.stmts
+    }
+
+    pub fn get_stack_offset(&self) -> usize {
+        self.stack_offset
+    }
+
+    pub fn copy_func_name(&self) -> String {
+        self.name.clone()
+    }
 }
 
 impl std::fmt::Display for PFunction {

@@ -7,6 +7,11 @@ use crate::compiler::resource as res;
 
 pub fn bundle_main(build_option: &option::BuildOption, main_fp: String) -> module::Module {
     let main_mod = resolve_dependency(build_option, main_fp, true);
+    if build_option.debug {
+        eprintln!("++++++++ dump-modules ++++++++");
+        eprintln!("{}\n", main_mod);
+    }
+
     main_mod
 }
 

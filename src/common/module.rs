@@ -30,9 +30,38 @@ impl Module {
     }
 }
 
+impl std::fmt::Display for Module {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} - {}\n", self.file_path, self.kind.to_str())?;
+
+        write!(f, "subs:\n")?;
+
+        for sub in self.subs.iter() {
+            write!(f, "\t{}\n", sub.file_path)?;
+        }
+
+        write!(f, "requires:\n")?;
+
+        for req in self.requires.iter() {
+            write!(f, "\t{}\n", req.file_path)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Clone)]
 #[allow(dead_code)]
 pub enum ModuleKind {
     PRIMARY,
     EXTERNAL,
+}
+
+impl ModuleKind {
+    fn to_str(&self) -> &'static str {
+        match self {
+            Self::PRIMARY => "primary",
+            Self::EXTERNAL => "external",
+        }
+    }
 }

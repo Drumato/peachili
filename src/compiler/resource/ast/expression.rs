@@ -3,7 +3,7 @@ use crate::common::position as pos;
 #[derive(Clone)]
 #[allow(dead_code)]
 pub struct ExpressionNode {
-    kind: ExpressionNodeKind,
+    pub kind: ExpressionNodeKind,
     position: pos::Position,
 }
 
