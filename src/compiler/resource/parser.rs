@@ -1,4 +1,4 @@
-use crate::common::{module, option, position};
+use crate::common::{option, position};
 use crate::compiler::resource as res;
 
 #[allow(dead_code)]
@@ -12,7 +12,6 @@ pub struct Parser<'a> {
 
     tokens: Vec<res::Token>,
     functions: Vec<res::PFunction>,
-    this_mod: &'a mut module::Module,
 }
 
 impl<'a> Parser<'a> {
@@ -22,11 +21,7 @@ impl<'a> Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(
-        opt: &'a option::BuildOption,
-        tks: Vec<res::Token>,
-        cur_mod: &'a mut module::Module,
-    ) -> Self {
+    pub fn new(opt: &'a option::BuildOption, tks: Vec<res::Token>) -> Self {
         Self {
             build_option: opt,
             tokens: tks,
@@ -35,7 +30,6 @@ impl<'a> Parser<'a> {
             row: 1,
             col: 1,
             functions: Vec::new(),
-            this_mod: cur_mod,
         }
     }
     pub fn give_functions(self) -> Vec<res::PFunction> {

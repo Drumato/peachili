@@ -15,3 +15,6 @@ args:
       long: verbose
       short: v
       help: dump build-log to stderr
+  - stop-assemble:
+      short: S
+      long: stop-assemble

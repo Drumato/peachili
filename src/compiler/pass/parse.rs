@@ -1,19 +1,13 @@
-use crate::common::{module, option, position};
+use crate::common::{option, position};
 use crate::compiler::resource as res;
 
-pub fn parse(
-    opt: &option::BuildOption,
-    tokens: Vec<res::Token>,
-    mut this_mod: module::Module,
-) -> (module::Module, Vec<res::PFunction>) {
-    let functions: Vec<res::PFunction>;
-    {
-        let mut parser: res::Parser = res::Parser::new(opt, tokens, &mut this_mod);
-        parser.toplevel();
+// TODO: 文字列リテラル群を返すように調整する．
+// パーサに文字列リテラルを格納するメンバを作って，Vec<PFunction>と一緒に返す
+pub fn parse(opt: &option::BuildOption, tokens: Vec<res::Token>) -> Vec<res::PFunction> {
+    let mut parser: res::Parser = res::Parser::new(opt, tokens);
+    parser.toplevel();
 
-        functions = parser.give_functions()
-    }
-    (this_mod, functions)
+    parser.give_functions()
 }
 
 impl<'a> res::Parser<'a> {}

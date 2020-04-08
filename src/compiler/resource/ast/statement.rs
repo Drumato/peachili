@@ -3,7 +3,7 @@ use crate::compiler::resource as res;
 
 #[derive(Clone)]
 pub struct StatementNode {
-    kind: StatementNodeKind,
+    pub kind: StatementNodeKind,
     position: pos::Position,
 }
 

@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // *    Compiler    *
     // ******************
 
-    compiler::compile_main(&build_option, main_mod);
+    compiler::compile_main(&build_option, main_mod)?;
 
     Ok(())
 }
@@ -39,7 +39,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn initialize(matches: clap::ArgMatches) -> (String, option::BuildOption) {
     let d_flag = matches.is_present("debug");
     let v_flag = matches.is_present("verbose");
-    let build_option = option::BuildOption::new(d_flag, v_flag);
+    let large_s_flag = matches.is_present("stop-assemble");
+
+    let build_option = option::BuildOption::new(d_flag, v_flag, large_s_flag);
 
     (
         matches.value_of("source").unwrap().to_string(),
