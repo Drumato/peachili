@@ -20,7 +20,7 @@ impl Token {
         }
     }
 
-    pub fn new_int(cur_pos: pos::Position, int_value: i128) -> Self {
+    pub fn new_int(cur_pos: pos::Position, int_value: i64) -> Self {
         Self::new(cur_pos, TokenKind::INTEGER(int_value))
     }
     pub fn get_pos(&self) -> pos::Position {
@@ -28,7 +28,7 @@ impl Token {
         pos::Position::new(row, column)
     }
 
-    pub fn get_int_value(&self) -> Option<i128> {
+    pub fn get_int_value(&self) -> Option<i64> {
         match self.kind {
             TokenKind::INTEGER(v) => Some(v),
             _ => None,
@@ -64,7 +64,7 @@ pub struct IdentName {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenKind {
-    INTEGER(i128),
+    INTEGER(i64),
     STRLIT(String),
     IDENTIFIER(String),
 

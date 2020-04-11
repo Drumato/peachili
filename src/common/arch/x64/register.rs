@@ -13,10 +13,7 @@ impl Reg64 {
             Self::RSP => "rsp",
         }
     }
-}
-
-impl std::fmt::Display for Reg64 {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.to_str())
+    pub fn to_at(&self) -> String {
+        format!("%{}", self.to_str())
     }
 }

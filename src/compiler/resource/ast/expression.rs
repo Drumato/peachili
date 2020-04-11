@@ -15,7 +15,7 @@ impl ExpressionNode {
         }
     }
 
-    pub fn new_intlit(int_value: i128, cur_pos: pos::Position) -> Self {
+    pub fn new_intlit(int_value: i64, cur_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::INTEGER(int_value), cur_pos)
     }
 }
@@ -28,7 +28,7 @@ impl std::fmt::Display for ExpressionNode {
 
 #[derive(Clone)]
 pub enum ExpressionNodeKind {
-    INTEGER(i128),
+    INTEGER(i64),
 }
 
 impl std::fmt::Display for ExpressionNodeKind {

@@ -14,12 +14,12 @@ impl Symbol {
         }
     }
 
-    pub fn to_intelcode(&self) -> String {
+    pub fn to_at_code(&self) -> String {
         let mut code = format!(".global {}\n", self.name);
         code += &(format!("{}:\n", self.name));
 
         for ins in self.insts.iter() {
-            code += &(format!("  {}\n", ins.to_intelcode()));
+            code += &(format!("  {}\n", ins.to_at_code()));
         }
 
         code

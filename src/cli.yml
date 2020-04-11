@@ -18,3 +18,7 @@ args:
   - stop-assemble:
       short: S
       long: stop-assemble
+  - intel:
+      short: i
+      long: intel
+      help: dump assembly with intel syntax
