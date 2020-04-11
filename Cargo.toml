@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 clap = { git = "https://github.com/clap-rs/clap/", features = ["yaml"] }
 yaml-rust = "0.4"
+typed-arena = "2.0.1"

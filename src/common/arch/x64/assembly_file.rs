@@ -16,10 +16,10 @@ impl AssemblyFile {
         }
     }
 
-    pub fn to_intelcode(&self) -> String {
-        let mut code = ".intel_syntax noprefix\n".to_string();
+    pub fn to_at_code(&self) -> String {
+        let mut code = String::new();
         for sym in self.symbols.iter() {
-            code += &sym.to_intelcode();
+            code += &sym.to_at_code();
             code += "\n";
         }
         code

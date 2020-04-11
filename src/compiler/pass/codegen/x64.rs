@@ -62,23 +62,23 @@ impl Generator {
         // save rbp
         self.add_inst_to_cursym(x64::Instruction::pushreg64(x64::Reg64::RBP));
         self.add_inst_to_cursym(x64::Instruction::movreg_toreg64(
-            x64::Reg64::RBP,
             x64::Reg64::RSP,
+            x64::Reg64::RBP,
         ));
 
         // allocating memory area for auto-var
         if offset != 0 {
-            self.add_inst_to_cursym(x64::Instruction::subreg_byusize(
+            self.add_inst_to_cursym(x64::Instruction::subreg_byuint64(
+                (!7 & offset + 7) as u64,
                 x64::Reg64::RSP,
-                !7 & offset + 7,
             ));
         }
     }
 
     fn gen_function_epilogue(&mut self) {
         self.add_inst_to_cursym(x64::Instruction::movreg_toreg64(
-            x64::Reg64::RSP,
             x64::Reg64::RBP,
+            x64::Reg64::RSP,
         ));
         self.add_inst_to_cursym(x64::Instruction::popreg64(x64::Reg64::RBP));
         self.add_inst_to_cursym(x64::Instruction::ret());

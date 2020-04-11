@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate clap;
+extern crate typed_arena;
 extern crate yaml_rust;
 
 use clap::App;
+use typed_arena::Arena;
 
 use bundler::bundler_main;
 use common::option;
@@ -12,6 +14,8 @@ mod common;
 mod compiler;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let arena: Arena<common::module::Module> = Arena::new();
+
     let yaml = load_yaml!("cli.yml");
     let matches = App::from(yaml).get_matches();
 
@@ -25,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // *    Bundler     *
     // ******************
 
-    let main_mod = bundler_main::bundle_main(&build_option, main_fp);
+    let main_mod = bundler_main::bundle_main(&build_option, main_fp, &arena);
 
     // ******************
     // *    Compiler    *

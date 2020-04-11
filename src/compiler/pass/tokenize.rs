@@ -89,7 +89,7 @@ impl<'a> res::Lexer<'a> {
     fn scan_number(&mut self) -> Option<res::Token> {
         let number_str = self.cut_contents(|c| c.is_ascii_digit());
         let length = number_str.len();
-        let decimal_value = number_str.parse::<i128>();
+        let decimal_value = number_str.parse::<i64>();
 
         if decimal_value.is_err() {
             panic!("{} can't consider to int-value", &number_str);

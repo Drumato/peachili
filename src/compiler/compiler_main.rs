@@ -13,9 +13,9 @@ pub fn compile_main(
 
     if build_option.stop_assemble {
         // アセンブリファイルを生成してプロセスを終了
-        // とりあえずintel syntaxで
+        // とりあえずAT&T syntaxで
         let mut asm_output = std::fs::File::create(&assembly_file.file_path).unwrap();
-        asm_output.write_all(assembly_file.to_intelcode().as_bytes())?;
+        asm_output.write_all(assembly_file.to_at_code().as_bytes())?;
         std::process::exit(0);
     }
 
