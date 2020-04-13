@@ -1,7 +1,7 @@
 require (
     "std"
 )
-func foo(x int, y int) int {
+func foo(x int64, y int64) int64 {
 	return x + y; 
 }
 func main() noreturn {

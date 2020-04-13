@@ -38,16 +38,39 @@ impl Generator {
 
     fn gen_insts_from_statement(&mut self, st: &res::StatementNode) {
         match &st.kind {
-            res::StatementNodeKind::RETURN(expr) => {
-                self.gen_comment("start return statement");
-
-                self.gen_expr(expr);
-                self.add_inst_to_cursym(x64::Instruction::popreg64(x64::Reg64::RAX));
-
-                self.gen_comment("end return statement");
-            }
+            res::StatementNodeKind::RETURN(expr) => self.gen_return_statement(expr),
+            res::StatementNodeKind::IFRET(expr) => self.gen_ifret_statement(expr),
+            res::StatementNodeKind::EXPR(expr) => self.gen_expression_statement(expr),
             res::StatementNodeKind::VARDECL => (),
+            res::StatementNodeKind::COUNTUP(_id, _start, _end, _body) => {
+                panic!("not implement code-generating in countup-statement")
+            }
         }
+    }
+
+    fn gen_return_statement(&mut self, expr: &res::ExpressionNode) {
+        self.gen_comment("start return statement");
+
+        self.gen_expr(expr);
+        self.add_inst_to_cursym(x64::Instruction::popreg64(x64::Reg64::RAX));
+
+        self.gen_comment("end return statement");
+    }
+
+    fn gen_ifret_statement(&mut self, expr: &res::ExpressionNode) {
+        self.gen_comment("start ifret statement");
+
+        self.gen_expr(expr);
+
+        self.gen_comment("end ifret statement");
+    }
+
+    fn gen_expression_statement(&mut self, expr: &res::ExpressionNode) {
+        self.gen_comment("start expression statement");
+
+        self.gen_expr(expr);
+
+        self.gen_comment("end expression statement");
     }
 
     fn gen_expr(&mut self, ex: &res::ExpressionNode) {
@@ -55,6 +78,7 @@ impl Generator {
             res::ExpressionNodeKind::INTEGER(v) => {
                 self.add_inst_to_cursym(x64::Instruction::pushint64(v));
             }
+            _ => panic!("not implemented {} in gen_expr()", ex),
         }
     }
 

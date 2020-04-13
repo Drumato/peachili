@@ -57,12 +57,6 @@ impl std::fmt::Display for Token {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct IdentName {
-    name: String,
-    next: Option<Box<IdentName>>,
-}
-
-#[derive(PartialEq, Debug, Clone)]
 pub enum TokenKind {
     INTEGER(i64),
     STRLIT(String),

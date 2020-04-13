@@ -2,7 +2,7 @@ require (
     "std"
 )
 func main() noreturn {
-	declare x int; 
+	declare x int64;
 	x = if (1) { 
 		ifret 1; 
 	} else { 

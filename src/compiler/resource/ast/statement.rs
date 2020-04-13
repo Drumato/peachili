@@ -15,12 +15,33 @@ impl StatementNode {
         }
     }
 
-    pub fn new_return(expr: res::ExpressionNode, cur_pos: pos::Position) -> Self {
-        Self::new(StatementNodeKind::RETURN(Box::new(expr)), cur_pos)
+    pub fn new_return(expr: res::ExpressionNode, st_pos: pos::Position) -> Self {
+        Self::new(StatementNodeKind::RETURN(expr), st_pos)
     }
 
-    pub fn new_vardecl(cur_pos: pos::Position) -> Self {
-        Self::new(StatementNodeKind::VARDECL, cur_pos)
+    pub fn new_ifret(expr: res::ExpressionNode, st_pos: pos::Position) -> Self {
+        Self::new(StatementNodeKind::IFRET(expr), st_pos)
+    }
+
+    pub fn new_expr(expr: res::ExpressionNode, st_pos: pos::Position) -> Self {
+        Self::new(StatementNodeKind::EXPR(expr), st_pos)
+    }
+
+    pub fn new_vardecl(st_pos: pos::Position) -> Self {
+        Self::new(StatementNodeKind::VARDECL, st_pos)
+    }
+
+    pub fn new_countup(
+        ident: res::ExpressionNode,
+        start_expr: res::ExpressionNode,
+        end_expr: res::ExpressionNode,
+        body: Vec<StatementNode>,
+        st_pos: pos::Position,
+    ) -> Self {
+        Self::new(
+            StatementNodeKind::COUNTUP(ident, start_expr, end_expr, body),
+            st_pos,
+        )
     }
 }
 
@@ -32,15 +53,34 @@ impl std::fmt::Display for StatementNode {
 
 #[derive(Clone)]
 pub enum StatementNodeKind {
-    RETURN(Box<res::ExpressionNode>),
+    RETURN(res::ExpressionNode),
+    IFRET(res::ExpressionNode),
+    EXPR(res::ExpressionNode),
     VARDECL,
+    COUNTUP(
+        res::ExpressionNode,
+        res::ExpressionNode,
+        res::ExpressionNode,
+        Vec<StatementNode>,
+    ),
 }
 
 impl std::fmt::Display for StatementNodeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::RETURN(inner) => write!(f, "return {}", inner),
-            Self::VARDECL => write!(f, "(vardecl)"),
+            Self::RETURN(inner) => write!(f, "return {};", inner),
+            Self::IFRET(inner) => write!(f, "ifret {};", inner),
+            Self::EXPR(inner) => write!(f, "expr {};", inner),
+            Self::VARDECL => write!(f, "(vardecl);"),
+            Self::COUNTUP(ident, start, end, body) => {
+                write!(f, "countup {} <= {} <= {} {{ \n", start, ident, end)?;
+
+                for st in body.iter() {
+                    write!(f, "\t\t{}\n", st)?;
+                }
+
+                write!(f, "}};")
+            }
         }
     }
 }
