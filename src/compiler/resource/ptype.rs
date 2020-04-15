@@ -16,6 +16,13 @@ impl PType {
     pub fn new_noreturn() -> Self {
         Self::new(PTypeKind::NORETURN, 0)
     }
+    pub fn new_str() -> Self {
+        Self::new(PTypeKind::STR, 8)
+    }
+
+    pub fn type_size(&self) -> usize {
+        self.size
+    }
 }
 
 impl std::fmt::Display for PType {
@@ -27,6 +34,7 @@ impl std::fmt::Display for PType {
 #[derive(Clone)]
 pub enum PTypeKind {
     INT64,
+    STR,
     NORETURN,
 }
 
@@ -34,6 +42,7 @@ impl PTypeKind {
     fn to_str(&self) -> &'static str {
         match self {
             Self::INT64 => "int64",
+            Self::STR => "str",
             Self::NORETURN => "noreturn",
         }
     }

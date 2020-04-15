@@ -10,13 +10,18 @@ pub struct PFunction {
     stack_offset: usize,
     position: pos::Position,
     stmts: Vec<res::StatementNode>,
-    locals: BTreeMap<String, res::PVariable>,
+    pub locals: BTreeMap<String, res::PVariable>,
     return_type: res::PType,
-    // args: Vec<String>
+    args: Vec<String>,
 }
 
 impl PFunction {
-    pub fn new(func_name: String, ptype: res::PType, def_pos: pos::Position) -> Self {
+    pub fn new(
+        func_name: String,
+        ptype: res::PType,
+        arg_names: Vec<String>,
+        def_pos: pos::Position,
+    ) -> Self {
         Self {
             name: func_name,
             stack_offset: 0,
@@ -24,6 +29,7 @@ impl PFunction {
             stmts: Vec::new(),
             locals: BTreeMap::new(),
             return_type: ptype,
+            args: arg_names,
         }
     }
 
@@ -36,12 +42,25 @@ impl PFunction {
             panic!("detected duplicated variable declaration in {}", self.name);
         }
     }
+
     pub fn get_statements(&self) -> &Vec<res::StatementNode> {
         &self.stmts
     }
+    pub fn get_args(&self) -> &Vec<String> {
+        &self.args
+    }
 
+    pub fn get_locals(&self) -> &BTreeMap<String, res::PVariable> {
+        &self.locals
+    }
+    pub fn set_locals(&mut self, locals: BTreeMap<String, res::PVariable>) {
+        self.locals = locals;
+    }
     pub fn get_stack_offset(&self) -> usize {
         self.stack_offset
+    }
+    pub fn set_stack_offset(&mut self, offset: usize) {
+        self.stack_offset = offset;
     }
 
     pub fn copy_func_name(&self) -> String {

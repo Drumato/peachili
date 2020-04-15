@@ -15,6 +15,12 @@ impl ExpressionNode {
             _ => panic!("unexpected call `copy_ident_name` with {}", self.kind),
         }
     }
+    pub fn copy_str_contents(&self) -> String {
+        match &self.kind {
+            ExpressionNodeKind::STRLIT(contents) => contents.to_string(),
+            _ => panic!("unexpected call `copy_str_contents` with {}", self.kind),
+        }
+    }
 
     pub fn new_intlit(int_value: i64, ex_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::INTEGER(int_value), ex_pos)

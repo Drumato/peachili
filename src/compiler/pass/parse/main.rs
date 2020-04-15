@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::common::{option, position};
 use crate::compiler::resource as res;
 
@@ -30,13 +32,30 @@ impl<'a> res::Parser<'a> {
 
         let name = self.expect_name();
 
-        // 引数は後で
+        // 引数
+        let mut args: Vec<String> = Vec::new();
+        let mut arg_map: BTreeMap<String, res::PVariable> = BTreeMap::new();
+
         self.expect(res::TokenKind::LPAREN);
-        self.expect(res::TokenKind::RPAREN);
+        loop {
+            if self.eat_if_matched(&res::TokenKind::RPAREN) {
+                break;
+            }
+            let arg_name = res::IdentName::correct_name(&self.expect_identifier());
+            let arg_type = self.expect_ptype();
+
+            let arg_var = res::PVariable::new_local(arg_type);
+
+            arg_map.insert(arg_name.clone(), arg_var);
+
+            self.eat_if_matched(&res::TokenKind::COMMA);
+            args.push(arg_name);
+        }
 
         let return_type = self.expect_ptype();
 
-        let defined_func = res::PFunction::new(name, return_type, def_func_pos);
+        let mut defined_func = res::PFunction::new(name, return_type, args, def_func_pos);
+        defined_func.set_locals(arg_map);
         self.add_pfunction(defined_func);
 
         let statements = self.compound_statement();
@@ -52,6 +71,7 @@ impl<'a> res::Parser<'a> {
         match ptype_kind {
             &res::TokenKind::INT64 => res::PType::new_int64(),
             &res::TokenKind::NORETURN => res::PType::new_noreturn(),
+            &res::TokenKind::STR => res::PType::new_str(),
             _ => panic!("can't find such a type -> {}", ptype_kind.to_str()),
         }
     }

@@ -32,11 +32,12 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::IFRET => self.ifret_statement(),
             res::TokenKind::DECLARE => self.vardecl_statement(),
             res::TokenKind::COUNTUP => self.countup_statement(),
+            res::TokenKind::ASM => self.asm_statement(),
             _ => self.expression_statement(),
         }
     }
 
-    pub fn return_statement(&mut self) -> res::StatementNode {
+    fn return_statement(&mut self) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
@@ -47,7 +48,7 @@ impl<'a> res::Parser<'a> {
         res::StatementNode::new_return(expr, cur_pos)
     }
 
-    pub fn ifret_statement(&mut self) -> res::StatementNode {
+    fn ifret_statement(&mut self) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
@@ -57,7 +58,7 @@ impl<'a> res::Parser<'a> {
         res::StatementNode::new_ifret(expr, cur_pos)
     }
 
-    pub fn vardecl_statement(&mut self) -> res::StatementNode {
+    fn vardecl_statement(&mut self) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
@@ -72,7 +73,7 @@ impl<'a> res::Parser<'a> {
         res::StatementNode::new_vardecl(cur_pos)
     }
 
-    pub fn countup_statement(&mut self) -> res::StatementNode {
+    fn countup_statement(&mut self) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
@@ -95,11 +96,35 @@ impl<'a> res::Parser<'a> {
         res::StatementNode::new_countup(ident, start_expr, end_expr, body, cur_pos)
     }
 
-    pub fn expression_statement(&mut self) -> res::StatementNode {
+    fn expression_statement(&mut self) -> res::StatementNode {
         let cur_pos = self.current_position();
         let expr = self.expression();
         self.expect_semicolon(&cur_pos);
 
         res::StatementNode::new_expr(expr, cur_pos)
+    }
+
+    fn asm_statement(&mut self) -> res::StatementNode {
+        let cur_pos = self.current_position();
+        self.progress();
+
+        if !self.eat_if_matched(&res::TokenKind::LBRACE) {
+            panic!("expected {{");
+        }
+
+        let mut asms: Vec<String> = Vec::new();
+
+        loop {
+            if self.eat_if_matched(&res::TokenKind::RBRACE) {
+                break;
+            }
+
+            let asm_contents = self.string_literal();
+            asms.push(asm_contents.copy_str_contents());
+            self.eat_if_matched(&res::TokenKind::COMMA);
+        }
+        self.expect_semicolon(&cur_pos);
+
+        res::StatementNode::new_asm(asms, cur_pos)
     }
 }
