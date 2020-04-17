@@ -18,12 +18,16 @@ impl Instruction {
             // register
             InstKind::ADDREGTOREG64(src, dst) => format!("addq {}, {}", src.to_at(), dst.to_at()),
             InstKind::SUBREGTOREG64(src, dst) => format!("subq {}, {}", src.to_at(), dst.to_at()),
+            InstKind::CMPREGANDINT64(v, reg) => format!("cmpq {}, {}", v.to_at(), reg.to_at()),
             InstKind::IMULREGTOREG64(src, dst) => format!("imulq {}, {}", src.to_at(), dst.to_at()),
             InstKind::IDIVREG64(value) => format!("idivq {}", value.to_at()),
 
             InstKind::MOVREGTOREG64(src, dst) => format!("movq {}, {}", src.to_at(), dst.to_at()),
             InstKind::MOVREGTOMEM64(src, base_reg, offset) => {
-                format!("movq {}, -{}{}", src.to_at(), offset, base_reg.to_at())
+                format!("movq {}, -{}({})", src.to_at(), offset, base_reg.to_at())
+            }
+            InstKind::MOVMEMTOREG64(base_reg, offset, src) => {
+                format!("movq -{}({}), {}", offset, base_reg.to_at(), src.to_at())
             }
             InstKind::PUSHREG64(value) => format!("pushq {}", value.to_at()),
             InstKind::POPREG64(value) => format!("popq {}", value.to_at()),
@@ -33,6 +37,9 @@ impl Instruction {
             }
 
             // etc
+            InstKind::LABEL(label) => format!("{}:", label),
+            InstKind::JUMP(label) => format!("jmp {}", label),
+            InstKind::JUMPEQUAL(label) => format!("je {}", label),
             InstKind::INLINE(contents) => contents.to_string(),
             InstKind::CALL(name) => format!("call {}", name),
             InstKind::CLTD => "cltd".to_string(),
@@ -49,6 +56,9 @@ impl Instruction {
     pub fn addreg_toreg64(src: Reg64, dst: Reg64) -> Self {
         Self::new(InstKind::ADDREGTOREG64(src, dst))
     }
+    pub fn cmpreg_andint64(imm: i64, reg: Reg64) -> Self {
+        Self::new(InstKind::CMPREGANDINT64(Immediate::new_int64(imm), reg))
+    }
     pub fn subreg_toreg64(src: Reg64, dst: Reg64) -> Self {
         Self::new(InstKind::SUBREGTOREG64(src, dst))
     }
@@ -64,6 +74,9 @@ impl Instruction {
     pub fn movreg_tomem64(src: Reg64, base_reg: Reg64, offset: usize) -> Self {
         Self::new(InstKind::MOVREGTOMEM64(src, base_reg, offset))
     }
+    pub fn movmem_toreg64(base_reg: Reg64, offset: usize, src: Reg64) -> Self {
+        Self::new(InstKind::MOVMEMTOREG64(base_reg, offset, src))
+    }
     pub fn pushreg64(reg: Reg64) -> Self {
         Self::new(InstKind::PUSHREG64(reg))
     }
@@ -78,6 +91,15 @@ impl Instruction {
     }
 
     // etc
+    pub fn jump_label(label: String) -> Self {
+        Self::new(InstKind::JUMP(label))
+    }
+    pub fn jump_equal_label(label: String) -> Self {
+        Self::new(InstKind::JUMPEQUAL(label))
+    }
+    pub fn label(label: String) -> Self {
+        Self::new(InstKind::LABEL(label))
+    }
     pub fn inline_asm(contents: String) -> Self {
         Self::new(InstKind::INLINE(contents))
     }
@@ -110,6 +132,8 @@ pub enum InstKind {
 
     // add
     ADDREGTOREG64(Reg64, Reg64),
+    // cmp
+    CMPREGANDINT64(Immediate, Reg64),
     // sub
     SUBREGBYUINT64(Immediate, Reg64),
     SUBREGTOREG64(Reg64, Reg64),
@@ -120,6 +144,7 @@ pub enum InstKind {
     // mov
     MOVREGTOREG64(Reg64, Reg64),
     MOVREGTOMEM64(Reg64, Reg64, usize),
+    MOVMEMTOREG64(Reg64, usize, Reg64),
     // push
     PUSHREG64(Reg64),
     // pop
@@ -128,6 +153,10 @@ pub enum InstKind {
     NEGREG64(Reg64),
 
     // etc
+    LABEL(String),
+    JUMP(String),
+
+    JUMPEQUAL(String),
     INLINE(String),
     CALL(String),
     CLTD,

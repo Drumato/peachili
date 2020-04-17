@@ -14,6 +14,7 @@ pub fn codegen(
 
     for func in functions {
         generator.gen_symbol_from_func(func);
+        generator.set_label(1);
     }
     generator.give_assembly()
 }
@@ -21,6 +22,7 @@ pub fn codegen(
 struct Generator {
     asm: x64::AssemblyFile,
     sym_idx: usize,
+    label: usize,
 }
 
 impl Generator {
@@ -121,7 +123,18 @@ impl Generator {
             res::ExpressionNodeKind::INTEGER(v) => {
                 self.add_inst_to_cursym(x64::Instruction::pushint64(*v));
             }
-            res::ExpressionNodeKind::IDENT(_id_name) => self.gen_left_value(ex, local_map),
+            res::ExpressionNodeKind::IDENT(_id_name) => {
+                self.gen_left_value(ex, local_map);
+                self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+
+                // get value from address
+                self.add_inst_to_cursym(x64::Instruction::movmem_toreg64(
+                    Reg64::RAX,
+                    0,
+                    Reg64::RAX,
+                ));
+                self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
+            }
             res::ExpressionNodeKind::CALL(ident, args) => {
                 for arg in args.iter() {
                     self.gen_expr(arg, local_map);
@@ -134,9 +147,7 @@ impl Generator {
                     self.add_inst_to_cursym(x64::Instruction::popreg64(arg_reg));
                 }
 
-                self.add_inst_to_cursym(x64::Instruction::call(res::IdentName::correct_name(
-                    ident,
-                )));
+                self.add_inst_to_cursym(x64::Instruction::call(res::IdentName::last_name(ident)));
 
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
             }
@@ -178,6 +189,45 @@ impl Generator {
 
                 // 4. 代入式のため，スタックにRDIの値を積んでおく
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RDI));
+            }
+            res::ExpressionNodeKind::IF(condition, body) => {
+                self.gen_expr(condition, local_map);
+                let fin_label = format!(".Lend{}", self.consume_label());
+
+                // condition
+                self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+                self.add_inst_to_cursym(x64::Instruction::cmpreg_andint64(0, Reg64::RAX));
+                self.add_inst_to_cursym(x64::Instruction::jump_equal_label(fin_label.clone()));
+
+                for st in body.iter() {
+                    self.gen_insts_from_statement(st, local_map);
+                }
+
+                self.add_inst_to_cursym(x64::Instruction::label(fin_label));
+            }
+            res::ExpressionNodeKind::IFELSE(condition, body, alter) => {
+                self.gen_expr(condition, local_map);
+                let label_num = self.consume_label();
+                let else_label = format!(".Lelse{}", label_num);
+                let fin_label = format!(".Lend{}", label_num);
+
+                // condition
+                self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+                self.add_inst_to_cursym(x64::Instruction::cmpreg_andint64(0, Reg64::RAX));
+                self.add_inst_to_cursym(x64::Instruction::jump_equal_label(else_label.clone()));
+
+                for st in body.iter() {
+                    self.gen_insts_from_statement(st, local_map);
+                }
+
+                self.add_inst_to_cursym(x64::Instruction::jump_label(fin_label.clone()));
+                self.add_inst_to_cursym(x64::Instruction::label(else_label));
+
+                for st in alter.iter() {
+                    self.gen_insts_from_statement(st, local_map);
+                }
+
+                self.add_inst_to_cursym(x64::Instruction::label(fin_label));
             }
             _ => panic!("not implemented {} in gen_expr()", ex),
         }
@@ -275,7 +325,7 @@ impl Generator {
     ) {
         match &lval.kind {
             res::ExpressionNodeKind::IDENT(id_name) => {
-                let name = res::IdentName::correct_name(id_name);
+                let name = res::IdentName::last_name(id_name);
                 let cur_pvar = local_map.get(&name);
 
                 if cur_pvar.is_none() {
@@ -301,7 +351,16 @@ impl Generator {
         Self {
             sym_idx: 0,
             asm: x64::AssemblyFile::new(file_path),
+            label: 1,
         }
+    }
+    fn set_label(&mut self, lnum: usize) {
+        self.label = lnum;
+    }
+    fn consume_label(&mut self) -> usize {
+        let cur_num = self.label;
+        self.label += 1;
+        cur_num
     }
 
     fn give_assembly(self) -> x64::AssemblyFile {

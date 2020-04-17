@@ -226,6 +226,21 @@ impl IdentName {
 
         st
     }
+
+    pub fn last_name(s: &IdentName) -> String {
+        let mut st = s.name.clone();
+
+        let mut prev = &s.next;
+        loop {
+            if prev.is_none() {
+                break;
+            }
+            st = prev.as_ref().unwrap().name.clone();
+            prev = &prev.as_ref().unwrap().next;
+        }
+
+        st
+    }
 }
 
 impl std::fmt::Display for IdentName {

@@ -51,9 +51,9 @@ impl<'a> res::Parser<'a> {
         loop {
             let cur_pos = self.current_position();
 
-            if self.cur_token_is(&res::TokenKind::PLUS) {
+            if self.eat_if_matched(&res::TokenKind::PLUS) {
                 lop = res::ExpressionNode::new_add(lop, self.multiplicative(), cur_pos);
-            } else if self.cur_token_is(&res::TokenKind::MINUS) {
+            } else if self.eat_if_matched(&res::TokenKind::MINUS) {
                 lop = res::ExpressionNode::new_sub(lop, self.multiplicative(), cur_pos);
             } else {
                 break;
@@ -68,9 +68,9 @@ impl<'a> res::Parser<'a> {
         loop {
             let cur_pos = self.current_position();
 
-            if self.cur_token_is(&res::TokenKind::ASTERISK) {
+            if self.eat_if_matched(&res::TokenKind::ASTERISK) {
                 lop = res::ExpressionNode::new_mul(lop, self.unary(), cur_pos);
-            } else if self.cur_token_is(&res::TokenKind::SLASH) {
+            } else if self.eat_if_matched(&res::TokenKind::SLASH) {
                 lop = res::ExpressionNode::new_div(lop, self.unary(), cur_pos);
             } else {
                 break;

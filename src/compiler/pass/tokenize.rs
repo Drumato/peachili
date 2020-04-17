@@ -114,7 +114,7 @@ impl<'a> res::Lexer<'a> {
             }
         }
 
-        let simple_symbols = vec!["+", "-", "*", "/", ";", "(", ")", "{", "}", "="];
+        let simple_symbols = vec!["+", "-", "*", "/", ";", "(", ")", "{", "}", "=", ","];
 
         for sym_str in simple_symbols.iter() {
             if self.contents_starts_with(sym_str) {
@@ -124,6 +124,7 @@ impl<'a> res::Lexer<'a> {
                 return Some(res::Token::new(cur_pos, res::TokenKind::from_str(sym_str)));
             }
         }
+
         None
     }
 
