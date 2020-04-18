@@ -19,6 +19,7 @@ impl Instruction {
             InstKind::ADDREGTOREG64(src, dst) => format!("addq {}, {}", src.to_at(), dst.to_at()),
             InstKind::SUBREGTOREG64(src, dst) => format!("subq {}, {}", src.to_at(), dst.to_at()),
             InstKind::CMPREGANDINT64(v, reg) => format!("cmpq {}, {}", v.to_at(), reg.to_at()),
+            InstKind::CMPREGANDREG64(r1, r2) => format!("cmpq {}, {}", r1.to_at(), r2.to_at()),
             InstKind::IMULREGTOREG64(src, dst) => format!("imulq {}, {}", src.to_at(), dst.to_at()),
             InstKind::IDIVREG64(value) => format!("idivq {}", value.to_at()),
 
@@ -29,6 +30,7 @@ impl Instruction {
             InstKind::MOVMEMTOREG64(base_reg, offset, src) => {
                 format!("movq -{}({}), {}", offset, base_reg.to_at(), src.to_at())
             }
+            InstKind::INCREG64(value) => format!("incq {}", value.to_at()),
             InstKind::PUSHREG64(value) => format!("pushq {}", value.to_at()),
             InstKind::POPREG64(value) => format!("popq {}", value.to_at()),
             InstKind::NEGREG64(value) => format!("negq {}", value.to_at()),
@@ -59,6 +61,9 @@ impl Instruction {
     pub fn cmpreg_andint64(imm: i64, reg: Reg64) -> Self {
         Self::new(InstKind::CMPREGANDINT64(Immediate::new_int64(imm), reg))
     }
+    pub fn cmpreg_andreg64(r1: Reg64, r2: Reg64) -> Self {
+        Self::new(InstKind::CMPREGANDREG64(r1, r2))
+    }
     pub fn subreg_toreg64(src: Reg64, dst: Reg64) -> Self {
         Self::new(InstKind::SUBREGTOREG64(src, dst))
     }
@@ -88,6 +93,9 @@ impl Instruction {
     }
     pub fn negreg64(value: Reg64) -> Self {
         Self::new(InstKind::NEGREG64(value))
+    }
+    pub fn increg64(value: Reg64) -> Self {
+        Self::new(InstKind::INCREG64(value))
     }
 
     // etc
@@ -134,6 +142,7 @@ pub enum InstKind {
     ADDREGTOREG64(Reg64, Reg64),
     // cmp
     CMPREGANDINT64(Immediate, Reg64),
+    CMPREGANDREG64(Reg64, Reg64),
     // sub
     SUBREGBYUINT64(Immediate, Reg64),
     SUBREGTOREG64(Reg64, Reg64),
@@ -151,6 +160,8 @@ pub enum InstKind {
     POPREG64(Reg64),
     // neg
     NEGREG64(Reg64),
+    // inc
+    INCREG64(Reg64),
 
     // etc
     LABEL(String),

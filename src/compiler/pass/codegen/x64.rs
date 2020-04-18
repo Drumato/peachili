@@ -69,8 +69,8 @@ impl Generator {
             res::StatementNodeKind::IFRET(expr) => self.gen_ifret_statement(expr, local_map),
             res::StatementNodeKind::EXPR(expr) => self.gen_expression_statement(expr, local_map),
             res::StatementNodeKind::VARDECL => (),
-            res::StatementNodeKind::COUNTUP(_id, _start, _end, _body) => {
-                panic!("not implement code-generating in countup-statement")
+            res::StatementNodeKind::COUNTUP(id, start, end, body) => {
+                self.gen_countup_statement(id, start, end, body, local_map)
             }
             res::StatementNodeKind::ASM(args) => {
                 for arg in args.iter() {
@@ -117,6 +117,57 @@ impl Generator {
         self.gen_comment("end expression statement");
     }
 
+    fn gen_countup_statement(
+        &mut self,
+        id: &res::ExpressionNode,
+        start: &res::ExpressionNode,
+        end: &res::ExpressionNode,
+        body: &Vec<res::StatementNode>,
+        local_map: &BTreeMap<String, res::PVariable>,
+    ) {
+        self.gen_comment("start countup statement");
+
+        let lnum = self.consume_label();
+        let start_label = format!(".Lstart{}", lnum);
+        let end_label = format!(".Lend{}", lnum);
+
+        // initialize
+
+        self.gen_left_value(id, local_map);
+        self.gen_expr(start, local_map);
+        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
+        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+        self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(Reg64::RDI, Reg64::RAX, 0));
+
+        // in loop
+        self.add_inst_to_cursym(x64::Instruction::label(start_label.clone()));
+
+        // check whether condition is satisfied
+        self.gen_expr(id, local_map);
+        self.gen_expr(end, local_map);
+        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
+        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+        self.add_inst_to_cursym(x64::Instruction::cmpreg_andreg64(Reg64::RDI, Reg64::RAX));
+        self.add_inst_to_cursym(x64::Instruction::jump_equal_label(end_label.clone()));
+
+        // contents
+        for st in body.iter() {
+            self.gen_insts_from_statement(st, local_map);
+        }
+
+        // increment
+        self.gen_left_value(id, local_map);
+        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+        self.add_inst_to_cursym(x64::Instruction::movmem_toreg64(Reg64::RAX, 0, Reg64::RDI));
+        self.add_inst_to_cursym(x64::Instruction::increg64(Reg64::RDI));
+        self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(Reg64::RDI, Reg64::RAX, 0));
+
+        self.add_inst_to_cursym(x64::Instruction::jump_label(start_label));
+        self.add_inst_to_cursym(x64::Instruction::label(end_label.clone()));
+
+        self.gen_comment("end countup statement");
+    }
+
     fn gen_expr(&mut self, ex: &res::ExpressionNode, local_map: &BTreeMap<String, res::PVariable>) {
         match &ex.kind {
             // primary
@@ -124,6 +175,7 @@ impl Generator {
                 self.add_inst_to_cursym(x64::Instruction::pushint64(*v));
             }
             res::ExpressionNodeKind::IDENT(_id_name) => {
+                self.gen_comment("start identifier expression");
                 self.gen_left_value(ex, local_map);
                 self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
 
@@ -134,13 +186,15 @@ impl Generator {
                     Reg64::RAX,
                 ));
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
+                self.gen_comment("end identifier expression");
             }
             res::ExpressionNodeKind::CALL(ident, args) => {
+                self.gen_comment("start call expression");
                 for arg in args.iter() {
                     self.gen_expr(arg, local_map);
                 }
 
-                let arg_number = args.len() - 1;
+                let arg_number: usize = if args.is_empty() { 0 } else { args.len() - 1 };
 
                 for i in 0..args.len() {
                     let arg_reg = Self::caller_reg64(arg_number - i);
@@ -150,6 +204,8 @@ impl Generator {
                 self.add_inst_to_cursym(x64::Instruction::call(res::IdentName::last_name(ident)));
 
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
+
+                self.gen_comment("end call expression");
             }
 
             // unary-expression
@@ -171,6 +227,8 @@ impl Generator {
                 self.gen_binary_expr("/", lop, rop, local_map)
             }
             res::ExpressionNodeKind::ASSIGN(lval, rval) => {
+                self.gen_comment("start assign expression");
+
                 // 1． 左右子ノードをコンパイル
                 //     左辺値はアドレスを生成し，スタックに積んでおく．
                 self.gen_left_value(lval, local_map);
@@ -189,8 +247,12 @@ impl Generator {
 
                 // 4. 代入式のため，スタックにRDIの値を積んでおく
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RDI));
+
+                self.gen_comment("end assign expression");
             }
             res::ExpressionNodeKind::IF(condition, body) => {
+                self.gen_comment("start if expression");
+
                 self.gen_expr(condition, local_map);
                 let fin_label = format!(".Lend{}", self.consume_label());
 
@@ -204,8 +266,12 @@ impl Generator {
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::label(fin_label));
+
+                self.gen_comment("end if expression");
             }
             res::ExpressionNodeKind::IFELSE(condition, body, alter) => {
+                self.gen_comment("start if-else expression");
+
                 self.gen_expr(condition, local_map);
                 let label_num = self.consume_label();
                 let else_label = format!(".Lelse{}", label_num);
@@ -228,6 +294,8 @@ impl Generator {
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::label(fin_label));
+
+                self.gen_comment("end if-else expression");
             }
             _ => panic!("not implemented {} in gen_expr()", ex),
         }
