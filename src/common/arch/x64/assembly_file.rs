@@ -31,6 +31,9 @@ impl AssemblyFile {
     pub fn add_inst_to_sym(&mut self, idx: usize, inst: Instruction) {
         self.symbols[idx].add_inst(inst);
     }
+    pub fn add_string_to_sym(&mut self, idx: usize, contents: String, hash: u64) {
+        self.symbols[idx].add_string(contents, hash);
+    }
     pub fn symbols_number(&self) -> usize {
         self.symbols.len()
     }

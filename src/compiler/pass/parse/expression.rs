@@ -1,3 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use crate::compiler::resource as res;
 
 impl<'a> res::Parser<'a> {
@@ -116,8 +119,16 @@ impl<'a> res::Parser<'a> {
         let cur_str_contents = self.current_token().copy_strlit_contents();
         self.progress();
 
+        let mut hasher = DefaultHasher::new();
+        let contents = cur_str_contents.unwrap();
+        contents.hash(&mut hasher);
+
+        if !self.asm_mode() {
+            self.add_string_to_curfunc(contents.clone(), hasher.finish());
+        }
+
         // primary() で文字列リテラルであることを検査しているのでunwrap()してよい．
-        res::ExpressionNode::new_strlit(cur_str_contents.unwrap(), cur_pos)
+        res::ExpressionNode::new_strlit(contents, hasher.finish(), cur_pos)
     }
 
     pub fn identifier(&mut self) -> res::ExpressionNode {

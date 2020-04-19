@@ -11,6 +11,7 @@ pub struct PFunction {
     position: pos::Position,
     stmts: Vec<res::StatementNode>,
     pub locals: BTreeMap<String, res::PVariable>,
+    pub strings: BTreeMap<String, u64>,
     return_type: res::PType,
     args: Vec<String>,
 }
@@ -28,6 +29,7 @@ impl PFunction {
             position: def_pos,
             stmts: Vec::new(),
             locals: BTreeMap::new(),
+            strings: BTreeMap::new(),
             return_type: ptype,
             args: arg_names,
         }
@@ -42,6 +44,9 @@ impl PFunction {
             panic!("detected duplicated variable declaration in {}", self.name);
         }
     }
+    pub fn add_string(&mut self, contents: String, hash: u64) {
+        self.strings.insert(contents, hash);
+    }
 
     pub fn get_statements(&self) -> &Vec<res::StatementNode> {
         &self.stmts
@@ -55,6 +60,9 @@ impl PFunction {
     }
     pub fn set_locals(&mut self, locals: BTreeMap<String, res::PVariable>) {
         self.locals = locals;
+    }
+    pub fn get_strings(&self) -> &BTreeMap<String, u64> {
+        &self.strings
     }
     pub fn get_stack_offset(&self) -> usize {
         self.stack_offset

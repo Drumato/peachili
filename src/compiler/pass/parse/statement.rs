@@ -108,6 +108,8 @@ impl<'a> res::Parser<'a> {
         let cur_pos = self.current_position();
         self.progress();
 
+        self.asm_mode_on();
+
         if !self.eat_if_matched(&res::TokenKind::LBRACE) {
             panic!("expected {{");
         }
@@ -125,6 +127,7 @@ impl<'a> res::Parser<'a> {
         }
         self.expect_semicolon(&cur_pos);
 
+        self.asm_mode_off();
         res::StatementNode::new_asm(asms, cur_pos)
     }
 }

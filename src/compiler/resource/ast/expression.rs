@@ -17,7 +17,7 @@ impl ExpressionNode {
     }
     pub fn copy_str_contents(&self) -> String {
         match &self.kind {
-            ExpressionNodeKind::STRLIT(contents) => contents.to_string(),
+            ExpressionNodeKind::STRLIT(contents, _hash) => contents.to_string(),
             _ => panic!("unexpected call `copy_str_contents` with {}", self.kind),
         }
     }
@@ -26,8 +26,8 @@ impl ExpressionNode {
         Self::new(ExpressionNodeKind::INTEGER(int_value), ex_pos)
     }
 
-    pub fn new_strlit(contents: String, ex_pos: pos::Position) -> Self {
-        Self::new(ExpressionNodeKind::STRLIT(contents), ex_pos)
+    pub fn new_strlit(contents: String, hash: u64, ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::STRLIT(contents, hash), ex_pos)
     }
 
     pub fn new_ident(ident: IdentName, ex_pos: pos::Position) -> Self {
@@ -111,7 +111,7 @@ impl std::fmt::Display for ExpressionNode {
 #[derive(Clone)]
 pub enum ExpressionNodeKind {
     INTEGER(i64),
-    STRLIT(String),
+    STRLIT(String, u64),
     IDENT(IdentName),
     CALL(IdentName, Vec<ExpressionNode>),
 
@@ -138,7 +138,7 @@ impl std::fmt::Display for ExpressionNodeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::INTEGER(v) => write!(f, "{}", v),
-            Self::STRLIT(contents) => write!(f, "\"{}\"", contents),
+            Self::STRLIT(contents, _hash) => write!(f, "\"{}\"", contents),
             Self::IDENT(ident) => write!(f, "{}", ident),
             Self::CALL(ident, args) => {
                 write!(f, "{}(", ident)?;

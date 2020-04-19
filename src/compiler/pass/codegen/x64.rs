@@ -36,6 +36,7 @@ impl Generator {
         self.gen_function_prologue(stack_offset);
 
         let local_map = func.get_locals();
+        let string_map = func.get_strings();
 
         // 引数がある場合は，所定のスタックオフセットに格納
         for (arg_i, name) in func.get_args().iter().enumerate() {
@@ -53,24 +54,35 @@ impl Generator {
         }
 
         for st in func.get_statements() {
-            self.gen_insts_from_statement(st, local_map);
+            self.gen_insts_from_statement(st, local_map, string_map);
         }
 
         self.gen_function_epilogue();
+
+        for (contents, hash) in string_map.iter() {
+            self.add_string_to_cursym(contents.clone(), *hash);
+        }
     }
 
     fn gen_insts_from_statement(
         &mut self,
         st: &res::StatementNode,
         local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
     ) {
         match &st.kind {
-            res::StatementNodeKind::RETURN(expr) => self.gen_return_statement(expr, local_map),
-            res::StatementNodeKind::IFRET(expr) => self.gen_ifret_statement(expr, local_map),
-            res::StatementNodeKind::EXPR(expr) => self.gen_expression_statement(expr, local_map),
+            res::StatementNodeKind::RETURN(expr) => {
+                self.gen_return_statement(expr, local_map, string_map)
+            }
+            res::StatementNodeKind::IFRET(expr) => {
+                self.gen_ifret_statement(expr, local_map, string_map)
+            }
+            res::StatementNodeKind::EXPR(expr) => {
+                self.gen_expression_statement(expr, local_map, string_map)
+            }
             res::StatementNodeKind::VARDECL => (),
             res::StatementNodeKind::COUNTUP(id, start, end, body) => {
-                self.gen_countup_statement(id, start, end, body, local_map)
+                self.gen_countup_statement(id, start, end, body, local_map, string_map)
             }
             res::StatementNodeKind::ASM(args) => {
                 for arg in args.iter() {
@@ -84,10 +96,11 @@ impl Generator {
         &mut self,
         expr: &res::ExpressionNode,
         local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
     ) {
         self.gen_comment("start return statement");
 
-        self.gen_expr(expr, local_map);
+        self.gen_expr(expr, local_map, string_map);
         self.add_inst_to_cursym(x64::Instruction::popreg64(x64::Reg64::RAX));
 
         self.gen_comment("end return statement");
@@ -97,10 +110,11 @@ impl Generator {
         &mut self,
         expr: &res::ExpressionNode,
         local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
     ) {
         self.gen_comment("start ifret statement");
 
-        self.gen_expr(expr, local_map);
+        self.gen_expr(expr, local_map, string_map);
 
         self.gen_comment("end ifret statement");
     }
@@ -109,10 +123,11 @@ impl Generator {
         &mut self,
         expr: &res::ExpressionNode,
         local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
     ) {
         self.gen_comment("start expression statement");
 
-        self.gen_expr(expr, local_map);
+        self.gen_expr(expr, local_map, string_map);
 
         self.gen_comment("end expression statement");
     }
@@ -124,6 +139,7 @@ impl Generator {
         end: &res::ExpressionNode,
         body: &Vec<res::StatementNode>,
         local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
     ) {
         self.gen_comment("start countup statement");
 
@@ -133,8 +149,8 @@ impl Generator {
 
         // initialize
 
-        self.gen_left_value(id, local_map);
-        self.gen_expr(start, local_map);
+        self.gen_left_value(id, local_map, string_map);
+        self.gen_expr(start, local_map, string_map);
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
         self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(Reg64::RDI, Reg64::RAX, 0));
@@ -143,8 +159,8 @@ impl Generator {
         self.add_inst_to_cursym(x64::Instruction::label(start_label.clone()));
 
         // check whether condition is satisfied
-        self.gen_expr(id, local_map);
-        self.gen_expr(end, local_map);
+        self.gen_expr(id, local_map, string_map);
+        self.gen_expr(end, local_map, string_map);
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
         self.add_inst_to_cursym(x64::Instruction::cmpreg_andreg64(Reg64::RDI, Reg64::RAX));
@@ -152,11 +168,11 @@ impl Generator {
 
         // contents
         for st in body.iter() {
-            self.gen_insts_from_statement(st, local_map);
+            self.gen_insts_from_statement(st, local_map, string_map);
         }
 
         // increment
-        self.gen_left_value(id, local_map);
+        self.gen_left_value(id, local_map, string_map);
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
         self.add_inst_to_cursym(x64::Instruction::movmem_toreg64(Reg64::RAX, 0, Reg64::RDI));
         self.add_inst_to_cursym(x64::Instruction::increg64(Reg64::RDI));
@@ -168,7 +184,12 @@ impl Generator {
         self.gen_comment("end countup statement");
     }
 
-    fn gen_expr(&mut self, ex: &res::ExpressionNode, local_map: &BTreeMap<String, res::PVariable>) {
+    fn gen_expr(
+        &mut self,
+        ex: &res::ExpressionNode,
+        local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
+    ) {
         match &ex.kind {
             // primary
             res::ExpressionNodeKind::INTEGER(v) => {
@@ -176,7 +197,7 @@ impl Generator {
             }
             res::ExpressionNodeKind::IDENT(_id_name) => {
                 self.gen_comment("start identifier expression");
-                self.gen_left_value(ex, local_map);
+                self.gen_left_value(ex, local_map, string_map);
                 self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
 
                 // get value from address
@@ -191,7 +212,7 @@ impl Generator {
             res::ExpressionNodeKind::CALL(ident, args) => {
                 self.gen_comment("start call expression");
                 for arg in args.iter() {
-                    self.gen_expr(arg, local_map);
+                    self.gen_expr(arg, local_map, string_map);
                 }
 
                 let arg_number: usize = if args.is_empty() { 0 } else { args.len() - 1 };
@@ -210,29 +231,29 @@ impl Generator {
 
             // unary-expression
             res::ExpressionNodeKind::NEG(value) => {
-                self.gen_unary_expr("-", value, local_map);
+                self.gen_unary_expr("-", value, local_map, string_map);
             }
 
             // binary-expression
             res::ExpressionNodeKind::ADD(lop, rop) => {
-                self.gen_binary_expr("+", lop, rop, local_map)
+                self.gen_binary_expr("+", lop, rop, local_map, string_map)
             }
             res::ExpressionNodeKind::SUB(lop, rop) => {
-                self.gen_binary_expr("-", lop, rop, local_map)
+                self.gen_binary_expr("-", lop, rop, local_map, string_map)
             }
             res::ExpressionNodeKind::MUL(lop, rop) => {
-                self.gen_binary_expr("*", lop, rop, local_map)
+                self.gen_binary_expr("*", lop, rop, local_map, string_map)
             }
             res::ExpressionNodeKind::DIV(lop, rop) => {
-                self.gen_binary_expr("/", lop, rop, local_map)
+                self.gen_binary_expr("/", lop, rop, local_map, string_map)
             }
             res::ExpressionNodeKind::ASSIGN(lval, rval) => {
                 self.gen_comment("start assign expression");
 
                 // 1． 左右子ノードをコンパイル
                 //     左辺値はアドレスを生成し，スタックに積んでおく．
-                self.gen_left_value(lval, local_map);
-                self.gen_expr(rval, local_map);
+                self.gen_left_value(lval, local_map, string_map);
+                self.gen_expr(rval, local_map, string_map);
 
                 // 2．演算に必要なオペランドをレジスタに取り出す
                 self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
@@ -253,7 +274,7 @@ impl Generator {
             res::ExpressionNodeKind::IF(condition, body) => {
                 self.gen_comment("start if expression");
 
-                self.gen_expr(condition, local_map);
+                self.gen_expr(condition, local_map, string_map);
                 let fin_label = format!(".Lend{}", self.consume_label());
 
                 // condition
@@ -262,7 +283,7 @@ impl Generator {
                 self.add_inst_to_cursym(x64::Instruction::jump_equal_label(fin_label.clone()));
 
                 for st in body.iter() {
-                    self.gen_insts_from_statement(st, local_map);
+                    self.gen_insts_from_statement(st, local_map, string_map);
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::label(fin_label));
@@ -272,7 +293,7 @@ impl Generator {
             res::ExpressionNodeKind::IFELSE(condition, body, alter) => {
                 self.gen_comment("start if-else expression");
 
-                self.gen_expr(condition, local_map);
+                self.gen_expr(condition, local_map, string_map);
                 let label_num = self.consume_label();
                 let else_label = format!(".Lelse{}", label_num);
                 let fin_label = format!(".Lend{}", label_num);
@@ -283,21 +304,26 @@ impl Generator {
                 self.add_inst_to_cursym(x64::Instruction::jump_equal_label(else_label.clone()));
 
                 for st in body.iter() {
-                    self.gen_insts_from_statement(st, local_map);
+                    self.gen_insts_from_statement(st, local_map, string_map);
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::jump_label(fin_label.clone()));
                 self.add_inst_to_cursym(x64::Instruction::label(else_label));
 
                 for st in alter.iter() {
-                    self.gen_insts_from_statement(st, local_map);
+                    self.gen_insts_from_statement(st, local_map, string_map);
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::label(fin_label));
 
                 self.gen_comment("end if-else expression");
             }
-            _ => panic!("not implemented {} in gen_expr()", ex),
+            res::ExpressionNodeKind::STRLIT(_contents, hash) => {
+                self.add_inst_to_cursym(x64::Instruction::push_offset_symbol(format!(
+                    ".LS{}",
+                    hash
+                )));
+            }
         }
     }
 
@@ -306,9 +332,10 @@ impl Generator {
         operator: &str,
         value: &res::ExpressionNode,
         local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
     ) {
         // 1． 子ノードをコンパイル
-        self.gen_expr(value, local_map);
+        self.gen_expr(value, local_map, string_map);
 
         // 2．演算に必要なオペランドをレジスタに取り出す
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
@@ -329,10 +356,11 @@ impl Generator {
         lop: &res::ExpressionNode,
         rop: &res::ExpressionNode,
         local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
     ) {
         // 1． 左右子ノードをコンパイル
-        self.gen_expr(lop, local_map);
-        self.gen_expr(rop, local_map);
+        self.gen_expr(lop, local_map, string_map);
+        self.gen_expr(rop, local_map, string_map);
 
         // 2．演算に必要なオペランドをレジスタに取り出す
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
@@ -390,6 +418,7 @@ impl Generator {
         &mut self,
         lval: &res::ExpressionNode,
         local_map: &BTreeMap<String, res::PVariable>,
+        _string_map: &BTreeMap<String, u64>,
     ) {
         match &lval.kind {
             res::ExpressionNodeKind::IDENT(id_name) => {
@@ -444,6 +473,9 @@ impl Generator {
     }
     fn add_inst_to_cursym(&mut self, inst: x64::Instruction) {
         self.asm.add_inst_to_sym(self.sym_idx, inst);
+    }
+    fn add_string_to_cursym(&mut self, string: String, hash: u64) {
+        self.asm.add_string_to_sym(self.sym_idx, string, hash);
     }
 
     fn caller_reg64(idx: usize) -> Reg64 {

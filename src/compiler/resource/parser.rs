@@ -10,6 +10,8 @@ pub struct Parser<'a> {
     row: usize,
     col: usize,
 
+    in_asm: bool,
+
     tokens: Vec<res::Token>,
     functions: Vec<res::PFunction>,
 }
@@ -29,6 +31,7 @@ impl<'a> Parser<'a> {
             next_token: 1,
             row: 1,
             col: 1,
+            in_asm: false,
             functions: Vec::new(),
         }
     }
@@ -39,6 +42,10 @@ impl<'a> Parser<'a> {
     pub fn add_local_var_to_curfunc(&mut self, name: String, pvar: res::PVariable) {
         let func_offset = self.functions.len() - 1;
         self.functions[func_offset].add_local(name, pvar);
+    }
+    pub fn add_string_to_curfunc(&mut self, contents: String, hash: u64) {
+        let func_offset = self.functions.len() - 1;
+        self.functions[func_offset].add_string(contents, hash);
     }
 
     pub fn cur_token_is(&self, tk: &res::TokenKind) -> bool {
@@ -98,5 +105,15 @@ impl<'a> Parser<'a> {
     pub fn current_position(&self) -> position::Position {
         let (r, c) = self.current_token().get_pos().get_pos();
         position::Position::new(r, c)
+    }
+
+    pub fn asm_mode_on(&mut self) {
+        self.in_asm = true;
+    }
+    pub fn asm_mode_off(&mut self) {
+        self.in_asm = false;
+    }
+    pub fn asm_mode(&self) -> bool {
+        self.in_asm
     }
 }

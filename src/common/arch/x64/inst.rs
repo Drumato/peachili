@@ -39,6 +39,7 @@ impl Instruction {
             }
 
             // etc
+            InstKind::PUSHOFFSET(label) => format!("push ${}", label),
             InstKind::LABEL(label) => format!("{}:", label),
             InstKind::JUMP(label) => format!("jmp {}", label),
             InstKind::JUMPEQUAL(label) => format!("je {}", label),
@@ -99,6 +100,9 @@ impl Instruction {
     }
 
     // etc
+    pub fn push_offset_symbol(label: String) -> Self {
+        Self::new(InstKind::PUSHOFFSET(label))
+    }
     pub fn jump_label(label: String) -> Self {
         Self::new(InstKind::JUMP(label))
     }
@@ -164,6 +168,7 @@ pub enum InstKind {
     INCREG64(Reg64),
 
     // etc
+    PUSHOFFSET(String),
     LABEL(String),
     JUMP(String),
 
