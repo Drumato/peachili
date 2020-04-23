@@ -78,14 +78,14 @@ impl PFunction {
 
 impl std::fmt::Display for PFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
+        writeln!(
             f,
-            "{} {}() {} {{\n",
+            "{} {}() {} {{",
             self.position, self.name, self.return_type
         )?;
 
         for st in self.stmts.iter() {
-            write!(f, "\t{}\n", st)?;
+            writeln!(f, "\t{}", st)?;
         }
         write!(f, "}}")
     }

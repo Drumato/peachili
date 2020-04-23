@@ -23,8 +23,10 @@ impl PVariable {
         self.ptype.type_size()
     }
     pub fn set_stack_offset(&mut self, offset: usize) {
-        if let PVarKind::LOCAL(ref mut local_offset) = self.kind {
-            *local_offset = offset;
+        match self.kind {
+            PVarKind::LOCAL(ref mut local_offset) => {
+                *local_offset = offset;
+            }
         }
     }
     pub fn get_stack_offset(&self) -> usize {

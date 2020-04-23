@@ -108,6 +108,7 @@ impl std::fmt::Display for ExpressionNode {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone)]
 pub enum ExpressionNodeKind {
     INTEGER(i64),
@@ -166,25 +167,25 @@ impl std::fmt::Display for ExpressionNodeKind {
             // etc
             Self::ASSIGN(lval, rval) => write!(f, "{} = {}", lval, rval),
             Self::IF(condition, body) => {
-                write!(f, "if ( {} ) {{ \n", condition)?;
+                writeln!(f, "if ( {} ) {{ ", condition)?;
 
                 for st in body.iter() {
-                    write!(f, "\t\t{}\n", st)?;
+                    writeln!(f, "\t\t{}", st)?;
                 }
 
                 write!(f, "}}")
             }
             Self::IFELSE(condition, body, else_body) => {
-                write!(f, "if ( {} ) {{ \n", condition)?;
+                writeln!(f, "if ( {} ) {{ ", condition)?;
 
                 for st in body.iter() {
-                    write!(f, "\t\t{}\n", st)?;
+                    writeln!(f, "\t\t{}", st)?;
                 }
 
-                write!(f, "}} else {{ \n")?;
+                writeln!(f, "}} else {{ ")?;
 
                 for st in else_body.iter() {
-                    write!(f, "\t\t{}\n", st)?;
+                    writeln!(f, "\t\t{}", st)?;
                 }
 
                 write!(f, "}}")

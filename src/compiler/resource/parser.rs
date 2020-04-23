@@ -76,7 +76,7 @@ impl<'a> Parser<'a> {
         }
 
         self.progress();
-        return true;
+        true
     }
 
     pub fn expect(&mut self, tk: res::TokenKind) {

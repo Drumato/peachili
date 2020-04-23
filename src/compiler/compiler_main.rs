@@ -6,7 +6,7 @@ use crate::compiler::{pass, resource};
 pub fn compile_main(
     build_option: &option::BuildOption,
     main_mod: module::Module,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<arch::x64::AssemblyFile, Box<dyn std::error::Error>> {
     if build_option.verbose {
         eprintln!("start compiling...");
     }
@@ -21,7 +21,7 @@ pub fn compile_main(
         std::process::exit(0);
     }
 
-    Ok(())
+    Ok(assembly_file)
 }
 
 // TODO: とりあえずx64だけ

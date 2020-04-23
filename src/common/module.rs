@@ -37,18 +37,18 @@ impl<'a> Module<'a> {
 
 impl<'a> std::fmt::Display for Module<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} - {}\n", self.file_path, self.kind.to_str())?;
+        writeln!(f, "{} - {}", self.file_path, self.kind.to_str())?;
 
-        write!(f, "subs:\n")?;
+        writeln!(f, "subs:")?;
 
         for sub in self.subs.borrow().iter() {
-            write!(f, "\t{}\n", sub.file_path)?;
+            writeln!(f, "\t{}", sub.file_path)?;
         }
 
-        write!(f, "requires:\n")?;
+        writeln!(f, "requires:")?;
 
         for req in self.requires.borrow().iter() {
-            write!(f, "\t{}\n", req.file_path)?;
+            writeln!(f, "\t{}", req.file_path)?;
         }
 
         Ok(())

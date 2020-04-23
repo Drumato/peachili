@@ -98,7 +98,7 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    pub fn from_str(s: &str) -> Self {
+    pub fn new_from_string(s: &str) -> Self {
         match s {
             "+" => Self::PLUS,
             "-" => Self::MINUS,

@@ -110,7 +110,10 @@ impl<'a> res::Lexer<'a> {
                 let cur_pos = self.cur_position();
                 self.skip_offset(length);
 
-                return Some(res::Token::new(cur_pos, res::TokenKind::from_str(sym_str)));
+                return Some(res::Token::new(
+                    cur_pos,
+                    res::TokenKind::new_from_string(sym_str),
+                ));
             }
         }
 
@@ -121,7 +124,10 @@ impl<'a> res::Lexer<'a> {
                 let cur_pos = self.cur_position();
                 self.skip_offset(1);
 
-                return Some(res::Token::new(cur_pos, res::TokenKind::from_str(sym_str)));
+                return Some(res::Token::new(
+                    cur_pos,
+                    res::TokenKind::new_from_string(sym_str),
+                ));
             }
         }
 

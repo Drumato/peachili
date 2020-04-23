@@ -35,6 +35,7 @@ pub fn bundle_main<'b>(
     main_mod
 }
 
+#[allow(clippy::unnecessary_unwrap)]
 fn resolve_dependency<'b>(
     build_option: &option::BuildOption,
     file_path: String,
@@ -97,6 +98,7 @@ impl<'a> module::Module<'a> {
         self.visited = true;
     }
 
+    #[allow(clippy::unnecessary_unwrap)]
     fn setup(&mut self, build_option: &option::BuildOption) -> Option<Vec<res::Token>> {
         // 相対パス中からチェック
         let metadata = fs::metadata(&self.file_path);
@@ -160,9 +162,9 @@ fn get_lib_path() -> String {
     cur_lib_path.unwrap()
 }
 
-fn combined_libpath_and_file(file_path: &String) -> String {
+fn combined_libpath_and_file(file_path: &str) -> String {
     let lib_path = get_lib_path();
-    if lib_path.ends_with("/") {
+    if lib_path.ends_with('/') {
         format!("{}{}", lib_path, file_path)
     } else {
         format!("{}/{}", lib_path, file_path)

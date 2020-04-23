@@ -137,7 +137,7 @@ impl Generator {
         id: &res::ExpressionNode,
         start: &res::ExpressionNode,
         end: &res::ExpressionNode,
-        body: &Vec<res::StatementNode>,
+        body: &[res::StatementNode],
         local_map: &BTreeMap<String, res::PVariable>,
         string_map: &BTreeMap<String, u64>,
     ) {
@@ -179,7 +179,7 @@ impl Generator {
         self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(Reg64::RDI, Reg64::RAX, 0));
 
         self.add_inst_to_cursym(x64::Instruction::jump_label(start_label));
-        self.add_inst_to_cursym(x64::Instruction::label(end_label.clone()));
+        self.add_inst_to_cursym(x64::Instruction::label(end_label));
 
         self.gen_comment("end countup statement");
     }
@@ -399,7 +399,7 @@ impl Generator {
         // allocating memory area for auto-var
         if offset != 0 {
             self.add_inst_to_cursym(x64::Instruction::subreg_byuint64(
-                (!7 & offset + 7) as u64,
+                !7 & (offset + 7) as u64,
                 x64::Reg64::RSP,
             ));
         }

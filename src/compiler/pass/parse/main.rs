@@ -68,10 +68,10 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let ptype_kind = self.get_specified_token(ptype_offset);
-        match ptype_kind {
-            &res::TokenKind::INT64 => res::PType::new_int64(),
-            &res::TokenKind::NORETURN => res::PType::new_noreturn(),
-            &res::TokenKind::STR => res::PType::new_str(),
+        match *ptype_kind {
+            res::TokenKind::INT64 => res::PType::new_int64(),
+            res::TokenKind::NORETURN => res::PType::new_noreturn(),
+            res::TokenKind::STR => res::PType::new_str(),
             _ => panic!("can't find such a type -> {}", ptype_kind.to_str()),
         }
     }

@@ -55,6 +55,7 @@ impl std::fmt::Display for StatementNode {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone)]
 pub enum StatementNodeKind {
     RETURN(res::ExpressionNode),
@@ -78,18 +79,18 @@ impl std::fmt::Display for StatementNodeKind {
             Self::EXPR(inner) => write!(f, "expr {};", inner),
             Self::VARDECL => write!(f, "(vardecl);"),
             Self::COUNTUP(ident, start, end, body) => {
-                write!(f, "countup {} <= {} <= {} {{ \n", start, ident, end)?;
+                writeln!(f, "countup {} <= {} <= {} {{ ", start, ident, end)?;
 
                 for st in body.iter() {
-                    write!(f, "\t\t{}\n", st)?;
+                    writeln!(f, "\t\t{}", st)?;
                 }
 
                 write!(f, "}};")
             }
             Self::ASM(asms) => {
-                write!(f, "asm {{ \n")?;
+                writeln!(f, "asm {{ ")?;
                 for arg in asms.iter() {
-                    write!(f, "\t\t{}\n", arg)?;
+                    writeln!(f, "\t\t{}", arg)?;
                 }
 
                 write!(f, "}};")

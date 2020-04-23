@@ -18,6 +18,9 @@ args:
   - stop-assemble:
       short: S
       long: stop-assemble
+  - stop-link:
+      short: L
+      long: stop-link
   - intel:
       short: i
       long: intel
