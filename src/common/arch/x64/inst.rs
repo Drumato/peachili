@@ -10,6 +10,10 @@ impl Instruction {
         Self { kind: ik }
     }
 
+    pub fn get_kind(&self) -> &InstKind {
+        &self.kind
+    }
+
     pub fn to_at_code(&self) -> String {
         match &self.kind {
             // immediate

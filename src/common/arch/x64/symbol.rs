@@ -18,6 +18,10 @@ impl Symbol {
         }
     }
 
+    pub fn copy_name(&self) -> String {
+        self.name.to_string()
+    }
+
     pub fn to_at_code(&self) -> String {
         let mut code = format!(".global {}\n", self.name);
         code += &(format!("{}:\n", self.name));
@@ -38,5 +42,36 @@ impl Symbol {
     }
     pub fn add_string(&mut self, contents: String, hash: u64) {
         self.strings.insert(contents, hash);
+    }
+
+    pub fn get_insts(&self) -> &Vec<Instruction> {
+        &self.insts
+    }
+}
+
+#[allow(dead_code)]
+pub struct BinSymbol {
+    codes: Vec<u8>,
+    is_global: bool,
+}
+
+#[allow(dead_code)]
+impl BinSymbol {
+    fn new(is_g: bool) -> Self {
+        Self {
+            codes: Vec::new(),
+            is_global: is_g,
+        }
+    }
+    pub fn new_global() -> Self {
+        Self::new(true)
+    }
+
+    pub fn new_local() -> Self {
+        Self::new(false)
+    }
+
+    pub fn add_codes(&mut self, mut src: Vec<u8>) {
+        self.codes.append(&mut src);
     }
 }

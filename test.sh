@@ -3,13 +3,9 @@ try() {
   expected="$1"
   input="$2"
 
-<<<<<<< HEAD
-  ../build/peachili "$input" > tmp.s
-  gcc -static -o tmp tmp.s
-=======
+
   ../target/debug/peachili "$input" -S
   gcc -static -o tmp asm.s
->>>>>>> codegen...!
   ./tmp
   actual="$?"
 
@@ -44,22 +40,4 @@ try 0 "hello_world.go"
 
 echo -e "\n\nOK"
 
-<<<<<<< HEAD
-error() {
-  input="$1"
-
-  ./build/peachili "$input"
-  actual="$?"
-
-  if [ "$actual" = 1 ]; then
-    echo "$input => $actual"
-  else
-    echo "should invoke an error in $input, but not worked."
-    exit 1
-  fi
-}
-
-rm tmp*
-=======
 rm tmp* asm.s
->>>>>>> codegen...!
