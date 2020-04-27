@@ -28,7 +28,29 @@ impl x64::Assembler {
         let inst_kind = inst.get_kind();
 
         match inst_kind {
+            // mov
+            arch::x64::InstKind::MOVREGTOREG64(src, dst) => self.generate_movregtoreg64(src, dst),
+            arch::x64::InstKind::MOVREGTOMEM64(src, base_reg, offset) => {
+                self.generate_movregtomem64(src, base_reg, *offset)
+            }
+            arch::x64::InstKind::MOVMEMTOREG64(base_reg, offset, src) => {
+                self.generate_movmemtoreg64(base_reg, *offset, src)
+            }
+
+            // pop
+            arch::x64::InstKind::POPREG64(value) => self.generate_popreg64(value),
+
+            // push
+            arch::x64::InstKind::PUSHINT64(immediate) => self.generate_pushint64(immediate),
+            arch::x64::InstKind::PUSHREG64(value) => self.generate_pushreg64(value),
+
+            // sub
+            // arch::x64::InstKind::SUBREGTOREG64(src, dst)
+
+            // ret
             arch::x64::InstKind::RET => self.generate_ret(),
+
+            // etc.
             _ => panic!(
                 "not implemented generating '{}' in x64_asm",
                 inst.to_at_code()
