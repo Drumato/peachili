@@ -90,4 +90,32 @@ impl x64::Assembler {
 
         vec![rex_prefix, opcode, modrm_byte, displacement]
     }
+
+    // e.g. movq $6, %rax
+    // dst-operand -> r/m field in ModR/M and related b-bit in REX
+    pub fn generate_movimmtoreg64(
+        &self,
+        imm: &arch::x64::Immediate,
+        dst: &arch::x64::Reg64,
+    ) -> Vec<u8> {
+        // rex-prefix
+        let dst_expanded_bit = self.rex_prefix_bbit(dst);
+        let rex_prefix = arch::x64::REX_PREFIX_BASE | arch::x64::REX_PREFIX_WBIT | dst_expanded_bit;
+
+        // opcode
+        let opcode = 0xc7;
+
+        // ModR/M(MI)
+        let rm_field = self.modrm_rm_field(dst);
+        let modrm_byte = arch::x64::MODRM_REGISTER_REGISTER | rm_field;
+
+        let mut codes = vec![rex_prefix, opcode, modrm_byte];
+
+        // immediate
+        for byte in imm.to_le_bytes() {
+            codes.push(byte);
+        }
+
+        codes
+    }
 }

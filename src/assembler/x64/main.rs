@@ -36,6 +36,7 @@ impl x64::Assembler {
             arch::x64::InstKind::MOVMEMTOREG64(base_reg, offset, src) => {
                 self.generate_movmemtoreg64(base_reg, *offset, src)
             }
+            arch::x64::InstKind::MOVIMMTOREG64(imm, dst) => self.generate_movimmtoreg64(imm, dst),
 
             // pop
             arch::x64::InstKind::POPREG64(value) => self.generate_popreg64(value),
@@ -45,10 +46,14 @@ impl x64::Assembler {
             arch::x64::InstKind::PUSHREG64(value) => self.generate_pushreg64(value),
 
             // sub
-            // arch::x64::InstKind::SUBREGTOREG64(src, dst)
+            arch::x64::InstKind::SUBREGTOREG64(src, dst) => self.generate_subregtoreg64(src, dst),
+            arch::x64::InstKind::SUBREGBYUINT64(imm, dst) => self.generate_subregbyuint64(imm, dst),
 
             // ret
             arch::x64::InstKind::RET => self.generate_ret(),
+
+            // syscall
+            arch::x64::InstKind::SYSCALL => self.generate_syscall(),
 
             // etc.
             _ => panic!(

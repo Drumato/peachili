@@ -86,7 +86,9 @@ impl Generator {
             }
             res::StatementNodeKind::ASM(args) => {
                 for arg in args.iter() {
-                    self.add_inst_to_cursym(x64::Instruction::inline_asm(arg.clone()));
+                    let inst = self.gen_inst_from_asm(arg);
+                    self.add_inst_to_cursym(inst);
+                    // self.add_inst_to_cursym(x64::Instruction::inline_asm(arg.clone()));
                 }
             }
         }
@@ -442,6 +444,41 @@ impl Generator {
 
     fn gen_comment(&mut self, contents: &str) {
         self.add_inst_to_cursym(x64::Instruction::comment(contents.to_string()));
+    }
+
+    fn gen_inst_from_asm(&self, asm_str: &str) -> x64::Instruction {
+        let asm_splitted: Vec<&str> = asm_str.split(' ').collect();
+        let length = asm_splitted.len();
+
+        match length {
+            1 => {
+                let inst_name = asm_splitted[0];
+                match inst_name {
+                    "syscall" => x64::Instruction::syscall(),
+                    _ => panic!("unable to generate from {}", inst_name),
+                }
+            }
+            3 => {
+                let inst_name = asm_splitted[0];
+                match inst_name {
+                    "movq" => {
+                        // 今は movq $1, %rax のような形式しかパースしない
+                        let imm_str = if asm_splitted[1].contains(",") {
+                            let operand_length = asm_splitted[1].len();
+                            &asm_splitted[1][..(operand_length - 1)]
+                        } else {
+                            asm_splitted[1]
+                        };
+                        let immediate = imm_str[1..].parse::<i64>().unwrap();
+                        let reg = x64::Reg64::from_at_str(asm_splitted[2]);
+
+                        x64::Instruction::movimm_toreg64(immediate, reg)
+                    }
+                    _ => panic!("unable to generate from {}", inst_name),
+                }
+            }
+            _ => panic!("unable to parse -> {}", asm_str),
+        }
     }
 
     fn new(file_path: String) -> Self {

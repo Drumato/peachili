@@ -38,6 +38,20 @@ impl Reg64 {
     pub fn to_at(&self) -> String {
         format!("%{}", self.to_str())
     }
+    pub fn from_at_str(reg_str: &str) -> Self {
+        match reg_str {
+            "%rax" => Self::RAX,
+            "%rbp" => Self::RBP,
+            "%rsp" => Self::RSP,
+            "%rdi" => Self::RDI,
+            "%rsi" => Self::RSI,
+            "%rdx" => Self::RDX,
+            "%rcx" => Self::RCX,
+            "%r8" => Self::R8,
+            "%r9" => Self::R9,
+            _ => panic!("undefined such a register -> {}", reg_str),
+        }
+    }
 
     pub fn machine_number(&self) -> u8 {
         match self {
