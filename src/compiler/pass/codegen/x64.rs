@@ -463,7 +463,7 @@ impl Generator {
                 match inst_name {
                     "movq" => {
                         // 今は movq $1, %rax のような形式しかパースしない
-                        let imm_str = if asm_splitted[1].contains(",") {
+                        let imm_str = if asm_splitted[1].contains(',') {
                             let operand_length = asm_splitted[1].len();
                             &asm_splitted[1][..(operand_length - 1)]
                         } else {

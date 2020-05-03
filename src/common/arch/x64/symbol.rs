@@ -1,3 +1,5 @@
+extern crate elf_utilities;
+
 use std::collections::BTreeMap;
 
 use crate::common::arch::x64::*;
@@ -49,6 +51,7 @@ impl Symbol {
     }
 }
 
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct BinSymbol {
     codes: Vec<u8>,
@@ -73,5 +76,13 @@ impl BinSymbol {
 
     pub fn add_codes(&mut self, mut src: Vec<u8>) {
         self.codes.append(&mut src);
+    }
+
+    pub fn copy_codes(&self) -> Vec<u8> {
+        self.codes.clone()
+    }
+
+    pub fn code_length(&self) -> usize {
+        self.codes.len()
     }
 }

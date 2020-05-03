@@ -54,7 +54,7 @@ impl Instruction {
             InstKind::CLTD => "cltd".to_string(),
             InstKind::RET => "ret".to_string(),
             InstKind::COMMENT(contents) => format!("# {}", contents),
-            InstKind::SYSCALL => format!("syscall"),
+            InstKind::SYSCALL => "syscall".to_string(),
         }
     }
 

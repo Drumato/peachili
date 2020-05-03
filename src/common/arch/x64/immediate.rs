@@ -19,8 +19,8 @@ impl Immediate {
 
     pub fn to_le_bytes(&self) -> Vec<u8> {
         match self.kind {
-            ImmediateKind::INT64(v) => v.to_le_bytes().to_vec(),
-            ImmediateKind::UINT64(v) => v.to_le_bytes().to_vec(),
+            ImmediateKind::INT64(v) => (v as i32).to_le_bytes().to_vec(),
+            ImmediateKind::UINT64(v) => (v as u32).to_le_bytes().to_vec(),
         }
     }
 }
