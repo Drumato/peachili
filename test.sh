@@ -1,18 +1,30 @@
 #!/bin/bash
+build_peadchili_executable() {
+  input="$1"
+  ../target/debug/peachili "$input" -L
+  rustc_actual="$?"
+  if [ $rustc_actual -ne 0 ]; then
+    echo -e "\e[31mbuilding an executable binary failed!\e[m"
+    exit 1
+  fi
+}
+
 try() {
   expected="$1"
   input="$2"
 
+  # テストファイルのコンパイル
+  build_peadchili_executable $input
 
-  ../target/debug/peachili "$input" -S
-  gcc -static -o tmp asm.s
+  gcc -static -o tmp obj.o
   ./tmp
   actual="$?"
+  rm tmp* *.o
 
   if [ "$actual" = "$expected" ]; then
-    echo "$input => $actual"
+    echo -e "$input => \e[32m$actual\e[m"
   else
-    echo "$input => $expected expected, but got $actual"
+    echo -e "$input => \e[32m$expected\e[m expected, but got \e[31m$actual\e[m"
     exit 1
   fi
 }
@@ -39,5 +51,3 @@ try 1 "use_version.go"
 try 0 "hello_world.go"
 
 echo -e "\n\nOK"
-
-rm tmp* asm.s

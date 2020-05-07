@@ -136,8 +136,10 @@ impl ELFBuilder {
         let mut rela_vector: Vec<&elf_utilities::relocation::Rela64> = Vec::new();
 
         for (_caller_name, each_sym_rel_map) in relocation_map.iter() {
-            for (_callee_name, callee_symbol) in each_sym_rel_map.iter() {
-                rela_vector.push(callee_symbol);
+            for (_callee_name, callee_symbols) in each_sym_rel_map.iter() {
+                for callee_symbol in callee_symbols.iter() {
+                    rela_vector.push(callee_symbol);
+                }
             }
         }
 

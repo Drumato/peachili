@@ -65,24 +65,24 @@ impl x64::Assembler {
     // src-operand -> r/m field in ModR/M and related b-bit
     pub fn generate_movmemtoreg64(
         &self,
-        base_reg: &arch::x64::Reg64,
+        src_reg: &arch::x64::Reg64,
         offset: usize,
-        src: &arch::x64::Reg64,
+        dst: &arch::x64::Reg64,
     ) -> Vec<u8> {
         // rex-prefix
-        let base_expanded_bit = self.rex_prefix_rbit(base_reg);
-        let src_expanded_bit = self.rex_prefix_bbit(src);
+        let dst_expanded_bit = self.rex_prefix_rbit(dst);
+        let src_expanded_bit = self.rex_prefix_bbit(src_reg);
         let rex_prefix = arch::x64::REX_PREFIX_BASE
             | arch::x64::REX_PREFIX_WBIT
-            | base_expanded_bit
-            | src_expanded_bit;
+            | src_expanded_bit
+            | dst_expanded_bit;
 
         // opcode
         let opcode = 0x8b;
 
         // ModR/M(RM)
-        let rm_field = self.modrm_rm_field(src);
-        let reg_field = self.modrm_reg_field(base_reg);
+        let rm_field = self.modrm_rm_field(src_reg);
+        let reg_field = self.modrm_reg_field(dst);
         let modrm_byte = arch::x64::MODRM_REGISTER_DISPLACEMENT8 | rm_field | reg_field;
 
         // offset

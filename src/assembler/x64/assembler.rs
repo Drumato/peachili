@@ -8,7 +8,8 @@ use crate::common::arch;
 pub struct Assembler {
     symbol_map: indexmap::IndexMap<String, arch::x64::BinSymbol>,
     // caller_name -> callee_symbol
-    relocation_map: indexmap::IndexMap<String, BTreeMap<String, elf_utilities::relocation::Rela64>>,
+    relocation_map:
+        indexmap::IndexMap<String, BTreeMap<String, Vec<elf_utilities::relocation::Rela64>>>,
     all_bytes: u64,
 }
 
@@ -34,23 +35,26 @@ impl Assembler {
                 self.symbol_map.get(&caller_name).unwrap().code_length() as u64;
 
             if let Some(rela_map) = self.relocation_map.get_mut(&caller_name) {
-                for (rela_name, rela) in rela_map.iter_mut() {
-                    // NULL シンボルのことを考えて+1する
-                    let sym_idx = symbols
-                        .binary_search_by(|sym| sym.copy_name().cmp(rela_name))
-                        .unwrap();
-                    let skip_null = (sym_idx + 1) as u64;
+                for (rela_name, relas) in rela_map.iter_mut() {
+                    // 同じ関数を複数回呼んでいるケースもあるため
+                    for rela in relas.iter_mut() {
+                        // NULL シンボルのことを考えて+1する
+                        let sym_idx = symbols
+                            .binary_search_by(|sym| sym.copy_name().cmp(rela_name))
+                            .unwrap();
+                        let skip_null = (sym_idx + 1) as u64;
 
-                    // シンボルテーブルのインデックスはr_infoのうち上位32bitを使う
-                    let shifted_until_symbol_index = skip_null << 32;
+                        // シンボルテーブルのインデックスはr_infoのうち上位32bitを使う
+                        let shifted_until_symbol_index = skip_null << 32;
 
-                    rela.set_info(
-                        shifted_until_symbol_index + elf_utilities::relocation::R_X86_64_PLT32,
-                    );
+                        rela.set_info(
+                            shifted_until_symbol_index + elf_utilities::relocation::R_X86_64_PLT32,
+                        );
 
-                    // シンボル内のオフセット -> コード全体でのオフセット
-                    let current_offset = rela.get_offset();
-                    rela.set_offset(current_offset + total_offset);
+                        // シンボル内のオフセット -> コード全体でのオフセット
+                        let current_offset = rela.get_offset();
+                        rela.set_offset(current_offset + total_offset);
+                    }
                 }
             }
 
@@ -68,14 +72,18 @@ impl Assembler {
         reloc_sym: elf_utilities::relocation::Rela64,
     ) {
         if let Some(map) = self.relocation_map.get_mut(&caller) {
-            map.insert(callee, reloc_sym);
+            if let Some(relas) = map.get_mut(&callee) {
+                relas.push(reloc_sym);
+            } else {
+                map.insert(callee, vec![reloc_sym]);
+            }
             return;
         }
 
         self.relocation_map.insert(caller.clone(), BTreeMap::new());
 
         if let Some(map) = self.relocation_map.get_mut(&caller) {
-            map.insert(callee, reloc_sym);
+            map.insert(callee, vec![reloc_sym]);
             return;
         }
     }
@@ -90,7 +98,7 @@ impl Assembler {
     }
     pub fn get_relocation_map(
         &self,
-    ) -> &indexmap::IndexMap<String, BTreeMap<String, elf_utilities::relocation::Rela64>> {
+    ) -> &indexmap::IndexMap<String, BTreeMap<String, Vec<elf_utilities::relocation::Rela64>>> {
         &self.relocation_map
     }
     pub fn get_all_byte_length(&self) -> u64 {

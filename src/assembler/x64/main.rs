@@ -1,26 +1,38 @@
+use std::collections::HashMap;
+
 use crate::assembler::x64;
 use crate::common::arch;
+
+type CodeIndex = usize;
+type Offset = usize;
 
 impl x64::Assembler {
     pub fn codegen(&mut self, asm_file: &arch::x64::AssemblyFile) {
         let symbols = asm_file.get_symbols();
 
         for sym in symbols.iter() {
-            let bin_symbol = self.symbol_to_binsymbol(sym);
+            let (mut bin_symbol, jump_map) = self.symbol_to_binsymbol(sym);
+
+            // ジャンプ系命令の解決
+            self.resolve_jump_instructions(&mut bin_symbol, &jump_map);
             self.add_symbol(sym.copy_name(), bin_symbol);
         }
     }
 
-    fn symbol_to_binsymbol(&mut self, sym: &arch::x64::Symbol) -> arch::x64::BinSymbol {
+    fn symbol_to_binsymbol(
+        &mut self,
+        sym: &arch::x64::Symbol,
+    ) -> (arch::x64::BinSymbol, HashMap<String, (CodeIndex, Offset)>) {
         let mut bin_symbol = arch::x64::BinSymbol::new_global();
         let instructions = sym.get_insts();
 
         // シンボルごとに初期化
         self.set_byte_length(0);
+        let mut jump_map: HashMap<String, (CodeIndex, Offset)> = HashMap::new();
 
         let sym_name = sym.copy_name();
         for inst in instructions.iter() {
-            let codes = self.generate_from_inst(inst, &sym_name);
+            let codes = self.generate_from_inst(inst, &sym_name, &mut jump_map);
 
             // call命令のオフセットを計算するため，
             // コード長は命令ごとに更新しておく．
@@ -37,13 +49,96 @@ impl x64::Assembler {
         }
         bin_symbol.add_codes(extra_bytes);
 
-        bin_symbol
+        (bin_symbol, jump_map)
     }
 
-    fn generate_from_inst(&mut self, inst: &arch::x64::Instruction, sym_name: &str) -> Vec<u8> {
+    fn generate_from_inst(
+        &mut self,
+        inst: &arch::x64::Instruction,
+        sym_name: &str,
+        jump_map: &mut HashMap<String, (CodeIndex, Offset)>,
+    ) -> Vec<u8> {
         let inst_kind = inst.get_kind();
 
         match inst_kind {
+            // ラベル
+            arch::x64::InstKind::LABEL(name) => {
+                let length = self.get_all_byte_length() as usize;
+
+                // jump系命令がラベルの前に存在した場合
+                if let Some(tup) = jump_map.get_mut(name) {
+                    // ラベルまでのバイト数 - ジャンプの位置 - 1 => 相対オフセット
+                    tup.1 = length - tup.1 - 1;
+                    return Vec::new();
+                }
+
+                // ラベルがjump系命令の前に存在した場合
+                jump_map.insert(name.to_string(), (0, length));
+
+                Vec::new()
+            }
+
+            // jump
+            arch::x64::InstKind::JUMPEQUAL(name) => {
+                let length = (self.get_all_byte_length() + 2) as usize;
+
+                if let Some(tup) = jump_map.get_mut(name) {
+                    // ラベルがjump系命令の前に存在した場合
+                    tup.0 = length;
+                    tup.1 = !(length + 4 - tup.1) + 1;
+                } else {
+                    // jump系命令がラベルの前に存在した場合
+                    jump_map.insert(name.to_string(), (length, length + 3));
+                }
+
+                // opcode
+                let opcode1 = 0x0f;
+                let opcode2 = 0x84;
+
+                let mut codes = vec![opcode1, opcode2];
+                // immediate-value
+                for b in (0x00 as u32).to_le_bytes().to_vec().iter() {
+                    codes.push(*b);
+                }
+
+                codes
+            }
+            arch::x64::InstKind::JUMP(name) => {
+                let length = (self.get_all_byte_length() + 1) as usize;
+
+                if let Some(tup) = jump_map.get_mut(name) {
+                    // ラベルがjump系命令の前に存在した場合
+                    tup.0 = length;
+                    tup.1 = !(length + 4 - tup.1) + 1;
+                } else {
+                    // jump系命令がラベルの前に存在した場合
+                    jump_map.insert(name.to_string(), (length, length + 3));
+                }
+
+                // opcode
+                let opcode = 0xe9;
+
+                let mut codes = vec![opcode];
+                // immediate-value
+                for b in (0x00 as u32).to_le_bytes().to_vec().iter() {
+                    codes.push(*b);
+                }
+
+                codes
+            }
+
+            // add
+            arch::x64::InstKind::ADDREGTOREG64(src, dst) => self.generate_addregtoreg64(src, dst),
+
+            // cmp
+            arch::x64::InstKind::CMPREGANDINT64(value, dst) => {
+                self.generate_cmpregandint64(value, dst)
+            }
+            arch::x64::InstKind::CMPREGANDREG64(src, dst) => self.generate_cmpregandreg64(src, dst),
+
+            // imul
+            arch::x64::InstKind::IMULREGTOREG64(src, dst) => self.generate_imulregtoreg64(src, dst),
+
             // mov
             arch::x64::InstKind::MOVREGTOREG64(src, dst) => self.generate_movregtoreg64(src, dst),
             arch::x64::InstKind::MOVREGTOMEM64(src, base_reg, offset) => {
@@ -53,6 +148,12 @@ impl x64::Assembler {
                 self.generate_movmemtoreg64(base_reg, *offset, src)
             }
             arch::x64::InstKind::MOVIMMTOREG64(imm, dst) => self.generate_movimmtoreg64(imm, dst),
+
+            // inc
+            arch::x64::InstKind::INCREG64(value) => self.generate_increg64(value),
+
+            // neg
+            arch::x64::InstKind::NEGREG64(value) => self.generate_negreg64(value),
 
             // pop
             arch::x64::InstKind::POPREG64(value) => self.generate_popreg64(value),
@@ -90,6 +191,18 @@ impl x64::Assembler {
                 "not implemented generating '{}' in x64_asm",
                 inst.to_at_code()
             ),
+        }
+    }
+
+    fn resolve_jump_instructions(
+        &self,
+        bin_sym: &mut arch::x64::BinSymbol,
+        jump_map: &HashMap<String, (CodeIndex, Offset)>,
+    ) {
+        for (_name, (dst, offset)) in jump_map.iter() {
+            for (idx, byte) in (*offset as u32).to_le_bytes().iter().enumerate() {
+                bin_sym.set_code(idx + dst, *byte);
+            }
         }
     }
 }

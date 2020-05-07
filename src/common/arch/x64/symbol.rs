@@ -85,4 +85,8 @@ impl BinSymbol {
     pub fn code_length(&self) -> usize {
         self.codes.len()
     }
+
+    pub fn set_code(&mut self, idx: usize, byte: u8) {
+        self.codes[idx] = byte;
+    }
 }
