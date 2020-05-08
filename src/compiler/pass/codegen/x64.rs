@@ -321,10 +321,12 @@ impl Generator {
                 self.gen_comment("end if-else expression");
             }
             res::ExpressionNodeKind::STRLIT(_contents, hash) => {
-                self.add_inst_to_cursym(x64::Instruction::push_offset_symbol(format!(
-                    ".LS{}",
-                    hash
-                )));
+                // leaq .LS(%rip), %rax
+                self.add_inst_to_cursym(x64::Instruction::lea_string_addr_to_reg_with_rip(
+                    format!(".LS{}", hash),
+                    Reg64::RAX,
+                ));
+                self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
             }
         }
     }

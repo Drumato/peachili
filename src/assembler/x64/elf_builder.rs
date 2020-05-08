@@ -69,7 +69,12 @@ impl ELFBuilder {
     }
 
     pub fn add_symbol_table_section(&mut self, generator: &x64::Assembler) {
-        let mut elf_symbols = vec![elf_utilities::symbol::Symbol64::new_null_symbol()];
+        // NULLシンボル + .textシンボル + .rodataシンボル
+        let mut elf_symbols = vec![
+            elf_utilities::symbol::Symbol64::new_null_symbol(),
+            self.create_section_symbol(1),
+            self.create_section_symbol(5),
+        ];
 
         // シンボルを走査する
         // name_indexの操作も行う.
@@ -157,9 +162,45 @@ impl ELFBuilder {
         self.add_section(relatext_section);
     }
 
+    pub fn add_rodata_section(&mut self, generator: &x64::Assembler) {
+        let symbol_map = generator.get_symbol_map();
+
+        let strings_each_sym = symbol_map
+            .iter()
+            .map(|(_, sym)| sym.copy_strings())
+            .collect::<Vec<Vec<String>>>();
+
+        let mut strings: Vec<Vec<u8>> = Vec::new();
+
+        for strs in strings_each_sym.iter() {
+            for st in strs.iter() {
+                strings.push(st.replace("\\n", "\n").as_bytes().to_vec());
+            }
+        }
+
+        // 文字列リテラルの数
+        let strings_number = strings.len() as u64;
+        let strtab: Vec<u8> = elf_utilities::section::build_byte_string_table(strings);
+
+        // TODO: 空っぽ
+
+        let rodata_header = self.init_rodata_header(strtab.len() as u64, strings_number);
+        let mut rodata_section =
+            elf_utilities::section::Section64::new(".rodata".to_string(), rodata_header);
+        rodata_section.bytes = strtab;
+        self.add_section(rodata_section);
+    }
+
     pub fn add_shstrtab_string_section(&mut self) {
         // TODO: 決め打ち
-        let section_names = vec![".text", ".symtab", ".strtab", ".rela.text", ".shstrtab"];
+        let section_names = vec![
+            ".text",
+            ".symtab",
+            ".strtab",
+            ".rela.text",
+            ".rodata",
+            ".shstrtab",
+        ];
 
         let section_string_table = elf_utilities::section::build_string_table(section_names);
         let shstrtab_header =
@@ -198,8 +239,8 @@ impl ELFBuilder {
         // TODO: .strtabが3番目にあることを決め打ち
         shdr.set_link(3);
 
-        // TODO: 最初のグローバルシンボルが一番目にあることを決め打ち
-        shdr.set_info(1);
+        // TODO: 最初のグローバルシンボルが4番目にあることを決め打ち
+        shdr.set_info(3);
         shdr
     }
 
@@ -237,6 +278,21 @@ impl ELFBuilder {
         shdr
     }
 
+    fn init_rodata_header(
+        &self,
+        length: elf_utilities::Elf64Xword,
+        string_number: elf_utilities::Elf64Xword,
+    ) -> elf_utilities::section::Shdr64 {
+        let mut shdr: elf_utilities::section::Shdr64 = Default::default();
+
+        shdr.set_type(elf_utilities::section::SHTYPE::PROGBITS);
+        shdr.set_size(length);
+        shdr.set_entry_size(string_number);
+        shdr.set_flags(elf_utilities::section::section_flag::SHF_ALLOC);
+        shdr.set_addralign(1);
+
+        shdr
+    }
     fn create_global_symbol(
         &self,
         st_name: elf_utilities::Elf64Word,
@@ -252,9 +308,26 @@ impl ELFBuilder {
         symbol.set_shndx(1);
 
         // グローバル + Function属性
-        let global_bit = elf_utilities::symbol::STB_GLOBAL << 4;
-        let function_bit = elf_utilities::symbol::STT_FUNC;
-        symbol.set_info(global_bit + function_bit);
+        let sym_info = elf_utilities::symbol::symbol_info(
+            elf_utilities::symbol::STB_GLOBAL,
+            elf_utilities::symbol::STT_FUNC,
+        );
+        symbol.set_info(sym_info);
+
+        symbol
+    }
+
+    fn create_section_symbol(&self, shndx: u16) -> elf_utilities::symbol::Symbol64 {
+        let mut symbol: elf_utilities::symbol::Symbol64 = Default::default();
+
+        symbol.set_shndx(shndx);
+
+        // ローカル + SECTION属性
+        let sym_info = elf_utilities::symbol::symbol_info(
+            elf_utilities::symbol::STB_LOCAL,
+            elf_utilities::symbol::STT_SECTION,
+        );
+        symbol.set_info(sym_info);
 
         symbol
     }

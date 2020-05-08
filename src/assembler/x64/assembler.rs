@@ -38,22 +38,32 @@ impl Assembler {
                 for (rela_name, relas) in rela_map.iter_mut() {
                     // 同じ関数を複数回呼んでいるケースもあるため
                     for rela in relas.iter_mut() {
-                        // NULL シンボルのことを考えて+1する
-                        let sym_idx = symbols
-                            .binary_search_by(|sym| sym.copy_name().cmp(rela_name))
-                            .unwrap();
-                        let skip_null = (sym_idx + 1) as u64;
+                        // シンボル内のオフセット -> コード全体でのオフセット
+                        let current_offset = rela.get_offset();
+                        rela.set_offset(current_offset + total_offset);
+
+                        // 文字列リテラルは飛ばす
+                        let string_literal =
+                            (rela.get_info() & elf_utilities::relocation::R_X86_64_PC32) != 0;
+                        if string_literal {
+                            continue;
+                        }
+
+                        // NULL シンボル+セクションシンボルのことを考えて+3する
+                        let mut sym_idx = 0;
+                        for (idx, sym) in symbols.iter().enumerate() {
+                            if sym.copy_name() == *rela_name {
+                                sym_idx = idx;
+                            }
+                        }
+                        let skip_null_and_section = (sym_idx + 3) as u64;
 
                         // シンボルテーブルのインデックスはr_infoのうち上位32bitを使う
-                        let shifted_until_symbol_index = skip_null << 32;
+                        let shifted_until_symbol_index = skip_null_and_section << 32;
 
                         rela.set_info(
                             shifted_until_symbol_index + elf_utilities::relocation::R_X86_64_PLT32,
                         );
-
-                        // シンボル内のオフセット -> コード全体でのオフセット
-                        let current_offset = rela.get_offset();
-                        rela.set_offset(current_offset + total_offset);
                     }
                 }
             }

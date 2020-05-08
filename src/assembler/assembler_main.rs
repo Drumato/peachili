@@ -29,6 +29,8 @@ pub fn x64_assemble(build_option: &option::BuildOption, asm_file: arch::x64::Ass
     object_file_builder.add_symtab_string_section(&generator);
     // .rela.text セクション
     object_file_builder.add_relatext_section(&generator);
+    // .rodata セクション
+    object_file_builder.add_rodata_section(&generator);
     // .shstrtab セクション
     object_file_builder.add_shstrtab_string_section();
 

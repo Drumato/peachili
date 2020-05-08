@@ -3,6 +3,7 @@ pub mod call;
 pub mod cmp;
 pub mod imul;
 pub mod inc;
+pub mod lea;
 pub mod mov;
 pub mod neg;
 pub mod pop;

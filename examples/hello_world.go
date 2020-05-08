@@ -3,6 +3,6 @@ require (
 )
 
 func main() noreturn {
-    std::os::write(1, "Hello, world!\n", 14);
-    std::os::exit(0);
+    std::os::write(1, "Hello, world!\n", 15);
+    std::os::exit_with(0);
 }

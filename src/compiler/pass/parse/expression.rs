@@ -120,6 +120,8 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let mut hasher = DefaultHasher::new();
+
+        // 前段のprimary() で文字列リテラルであることを検査しているのでunwrap()してよい．
         let contents = cur_str_contents.unwrap();
         contents.hash(&mut hasher);
 
@@ -127,7 +129,6 @@ impl<'a> res::Parser<'a> {
             self.add_string_to_curfunc(contents.clone(), hasher.finish());
         }
 
-        // primary() で文字列リテラルであることを検査しているのでunwrap()してよい．
         res::ExpressionNode::new_strlit(contents, hasher.finish(), cur_pos)
     }
 

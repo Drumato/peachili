@@ -32,6 +32,7 @@ impl Symbol {
             code += &(format!("  {}\n", ins.to_at_code()));
         }
 
+        code += ".section .rodata\n";
         for (contents, hash) in self.strings.iter() {
             code += &(format!(".LS{}:\n", hash));
             code += &(format!("  .string \"{}\"\n", contents));
@@ -49,6 +50,9 @@ impl Symbol {
     pub fn get_insts(&self) -> &Vec<Instruction> {
         &self.insts
     }
+    pub fn get_strings(&self) -> &BTreeMap<String, u64> {
+        &self.strings
+    }
 }
 
 #[derive(Clone)]
@@ -56,6 +60,7 @@ impl Symbol {
 pub struct BinSymbol {
     codes: Vec<u8>,
     is_global: bool,
+    strings: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -64,6 +69,7 @@ impl BinSymbol {
         Self {
             codes: Vec::new(),
             is_global: is_g,
+            strings: Vec::new(),
         }
     }
     pub fn new_global() -> Self {
@@ -78,6 +84,13 @@ impl BinSymbol {
         self.codes.append(&mut src);
     }
 
+    pub fn add_string_literal(&mut self, literal: String) {
+        self.strings.push(literal);
+    }
+
+    pub fn copy_strings(&self) -> Vec<String> {
+        self.strings.clone()
+    }
     pub fn copy_codes(&self) -> Vec<u8> {
         self.codes.clone()
     }

@@ -49,6 +49,13 @@ impl x64::Assembler {
         }
         bin_symbol.add_codes(extra_bytes);
 
+        // 文字列群のコピー
+        let strings = sym.get_strings();
+
+        for (contents, _hash) in strings.iter() {
+            bin_symbol.add_string_literal(contents.to_string());
+        }
+
         (bin_symbol, jump_map)
     }
 
@@ -76,6 +83,24 @@ impl x64::Assembler {
                 jump_map.insert(name.to_string(), (0, length));
 
                 Vec::new()
+            }
+
+            // lea
+            arch::x64::InstKind::LEASTRINGTOREGWITHRIP(label, dst) => {
+                // 再配置用にシンボルを定義
+                let mut rela: elf_utilities::relocation::Rela64 = Default::default();
+                rela.set_addend(-4);
+                let offset_before_lea = self.get_all_byte_length();
+
+                // 3 -> immediateまでスキップ generate_lea64を見るとわかる
+                rela.set_offset(offset_before_lea + 3);
+
+                // 2 -> .rodataのsymtabインデックス決め打ち
+                rela.set_info((2 << 32) + elf_utilities::relocation::R_X86_64_PC32);
+
+                self.add_relocation_symbol(sym_name.to_string(), label.to_string(), rela);
+
+                self.generate_learegtoregwithrip64(&arch::x64::Immediate::new_int64(0), dst)
             }
 
             // jump
