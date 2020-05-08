@@ -3,7 +3,6 @@ use crate::common::arch::x64::*;
 #[allow(dead_code)]
 pub struct AssemblyFile {
     pub file_path: String,
-    // strings : BTreeMap<String, String>, Label -> Contents
     symbols: Vec<Symbol>,
     // options: AssemblyOption,  intel syntaxにするか，32/64bit用アセンブリか，
 }
@@ -36,5 +35,9 @@ impl AssemblyFile {
     }
     pub fn symbols_number(&self) -> usize {
         self.symbols.len()
+    }
+
+    pub fn get_symbols(&self) -> &Vec<Symbol> {
+        &self.symbols
     }
 }

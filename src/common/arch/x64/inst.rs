@@ -10,10 +10,20 @@ impl Instruction {
         Self { kind: ik }
     }
 
+    pub fn get_kind(&self) -> &InstKind {
+        &self.kind
+    }
+
     pub fn to_at_code(&self) -> String {
         match &self.kind {
             // immediate
             InstKind::PUSHINT64(v) => format!("pushq {}", v.to_at()),
+            InstKind::MOVIMMTOREG64(value, dst) => {
+                format!("movq {}, {}", value.to_at(), dst.to_at())
+            }
+            InstKind::SUBREGBYUINT64(value, dst) => {
+                format!("subq {}, {}", value.to_at(), dst.to_at())
+            }
 
             // register
             InstKind::ADDREGTOREG64(src, dst) => format!("addq {}, {}", src.to_at(), dst.to_at()),
@@ -34,20 +44,19 @@ impl Instruction {
             InstKind::PUSHREG64(value) => format!("pushq {}", value.to_at()),
             InstKind::POPREG64(value) => format!("popq {}", value.to_at()),
             InstKind::NEGREG64(value) => format!("negq {}", value.to_at()),
-            InstKind::SUBREGBYUINT64(value, dst) => {
-                format!("subq {}, {}", value.to_at(), dst.to_at())
-            }
 
             // etc
-            InstKind::PUSHOFFSET(label) => format!("push ${}", label),
+            InstKind::LEASTRINGTOREGWITHRIP(label, reg) => {
+                format!("leaq {}(%rip), {}", label, reg.to_at())
+            }
             InstKind::LABEL(label) => format!("{}:", label),
             InstKind::JUMP(label) => format!("jmp {}", label),
             InstKind::JUMPEQUAL(label) => format!("je {}", label),
-            InstKind::INLINE(contents) => contents.to_string(),
             InstKind::CALL(name) => format!("call {}", name),
             InstKind::CLTD => "cltd".to_string(),
             InstKind::RET => "ret".to_string(),
             InstKind::COMMENT(contents) => format!("# {}", contents),
+            InstKind::SYSCALL => "syscall".to_string(),
         }
     }
 
@@ -83,6 +92,9 @@ impl Instruction {
     pub fn movmem_toreg64(base_reg: Reg64, offset: usize, src: Reg64) -> Self {
         Self::new(InstKind::MOVMEMTOREG64(base_reg, offset, src))
     }
+    pub fn movimm_toreg64(value: i64, dst: Reg64) -> Self {
+        Self::new(InstKind::MOVIMMTOREG64(Immediate::new_int64(value), dst))
+    }
     pub fn pushreg64(reg: Reg64) -> Self {
         Self::new(InstKind::PUSHREG64(reg))
     }
@@ -100,8 +112,8 @@ impl Instruction {
     }
 
     // etc
-    pub fn push_offset_symbol(label: String) -> Self {
-        Self::new(InstKind::PUSHOFFSET(label))
+    pub fn lea_string_addr_to_reg_with_rip(label: String, reg: Reg64) -> Self {
+        Self::new(InstKind::LEASTRINGTOREGWITHRIP(label, reg))
     }
     pub fn jump_label(label: String) -> Self {
         Self::new(InstKind::JUMP(label))
@@ -111,9 +123,6 @@ impl Instruction {
     }
     pub fn label(label: String) -> Self {
         Self::new(InstKind::LABEL(label))
-    }
-    pub fn inline_asm(contents: String) -> Self {
-        Self::new(InstKind::INLINE(contents))
     }
     pub fn call(sym: String) -> Self {
         Self::new(InstKind::CALL(sym))
@@ -126,6 +135,9 @@ impl Instruction {
     }
     pub fn ret() -> Self {
         Self::new(InstKind::RET)
+    }
+    pub fn syscall() -> Self {
+        Self::new(InstKind::SYSCALL)
     }
 }
 
@@ -158,6 +170,7 @@ pub enum InstKind {
     MOVREGTOREG64(Reg64, Reg64),
     MOVREGTOMEM64(Reg64, Reg64, usize),
     MOVMEMTOREG64(Reg64, usize, Reg64),
+    MOVIMMTOREG64(Immediate, Reg64),
     // push
     PUSHREG64(Reg64),
     // pop
@@ -168,14 +181,13 @@ pub enum InstKind {
     INCREG64(Reg64),
 
     // etc
-    PUSHOFFSET(String),
+    LEASTRINGTOREGWITHRIP(String, Reg64),
     LABEL(String),
     JUMP(String),
-
     JUMPEQUAL(String),
-    INLINE(String),
     CALL(String),
     CLTD,
     RET,
+    SYSCALL,
     COMMENT(String),
 }

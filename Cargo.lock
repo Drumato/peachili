@@ -63,6 +63,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "elf-utilities"
+version = "0.1.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72e233b8e9a069586ea32e13231dccf0062c671ef252e6750d370af4eeb464b4"
+
+[[package]]
 name = "heck"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -112,6 +118,8 @@ name = "peachili"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "elf-utilities",
+ "indexmap",
  "typed-arena",
  "yaml-rust",
 ]

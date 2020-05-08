@@ -38,6 +38,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let assembly_file = compiler::compile_main(&build_option, main_mod)?;
 
+    // *****************
+    // *   Assembler   *
+    // *****************
     assembler::x64_assemble(&build_option, assembly_file);
 
     Ok(())
