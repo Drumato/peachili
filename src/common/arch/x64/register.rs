@@ -7,6 +7,7 @@ pub const REX_PREFIX_BBIT: u8 = 0x01;
 pub const MODRM_REGISTER_DISPLACEMENT8: u8 = 0x40;
 pub const _MODRM_REGISTER_DISPLACEMENT32: u8 = 0x80;
 pub const MODRM_REGISTER_REGISTER: u8 = 0xc0;
+pub const MODRM_REGISTER: u8 = 0x00;
 
 #[allow(dead_code)]
 #[derive(Clone)]

@@ -23,7 +23,7 @@ impl x64::Assembler {
         // ModR/M (RM)
         let reg_field = self.modrm_reg_field(dst);
         let rm_field = self.modrm_rm_field(&rip_reg);
-        let modrm_byte = 0 | reg_field | rm_field;
+        let modrm_byte = arch::x64::MODRM_REGISTER | reg_field | rm_field;
 
         let mut code = vec![rex_prefix, opcode, modrm_byte];
 
