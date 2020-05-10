@@ -51,7 +51,16 @@ impl<'a> res::Lexer<'a> {
                 Some(res::Token::new(cur_pos, res::TokenKind::NEWLINE))
             }
 
-            _ => self.scan_symbol(),
+            _ => {
+                let symbol = self.scan_symbol();
+                if let Some(tk) = &symbol {
+                    if let res::TokenKind::DOUBLESLASH = tk.kind {
+                        return self.skip_comment();
+                    }
+                }
+
+                symbol
+            }
         }
     }
 
@@ -102,7 +111,7 @@ impl<'a> res::Lexer<'a> {
     }
 
     fn scan_symbol(&mut self) -> Option<res::Token> {
-        let multilength_symbols = vec!["::"];
+        let multilength_symbols = vec!["::", "//"];
 
         for sym_str in multilength_symbols.iter() {
             if self.contents_starts_with(sym_str) {
@@ -138,6 +147,23 @@ impl<'a> res::Lexer<'a> {
         let cur_pos = self.cur_position();
         let ws = self.cut_contents(|c| c.is_whitespace() || c == &'\t');
         self.skip_offset(ws.len());
+
+        Some(res::Token::new(cur_pos, res::TokenKind::BLANK))
+    }
+
+    fn skip_comment(&mut self) -> Option<res::Token> {
+        let cur_pos = self.cur_position();
+
+        // 改行+1まで飛ばす
+        let ws = self.cut_contents(|c| c != &'\n');
+        self.skip_offset(ws.len());
+
+        let mut newline_pos = self.cur_position();
+        newline_pos.add_row(1);
+        newline_pos.set_col(1);
+
+        self.set_position(newline_pos);
+        self.consume_contents(1);
 
         Some(res::Token::new(cur_pos, res::TokenKind::BLANK))
     }

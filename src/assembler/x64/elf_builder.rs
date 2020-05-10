@@ -217,7 +217,7 @@ impl ELFBuilder {
     ) -> elf_utilities::section::Shdr64 {
         let mut shdr: elf_utilities::section::Shdr64 = Default::default();
 
-        shdr.set_type(elf_utilities::section::SHTYPE::PROGBITS);
+        shdr.set_type(elf_utilities::section::TYPE::PROGBITS);
         shdr.set_size(length);
         shdr.set_addralign(1);
         shdr.set_flags(elf_utilities::section::SHF_ALLOC | elf_utilities::section::SHF_EXECINSTR);
@@ -231,7 +231,7 @@ impl ELFBuilder {
     ) -> elf_utilities::section::Shdr64 {
         let mut shdr: elf_utilities::section::Shdr64 = Default::default();
 
-        shdr.set_type(elf_utilities::section::SHTYPE::SYMTAB);
+        shdr.set_type(elf_utilities::section::TYPE::SYMTAB);
         shdr.set_size(length);
         shdr.set_addralign(1);
         shdr.set_entry_size(elf_utilities::symbol::Symbol64::size());
@@ -250,7 +250,7 @@ impl ELFBuilder {
     ) -> elf_utilities::section::Shdr64 {
         let mut shdr: elf_utilities::section::Shdr64 = Default::default();
 
-        shdr.set_type(elf_utilities::section::SHTYPE::STRTAB);
+        shdr.set_type(elf_utilities::section::TYPE::STRTAB);
         shdr.set_size(length);
         shdr.set_addralign(1);
 
@@ -263,7 +263,7 @@ impl ELFBuilder {
     ) -> elf_utilities::section::Shdr64 {
         let mut shdr: elf_utilities::section::Shdr64 = Default::default();
 
-        shdr.set_type(elf_utilities::section::SHTYPE::RELA);
+        shdr.set_type(elf_utilities::section::TYPE::RELA);
         shdr.set_size(length);
         shdr.set_flags(elf_utilities::section::section_flag::SHF_INFO_LINK);
         shdr.set_addralign(8);
@@ -285,7 +285,7 @@ impl ELFBuilder {
     ) -> elf_utilities::section::Shdr64 {
         let mut shdr: elf_utilities::section::Shdr64 = Default::default();
 
-        shdr.set_type(elf_utilities::section::SHTYPE::PROGBITS);
+        shdr.set_type(elf_utilities::section::TYPE::PROGBITS);
         shdr.set_size(length);
         shdr.set_entry_size(string_number);
         shdr.set_flags(elf_utilities::section::section_flag::SHF_ALLOC);

@@ -64,9 +64,9 @@ dependencies = [
 
 [[package]]
 name = "elf-utilities"
-version = "0.1.24"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72e233b8e9a069586ea32e13231dccf0062c671ef252e6750d370af4eeb464b4"
+checksum = "05fd94fd696af19d9688b32d77e0d386d9c1ea52a4e60058815946f52d1b45ea"
 
 [[package]]
 name = "heck"

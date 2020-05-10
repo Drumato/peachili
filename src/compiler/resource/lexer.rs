@@ -35,9 +35,18 @@ impl<'a> Lexer<'a> {
     pub fn cur_position(&self) -> position::Position {
         position::Position::new(self.row, self.col)
     }
+    pub fn set_position(&mut self, pos: position::Position) {
+        let (row, col) = pos.get_pos();
+        self.row = row;
+        self.col = col;
+    }
 
     pub fn skip_offset(&mut self, len: usize) {
         self.col += len;
+        self.consume_contents(len);
+    }
+
+    pub fn consume_contents(&mut self, len: usize) {
         self.contents.drain(..len);
     }
     pub fn skip_crlf(&mut self) {
