@@ -170,6 +170,9 @@ impl<'a> res::Lexer<'a> {
 
     fn check_reserved(&self, s: &str) -> Option<res::TokenKind> {
         match s {
+            "true" => Some(res::TokenKind::TRUE),
+            "false" => Some(res::TokenKind::FALSE),
+            "boolean" => Some(res::TokenKind::BOOLEAN),
             "ifret" => Some(res::TokenKind::IFRET),
             "if" => Some(res::TokenKind::IF),
             "else" => Some(res::TokenKind::ELSE),

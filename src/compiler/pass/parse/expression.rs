@@ -101,6 +101,8 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::INTEGER(_v) => self.integer_literal(),
             res::TokenKind::STRLIT(_contents) => self.string_literal(),
             res::TokenKind::IDENTIFIER(_name) => self.identifier(),
+            res::TokenKind::TRUE => self.boolean_literal(true),
+            res::TokenKind::FALSE => self.boolean_literal(false),
             _ => panic!("unexpected {} in primary", cur_kind.to_str()),
         }
     }
@@ -130,6 +132,17 @@ impl<'a> res::Parser<'a> {
         }
 
         res::ExpressionNode::new_strlit(contents, hasher.finish(), cur_pos)
+    }
+
+    pub fn boolean_literal(&mut self, boolean: bool) -> res::ExpressionNode {
+        let cur_pos = self.current_position();
+        self.progress();
+
+        if boolean {
+            res::ExpressionNode::new_true(cur_pos)
+        } else {
+            res::ExpressionNode::new_false(cur_pos)
+        }
     }
 
     pub fn identifier(&mut self) -> res::ExpressionNode {

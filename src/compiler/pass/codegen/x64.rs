@@ -197,6 +197,12 @@ impl Generator {
             res::ExpressionNodeKind::INTEGER(v) => {
                 self.add_inst_to_cursym(x64::Instruction::pushint64(*v));
             }
+            res::ExpressionNodeKind::TRUE => {
+                self.add_inst_to_cursym(x64::Instruction::pushint64(1));
+            }
+            res::ExpressionNodeKind::FALSE => {
+                self.add_inst_to_cursym(x64::Instruction::pushint64(0));
+            }
             res::ExpressionNodeKind::IDENT(_id_name) => {
                 self.gen_comment("start identifier expression");
                 self.gen_left_value(ex, local_map, string_map);

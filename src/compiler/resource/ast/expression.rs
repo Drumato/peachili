@@ -30,6 +30,13 @@ impl ExpressionNode {
         Self::new(ExpressionNodeKind::STRLIT(contents, hash), ex_pos)
     }
 
+    pub fn new_true(ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::TRUE, ex_pos)
+    }
+    pub fn new_false(ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::FALSE, ex_pos)
+    }
+
     pub fn new_ident(ident: IdentName, ex_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::IDENT(ident), ex_pos)
     }
@@ -115,6 +122,8 @@ pub enum ExpressionNodeKind {
     STRLIT(String, u64),
     IDENT(IdentName),
     CALL(IdentName, Vec<ExpressionNode>),
+    TRUE,
+    FALSE,
 
     // unary
     NEG(Box<ExpressionNode>),
@@ -138,6 +147,8 @@ pub enum ExpressionNodeKind {
 impl std::fmt::Display for ExpressionNodeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Self::TRUE => write!(f, "true"),
+            Self::FALSE => write!(f, "false"),
             Self::INTEGER(v) => write!(f, "{}", v),
             Self::STRLIT(contents, _hash) => write!(f, "\"{}\"", contents),
             Self::IDENT(ident) => write!(f, "{}", ident),

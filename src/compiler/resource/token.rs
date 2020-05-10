@@ -82,6 +82,9 @@ pub enum TokenKind {
     EOF,
 
     // 予約語
+    TRUE,
+    FALSE,
+    BOOLEAN,
     REQUIRE,
     IF,
     ELSE,
@@ -144,6 +147,9 @@ impl TokenKind {
             Self::EOF => "eof",
 
             // 予約語
+            Self::BOOLEAN => "boolean",
+            Self::TRUE => "true",
+            Self::FALSE => "false",
             Self::REQUIRE => "require",
             Self::IF => "if",
             Self::ELSE => "else",

@@ -72,6 +72,7 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::INT64 => res::PType::new_int64(),
             res::TokenKind::NORETURN => res::PType::new_noreturn(),
             res::TokenKind::STR => res::PType::new_str(),
+            res::TokenKind::BOOLEAN => res::PType::new_boolean(),
             _ => panic!("can't find such a type -> {}", ptype_kind.to_str()),
         }
     }

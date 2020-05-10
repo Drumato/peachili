@@ -20,6 +20,11 @@ impl PType {
         Self::new(PTypeKind::STR, 8)
     }
 
+    // TODO: サイズは1のほうが効率的
+    pub fn new_boolean() -> Self {
+        Self::new(PTypeKind::BOOLEAN, 8)
+    }
+
     pub fn type_size(&self) -> usize {
         self.size
     }
@@ -36,6 +41,7 @@ pub enum PTypeKind {
     INT64,
     STR,
     NORETURN,
+    BOOLEAN,
 }
 
 impl PTypeKind {
@@ -44,6 +50,7 @@ impl PTypeKind {
             Self::INT64 => "int64",
             Self::STR => "str",
             Self::NORETURN => "noreturn",
+            Self::BOOLEAN => "boolean",
         }
     }
 }
