@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::common::{arch, module, operate, option};
+use crate::common::{arch, error, module, operate, option};
 use crate::compiler::{pass, resource};
 
 pub fn compile_main(
@@ -34,10 +34,16 @@ fn process_main_module(
     }
 
     let contents = operate::read_program_from_file(&main_mod.file_path);
-    let tokens = pass::tokenize(build_option, contents);
+
+    // STEP1: tokenize
+    let (tokens, tokenize_errors) = pass::tokenize(build_option, contents);
+    if !tokenize_errors.is_empty() {
+        emit_all_errors_and_exit(&tokenize_errors, &main_mod.file_path);
+    }
 
     dump_tokens_to_stderr(&tokens, build_option.debug);
 
+    // STEP2: parsse
     let mut functions = pass::parse(build_option, tokens);
 
     for req_mod in main_mod.requires.borrow().iter() {
@@ -47,10 +53,17 @@ fn process_main_module(
 
     dump_functions_to_stderr(&functions, build_option.debug);
 
+    // STEP3: 型検査(各関数内に入っていく)
+    for func in functions.iter() {
+        pass::type_check_fn(func);
+    }
+
+    // STEP4: スタックフレーム割付
     for func in functions.iter_mut() {
         func.alloc_frame();
     }
 
+    // STEP5: コード生成
     pass::codegen::x64::codegen(build_option, functions)
 }
 
@@ -64,10 +77,18 @@ fn proc_external_module(
 
     if ext_mod.subs.borrow().len() == 0 {
         let req_contents = operate::read_program_from_file(&ext_mod.file_path);
-        let req_tokens = pass::tokenize(build_option, req_contents);
+
+        // STEP1: tokenize
+        let (req_tokens, tokenize_errors) = pass::tokenize(build_option, req_contents);
+        if !tokenize_errors.is_empty() {
+            emit_all_errors_and_exit(&tokenize_errors, &ext_mod.file_path);
+        }
         dump_tokens_to_stderr(&req_tokens, build_option.debug);
+
+        // STEP2: parse
         let req_functions = pass::parse(build_option, req_tokens);
         dump_functions_to_stderr(&req_functions, build_option.debug);
+
         return req_functions;
     }
     let mut all_subs_functions: Vec<resource::PFunction> = Vec::new();
@@ -100,4 +121,12 @@ fn dump_functions_to_stderr(functions: &[resource::PFunction], debug: bool) {
     for f in functions.iter() {
         eprintln!("{}", f);
     }
+}
+
+fn emit_all_errors_and_exit(errors: &[error::CompileError], module_path: &str) -> ! {
+    for err in errors.iter() {
+        err.emit_stderr(module_path);
+    }
+
+    std::process::exit(1);
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-build_peadchili_executable() {
+build_peachili_executable() {
   input="$1"
   ../target/debug/peachili "$input" -L
   rustc_actual="$?"
@@ -14,7 +14,7 @@ try() {
   input="$2"
 
   # テストファイルのコンパイル
-  build_peadchili_executable $input
+  build_peachili_executable $input
 
   gcc -static -o tmp obj.o
   ./tmp
@@ -49,5 +49,7 @@ try 30 "without_argument.go"
 try 3 "exit.go"
 try 1 "use_version.go"
 try 0 "hello_world.go"
+try 15 "boolean_1.go"
+try 30 "boolean_2.go"
 
 echo -e "\n\nOK"

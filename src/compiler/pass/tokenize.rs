@@ -1,13 +1,17 @@
-use crate::common::option;
+use crate::common::{error, option};
 use crate::compiler::resource as res;
 
-pub fn tokenize(opt: &option::BuildOption, contents: String) -> Vec<res::Token> {
+pub fn tokenize(
+    opt: &option::BuildOption,
+    contents: String,
+) -> (Vec<res::Token>, Vec<error::CompileError>) {
     let mut lexer = res::Lexer::new(opt, contents);
 
     lexer.construct_tokens();
 
     // lexer is dropped after calling `lexer.give_token()`.
-    lexer.give_token()
+    let errors = lexer.copy_errors();
+    (lexer.give_token(), errors)
 }
 
 impl<'a> res::Lexer<'a> {
@@ -100,11 +104,14 @@ impl<'a> res::Lexer<'a> {
         let length = number_str.len();
         let decimal_value = number_str.parse::<i64>();
 
+        let cur_pos = self.cur_position();
         if decimal_value.is_err() {
-            panic!("{} can't consider to int-value", &number_str);
+            let err = error::CompileError::out_of_64bit_sint_range(number_str, cur_pos);
+            self.detect_error(err);
+
+            return None;
         }
 
-        let cur_pos = self.cur_position();
         self.skip_offset(length);
 
         Some(res::Token::new_int(cur_pos, decimal_value.unwrap()))

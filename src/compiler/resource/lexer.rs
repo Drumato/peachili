@@ -1,4 +1,4 @@
-use crate::common::{operate, option, position};
+use crate::common::{error, operate, option, position};
 use crate::compiler::resource as res;
 
 #[allow(dead_code)]
@@ -8,6 +8,7 @@ pub struct Lexer<'a> {
     row: usize,
     contents: String,
     tokens: Vec<res::Token>,
+    errors: Vec<error::CompileError>,
 }
 
 impl<'a> Lexer<'a> {
@@ -18,10 +19,18 @@ impl<'a> Lexer<'a> {
             row: 1,
             contents: program,
             tokens: Vec::new(),
+            errors: Vec::new(),
         }
     }
     pub fn give_token(self) -> Vec<res::Token> {
         self.tokens
+    }
+    pub fn copy_errors(&self) -> Vec<error::CompileError> {
+        self.errors.clone()
+    }
+
+    pub fn detect_error(&mut self, e: error::CompileError) {
+        self.errors.push(e);
     }
 
     pub fn add_token(&mut self, t: res::Token) {
