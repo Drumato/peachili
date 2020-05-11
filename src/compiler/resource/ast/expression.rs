@@ -21,6 +21,10 @@ impl ExpressionNode {
             _ => panic!("unexpected call `copy_str_contents` with {}", self.kind),
         }
     }
+    pub fn copy_pos(&self) -> pos::Position {
+        let (row, col) = self.position.get_pos();
+        pos::Position::new(row, col)
+    }
 
     pub fn new_intlit(int_value: i64, ex_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::INTEGER(int_value), ex_pos)

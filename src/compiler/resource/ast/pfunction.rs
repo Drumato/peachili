@@ -48,6 +48,9 @@ impl PFunction {
         self.strings.insert(contents, hash);
     }
 
+    pub fn get_return_type(&self) -> &res::PType {
+        &self.return_type
+    }
     pub fn get_statements(&self) -> &Vec<res::StatementNode> {
         &self.stmts
     }

@@ -19,6 +19,10 @@ impl PVariable {
         Self::new(PVarKind::LOCAL(0), var_type)
     }
 
+    pub fn get_type(&self) -> &res::PType {
+        &self.ptype
+    }
+
     pub fn type_size(&self) -> usize {
         self.ptype.type_size()
     }

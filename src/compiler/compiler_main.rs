@@ -55,10 +55,14 @@ fn process_main_module(
 
     // STEP3: 型検査(各関数内に入っていく)
     for func in functions.iter() {
-        pass::type_check_fn(func);
+        let errors = pass::type_check_fn(build_option, &functions, func);
+
+        if !errors.is_empty() {
+            emit_all_errors_and_exit(&errors, &main_mod.file_path, build_option);
+        }
     }
 
-    // STEP4: スタックフレーム割付
+    // STEP4: スタックtフレーム割付
     for func in functions.iter_mut() {
         func.alloc_frame();
     }

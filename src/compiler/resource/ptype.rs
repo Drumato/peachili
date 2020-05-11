@@ -1,8 +1,8 @@
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct PType {
-    kind: PTypeKind,
-    size: usize,
+    pub kind: PTypeKind,
+    pub size: usize,
 }
 
 impl PType {
