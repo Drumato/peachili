@@ -51,8 +51,10 @@ fn initialize(matches: clap::ArgMatches) -> (String, option::BuildOption) {
     let v_flag = matches.is_present("verbose");
     let large_s_flag = matches.is_present("stop-assemble");
     let large_l_flag = matches.is_present("stop-link");
+    let lang_str = std::env::var("LANG").unwrap();
+    let lang = option::Language::new(lang_str);
 
-    let build_option = option::BuildOption::new(d_flag, v_flag, large_s_flag, large_l_flag);
+    let build_option = option::BuildOption::new(d_flag, v_flag, large_s_flag, large_l_flag, lang);
 
     (
         matches.value_of("source").unwrap().to_string(),

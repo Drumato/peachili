@@ -38,7 +38,7 @@ fn process_main_module(
     // STEP1: tokenize
     let (tokens, tokenize_errors) = pass::tokenize(build_option, contents);
     if !tokenize_errors.is_empty() {
-        emit_all_errors_and_exit(&tokenize_errors, &main_mod.file_path);
+        emit_all_errors_and_exit(&tokenize_errors, &main_mod.file_path, build_option);
     }
 
     dump_tokens_to_stderr(&tokens, build_option.debug);
@@ -81,7 +81,7 @@ fn proc_external_module(
         // STEP1: tokenize
         let (req_tokens, tokenize_errors) = pass::tokenize(build_option, req_contents);
         if !tokenize_errors.is_empty() {
-            emit_all_errors_and_exit(&tokenize_errors, &ext_mod.file_path);
+            emit_all_errors_and_exit(&tokenize_errors, &ext_mod.file_path, build_option);
         }
         dump_tokens_to_stderr(&req_tokens, build_option.debug);
 
@@ -123,9 +123,13 @@ fn dump_functions_to_stderr(functions: &[resource::PFunction], debug: bool) {
     }
 }
 
-fn emit_all_errors_and_exit(errors: &[error::CompileError], module_path: &str) -> ! {
+fn emit_all_errors_and_exit(
+    errors: &[error::CompileError],
+    module_path: &str,
+    build_opt: &option::BuildOption,
+) -> ! {
     for err in errors.iter() {
-        err.emit_stderr(module_path);
+        err.emit_stderr(module_path, build_opt);
     }
 
     std::process::exit(1);

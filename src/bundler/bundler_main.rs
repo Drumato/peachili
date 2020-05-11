@@ -111,7 +111,7 @@ impl<'a> module::Module<'a> {
                 let (tokens, errors) = pass::tokenize(build_option, contents);
 
                 if !errors.is_empty() {
-                    emit_all_errors_and_exit(&errors, &self.file_path);
+                    emit_all_errors_and_exit(&errors, &self.file_path, build_option);
                 }
 
                 Some(tokens)
@@ -128,7 +128,7 @@ impl<'a> module::Module<'a> {
                 let (tokens, errors) = pass::tokenize(build_option, contents);
 
                 if !errors.is_empty() {
-                    emit_all_errors_and_exit(&errors, &self.file_path);
+                    emit_all_errors_and_exit(&errors, &self.file_path, build_option);
                 }
 
                 return Some(tokens);
@@ -162,7 +162,7 @@ impl<'a> module::Module<'a> {
         let (tokens, errors) = pass::tokenize(build_option, contents);
 
         if !errors.is_empty() {
-            emit_all_errors_and_exit(&errors, &self.file_path);
+            emit_all_errors_and_exit(&errors, &self.file_path, build_option);
         }
 
         Some(tokens)
@@ -190,9 +190,13 @@ fn combined_libpath_and_file(file_path: &str) -> String {
     }
 }
 
-fn emit_all_errors_and_exit(errors: &[error::CompileError], module_path: &str) -> ! {
+fn emit_all_errors_and_exit(
+    errors: &[error::CompileError],
+    module_path: &str,
+    build_opt: &option::BuildOption,
+) -> ! {
     for err in errors.iter() {
-        err.emit_stderr(module_path);
+        err.emit_stderr(module_path, build_opt);
     }
 
     std::process::exit(1);
