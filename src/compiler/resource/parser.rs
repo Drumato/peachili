@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::common::{option, position};
 use crate::compiler::resource as res;
 
@@ -10,15 +12,13 @@ pub struct Parser<'a> {
     row: usize,
     col: usize,
 
-    in_asm: bool,
-
     tokens: Vec<res::Token>,
-    functions: Vec<res::PFunction>,
+    functions: BTreeMap<String, res::PFunction>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn add_pfunction(&mut self, func: res::PFunction) {
-        self.functions.push(func);
+    pub fn add_pfunction(&mut self, name: String, func: res::PFunction) {
+        self.functions.insert(name, func);
     }
 }
 
@@ -31,21 +31,22 @@ impl<'a> Parser<'a> {
             next_token: 1,
             row: 1,
             col: 1,
-            in_asm: false,
-            functions: Vec::new(),
+            functions: BTreeMap::new(),
         }
     }
-    pub fn give_functions(self) -> Vec<res::PFunction> {
+    pub fn give_functions(self) -> BTreeMap<String, res::PFunction> {
         self.functions
     }
 
-    pub fn add_local_var_to_curfunc(&mut self, name: String, pvar: res::PVariable) {
-        let func_offset = self.functions.len() - 1;
-        self.functions[func_offset].add_local(name, pvar);
+    pub fn add_local_var_to(&mut self, func_name: &str, var_name: String, pvar: res::PVariable) {
+        if let Some(p_func) = self.functions.get_mut(func_name) {
+            p_func.add_local(var_name, pvar);
+        }
     }
-    pub fn add_string_to_curfunc(&mut self, contents: String, hash: u64) {
-        let func_offset = self.functions.len() - 1;
-        self.functions[func_offset].add_string(contents, hash);
+    pub fn add_string_to(&mut self, func_name: &str, contents: String, hash: u64) {
+        if let Some(p_func) = self.functions.get_mut(func_name) {
+            p_func.add_string(contents, hash);
+        }
     }
 
     pub fn cur_token_is(&self, tk: &res::TokenKind) -> bool {
@@ -58,9 +59,10 @@ impl<'a> Parser<'a> {
     pub fn get_specified_token(&self, offset: usize) -> &res::TokenKind {
         &self.tokens[offset].kind
     }
-    pub fn replace_statements(&mut self, stmts: Vec<res::StatementNode>) {
-        let func_offset = self.functions.len() - 1;
-        self.functions[func_offset].replace_statements(stmts);
+    pub fn replace_statements(&mut self, name: &str, stmts: Vec<res::StatementNode>) {
+        if let Some(p_func) = self.functions.get_mut(name) {
+            p_func.replace_statements(stmts);
+        }
     }
 
     pub fn save_current_offset(&self) -> usize {
@@ -105,15 +107,5 @@ impl<'a> Parser<'a> {
     pub fn current_position(&self) -> position::Position {
         let (r, c) = self.current_token().get_pos().get_pos();
         position::Position::new(r, c)
-    }
-
-    pub fn asm_mode_on(&mut self) {
-        self.in_asm = true;
-    }
-    pub fn asm_mode_off(&mut self) {
-        self.in_asm = false;
-    }
-    pub fn asm_mode(&self) -> bool {
-        self.in_asm
     }
 }

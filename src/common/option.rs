@@ -37,7 +37,7 @@ impl Language {
             return Self::JAPANESE;
         }
 
-        if env_string == "C".to_string() {
+        if env_string.as_str() == "C" {
             return Self::ENGLISH;
         }
 

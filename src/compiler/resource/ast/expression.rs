@@ -1,7 +1,7 @@
 use crate::common::position as pos;
 use crate::compiler::resource as res;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[allow(dead_code)]
 pub struct ExpressionNode {
     pub kind: ExpressionNodeKind,
@@ -120,7 +120,7 @@ impl std::fmt::Display for ExpressionNode {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum ExpressionNodeKind {
     INTEGER(i64),
     STRLIT(String, u64),
@@ -209,7 +209,7 @@ impl std::fmt::Display for ExpressionNodeKind {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct IdentName {
     name: String,
     next: Option<Box<IdentName>>,

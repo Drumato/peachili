@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::Write;
 
 use crate::common::{arch, error, module, operate, option};
@@ -54,7 +55,7 @@ fn process_main_module(
     dump_functions_to_stderr(&functions, build_option.debug);
 
     // STEP3: 型検査(各関数内に入っていく)
-    for func in functions.iter() {
+    for (_func_name, func) in functions.iter() {
         let errors = pass::type_check_fn(build_option, &functions, func);
 
         if !errors.is_empty() {
@@ -62,8 +63,8 @@ fn process_main_module(
         }
     }
 
-    // STEP4: スタックtフレーム割付
-    for func in functions.iter_mut() {
+    // STEP4: スタックフレーム割付
+    for (_func_name, func) in functions.iter_mut() {
         func.alloc_frame();
     }
 
@@ -74,7 +75,7 @@ fn process_main_module(
 fn proc_external_module(
     build_option: &option::BuildOption,
     ext_mod: &module::Module,
-) -> Vec<resource::PFunction> {
+) -> BTreeMap<String, resource::PFunction> {
     if build_option.verbose {
         eprintln!("process {} module...", ext_mod.file_path);
     }
@@ -95,7 +96,7 @@ fn proc_external_module(
 
         return req_functions;
     }
-    let mut all_subs_functions: Vec<resource::PFunction> = Vec::new();
+    let mut all_subs_functions: BTreeMap<String, resource::PFunction> = BTreeMap::new();
 
     for sub in ext_mod.subs.borrow().iter() {
         let mut sub_functions = proc_external_module(build_option, sub);
@@ -115,14 +116,14 @@ fn dump_tokens_to_stderr(tokens: &[resource::Token], debug: bool) {
     }
 }
 
-fn dump_functions_to_stderr(functions: &[resource::PFunction], debug: bool) {
+fn dump_functions_to_stderr(functions: &BTreeMap<String, resource::PFunction>, debug: bool) {
     if !debug {
         return;
     }
 
     eprintln!("++++++++ dump-functions ++++++++");
 
-    for f in functions.iter() {
+    for (_name, f) in functions.iter() {
         eprintln!("{}", f);
     }
 }

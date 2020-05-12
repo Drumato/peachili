@@ -4,6 +4,7 @@ require (
 func main() noreturn {
 	declare x int64;
 
+    // if式内の条件式はboolean型のみ
 	x = if (1) {
 		ifret 1;
 	} else {

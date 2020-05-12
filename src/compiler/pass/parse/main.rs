@@ -5,7 +5,10 @@ use crate::compiler::resource as res;
 
 // TODO: 文字列リテラル群を返すように調整する．
 // パーサに文字列リテラルを格納するメンバを作って，Vec<PFunction>と一緒に返す
-pub fn parse(opt: &option::BuildOption, tokens: Vec<res::Token>) -> Vec<res::PFunction> {
+pub fn parse(
+    opt: &option::BuildOption,
+    tokens: Vec<res::Token>,
+) -> BTreeMap<String, res::PFunction> {
     let mut parser: res::Parser = res::Parser::new(opt, tokens);
     parser.toplevel();
 
@@ -54,13 +57,13 @@ impl<'a> res::Parser<'a> {
 
         let return_type = self.expect_ptype();
 
-        let mut defined_func = res::PFunction::new(name, return_type, args, def_func_pos);
+        let mut defined_func = res::PFunction::new(name.clone(), return_type, args, def_func_pos);
         defined_func.set_locals(arg_map);
-        self.add_pfunction(defined_func);
+        self.add_pfunction(name.clone(), defined_func);
 
-        let statements = self.compound_statement();
+        let statements = self.compound_statement(&name);
 
-        self.replace_statements(statements);
+        self.replace_statements(&name, statements);
     }
 
     pub fn expect_ptype(&mut self) -> res::PType {

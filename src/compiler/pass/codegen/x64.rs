@@ -8,11 +8,11 @@ use crate::compiler::resource as res;
 // x64用コード生成
 pub fn codegen(
     _build_option: &option::BuildOption,
-    functions: Vec<res::PFunction>,
+    functions: BTreeMap<String, res::PFunction>,
 ) -> x64::AssemblyFile {
     let mut generator = Generator::new("asm.s".to_string());
 
-    for func in functions {
+    for (_func_name, func) in functions {
         generator.gen_symbol_from_func(func);
         generator.set_label(1);
     }

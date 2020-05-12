@@ -1,6 +1,6 @@
 use crate::compiler::resource as res;
 
-#[derive(Clone)]
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[allow(dead_code)]
 pub struct PVariable {
     kind: PVarKind,
@@ -40,7 +40,7 @@ impl PVariable {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[allow(dead_code)]
 pub enum PVarKind {
     LOCAL(usize), // stack offset

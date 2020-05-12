@@ -1,7 +1,7 @@
 use crate::common::position as pos;
 use crate::compiler::resource as res;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct StatementNode {
     pub kind: StatementNodeKind,
     position: pos::Position,
@@ -56,7 +56,7 @@ impl std::fmt::Display for StatementNode {
 }
 
 #[allow(clippy::large_enum_variant)]
-#[derive(Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum StatementNodeKind {
     RETURN(res::ExpressionNode),
     IFRET(res::ExpressionNode),

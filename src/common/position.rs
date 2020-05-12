@@ -1,7 +1,7 @@
 type Column = usize;
 type Row = usize;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Position {
     column: usize,
     row: usize,

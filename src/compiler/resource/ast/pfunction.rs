@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::common::position as pos;
 use crate::compiler::resource as res;
 
-#[derive(Clone)]
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[allow(dead_code)]
 pub struct PFunction {
     name: String,
