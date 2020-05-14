@@ -68,6 +68,14 @@ impl CompileError {
             CmpErrorKind::BOTHBLOCKSMUSTBESAMETYPE => {
                 "if-block and else-block must have same type".to_string()
             }
+            CmpErrorKind::BINARYOPERATIONMUSTHAVETOSAMETYPEOPERANDS(
+                operator,
+                lop_type,
+                rop_type,
+            ) => format!(
+                "a binary operation '{}' has two different-type operands -> '{}, {}'",
+                operator, lop_type, rop_type
+            ),
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -100,6 +108,14 @@ impl CompileError {
             CmpErrorKind::BOTHBLOCKSMUSTBESAMETYPE => {
                 "if-blockとelse-blockは同じ型を持つ必要があります".to_string()
             }
+            CmpErrorKind::BINARYOPERATIONMUSTHAVETOSAMETYPEOPERANDS(
+                operator,
+                lop_type,
+                rop_type,
+            ) => format!(
+                "二項演算 '{}' の左右オペランドが異なる型 '{}, {}' を持っています",
+                operator, lop_type, rop_type
+            ),
         }
     }
 
@@ -133,7 +149,7 @@ impl CompileError {
     }
 
     pub fn cannot_assignment_unresolved_right_value(
-        lvalue_type: res::PType,
+        lvalue_type: res::ExpressionNode,
         rvalue: res::ExpressionNode,
         err_pos: pos::Position,
     ) -> Self {
@@ -156,6 +172,18 @@ impl CompileError {
 
     pub fn both_blocks_must_be_same_type(err_pos: pos::Position) -> Self {
         Self::new(CmpErrorKind::BOTHBLOCKSMUSTBESAMETYPE, err_pos)
+    }
+
+    pub fn binary_operation_must_have_two_same_type_operands(
+        operator: String,
+        lop_type: res::PType,
+        rop_type: res::PType,
+        err_pos: pos::Position,
+    ) -> Self {
+        Self::new(
+            CmpErrorKind::BINARYOPERATIONMUSTHAVETOSAMETYPEOPERANDS(operator, lop_type, rop_type),
+            err_pos,
+        )
     }
 }
 
@@ -184,7 +212,7 @@ pub enum CmpErrorKind {
     /// 型が解決できなかった右辺値を左辺値に代入しようとした
     /// kind.0 -> 左辺値
     /// kind.1 -> 右辺値
-    CANNOTASSIGNMENTUNRESOLVEDRIGHTVALUE(res::PType, res::ExpressionNode),
+    CANNOTASSIGNMENTUNRESOLVEDRIGHTVALUE(res::ExpressionNode, res::ExpressionNode),
 
     /// 代入式が両辺で異なる型を持っている場合
     /// kind.0 -> 左辺値
@@ -193,4 +221,10 @@ pub enum CmpErrorKind {
 
     /// IF-ELSE式の2つのブロックの型が異なる場合
     BOTHBLOCKSMUSTBESAMETYPE,
+
+    /// 二項演算の左右オペランドで型が異なる場合
+    /// kind.0 -> 二項演算子
+    /// kind.1 -> 左項
+    /// kind.2 -> 右項
+    BINARYOPERATIONMUSTHAVETOSAMETYPEOPERANDS(String, res::PType, res::PType),
 }

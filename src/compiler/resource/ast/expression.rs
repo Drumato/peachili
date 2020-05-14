@@ -26,6 +26,16 @@ impl ExpressionNode {
         pos::Position::new(row, col)
     }
 
+    pub fn operator_to_string(&self) -> String {
+        match &self.kind {
+            ExpressionNodeKind::ADD(_lop, _rop) => "+".to_string(),
+            ExpressionNodeKind::SUB(_lop, _rop) => "-".to_string(),
+            ExpressionNodeKind::MUL(_lop, _rop) => "*".to_string(),
+            ExpressionNodeKind::DIV(_lop, _rop) => "/".to_string(),
+            _ => panic!("{} don't have any operator.", self),
+        }
+    }
+
     pub fn new_intlit(int_value: i64, ex_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::INTEGER(int_value), ex_pos)
     }

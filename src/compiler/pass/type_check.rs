@@ -103,14 +103,42 @@ impl<'a> res::TypeChecker<'a> {
                 Some(self.get_global_type_from(called_func_opt.unwrap().get_return_type()))
             }
 
-            res::ExpressionNodeKind::ASSIGN(lvalue, rvalue) => {
-                let lvalue_type = self.check_expression(lvalue, all_funcs, locals);
-                let rvalue_type = self.check_expression(rvalue, all_funcs, locals);
+            res::ExpressionNodeKind::ADD(lop, rop)
+            | res::ExpressionNodeKind::SUB(lop, rop)
+            | res::ExpressionNodeKind::MUL(lop, rop)
+            | res::ExpressionNodeKind::DIV(lop, rop) => {
+                let lop_type = self.try_to_resolve_expression(lop, all_funcs, locals);
+                let rop_type = self.try_to_resolve_expression(rop, all_funcs, locals);
 
+                if lop_type.is_none() || rop_type.is_none() {
+                    return None;
+                }
+
+                if lop_type != rop_type {
+                    let err_pos = ex.copy_pos();
+                    self.detect_error(
+                        er::CompileError::binary_operation_must_have_two_same_type_operands(
+                            ex.operator_to_string(),
+                            lop_type.unwrap(),
+                            rop_type.unwrap(),
+                            err_pos,
+                        ),
+                    );
+                    return None;
+                }
+
+                return lop_type;
+            }
+
+            res::ExpressionNodeKind::ASSIGN(lvalue, rvalue) => {
+                let lvalue_type = self.try_to_resolve_expression(lvalue, all_funcs, locals);
+                let rvalue_type = self.try_to_resolve_expression(rvalue, all_funcs, locals);
+
+                // try_to_resolve_expression() とは別にエラーを生成
                 if rvalue_type.is_none() {
                     let err_pos = ex.copy_pos();
                     self.detect_error(er::CompileError::cannot_assignment_unresolved_right_value(
-                        lvalue_type.unwrap(),
+                        *lvalue.clone(),
                         *rvalue.clone(),
                         err_pos,
                     ));
@@ -168,14 +196,8 @@ impl<'a> res::TypeChecker<'a> {
         locals: &BTreeMap<String, res::PVariable>,
     ) -> bool {
         // 型が解決できるかチェック
-        let cond_expr_type = self.check_expression(cond_expr, all_funcs, locals);
+        let cond_expr_type = self.try_to_resolve_expression(cond_expr, all_funcs, locals);
         if cond_expr_type.is_none() {
-            let err_pos = cond_expr.copy_pos();
-            self.detect_error(er::CompileError::unable_to_resolve_expression_type(
-                cond_expr.clone(),
-                err_pos,
-            ));
-
             return true;
         }
 
@@ -212,6 +234,24 @@ impl<'a> res::TypeChecker<'a> {
         }
 
         None
+    }
+
+    fn try_to_resolve_expression(
+        &mut self,
+        ex: &res::ExpressionNode,
+        all_funcs: &BTreeMap<String, res::PFunction>,
+        locals: &BTreeMap<String, res::PVariable>,
+    ) -> Option<res::PType> {
+        let ex_type = self.check_expression(ex, all_funcs, locals);
+
+        if ex_type.is_none() {
+            let err_pos = ex.copy_pos();
+            self.detect_error(er::CompileError::unable_to_resolve_expression_type(
+                ex.clone(),
+                err_pos,
+            ));
+        }
+        ex_type
     }
 
     fn is_boolean_type(&mut self, t: &res::PType) -> bool {
