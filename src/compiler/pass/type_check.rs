@@ -127,7 +127,7 @@ impl<'a> res::TypeChecker<'a> {
                     return None;
                 }
 
-                return lop_type;
+                lop_type
             }
 
             res::ExpressionNodeKind::ASSIGN(lvalue, rvalue) => {
