@@ -33,6 +33,7 @@ echo -e "start to test normal program...\n\n"
 
 cd examples
 
+try 0 "empty_main.go"
 try 0 "intlit.go"
 try 9 "four_arith.go"
 try 9 "unary_minus.go"

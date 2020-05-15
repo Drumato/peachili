@@ -33,6 +33,11 @@ impl<'a> Module<'a> {
     pub fn new_external(file_path: String) -> Self {
         Self::new(ModuleKind::EXTERNAL, file_path)
     }
+
+    /// subライブラリを保持しているか
+    pub fn is_parent(&self) -> bool {
+        self.subs.borrow().len() != 0
+    }
 }
 
 impl<'a> std::fmt::Display for Module<'a> {

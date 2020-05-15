@@ -7,20 +7,14 @@ pub struct BuildOption {
     pub language: Language,
 }
 
-impl BuildOption {
-    pub fn new(
-        debug: bool,
-        verbose: bool,
-        stop_assemble: bool,
-        stop_link: bool,
-        language: Language,
-    ) -> Self {
+impl Default for BuildOption {
+    fn default() -> Self {
         Self {
-            debug,
-            verbose,
-            stop_assemble,
-            stop_link,
-            language,
+            debug: false,
+            verbose: false,
+            stop_assemble: false,
+            stop_link: false,
+            language: Language::ENGLISH,
         }
     }
 }

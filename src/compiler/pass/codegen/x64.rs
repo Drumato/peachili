@@ -28,6 +28,7 @@ struct Generator {
 impl Generator {
     fn gen_symbol_from_func(&mut self, func: res::PFunction) {
         let symbol_name = func.copy_func_name();
+        let is_main_symbol = symbol_name.as_str() == "main";
         let this_sym = x64::Symbol::new(symbol_name);
         self.add_symbol(this_sym);
 
@@ -55,6 +56,11 @@ impl Generator {
 
         for st in func.get_statements() {
             self.gen_insts_from_statement(st, local_map, string_map);
+        }
+
+        // 暗黙的に return 0; を挿入する．
+        if is_main_symbol {
+            self.add_inst_to_cursym(x64::Instruction::movimm_toreg64(0, x64::Reg64::RAX));
         }
 
         self.gen_function_epilogue();

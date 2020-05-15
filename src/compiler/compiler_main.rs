@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::io::Write;
 
 use crate::common::{arch, error, module, operate, option};
 use crate::compiler::{pass, resource};
@@ -14,14 +13,6 @@ pub fn compile_main(
 
     let assembly_file = process_main_module(build_option, &main_mod);
 
-    if build_option.stop_assemble {
-        // アセンブリファイルを生成してプロセスを終了
-        // とりあえずAT&T syntaxで
-        let mut asm_output = std::fs::File::create(&assembly_file.file_path).unwrap();
-        asm_output.write_all(assembly_file.to_at_code().as_bytes())?;
-        std::process::exit(0);
-    }
-
     Ok(assembly_file)
 }
 
@@ -31,12 +22,15 @@ fn process_main_module(
     main_mod: &module::Module,
 ) -> arch::x64::AssemblyFile {
     if build_option.verbose {
-        eprintln!("process {} module...", main_mod.file_path);
+        eprintln!("process main module ->  {}:", main_mod.file_path);
     }
 
     let contents = operate::read_program_from_file(&main_mod.file_path);
 
     // STEP1: tokenize
+    if build_option.verbose {
+        eprintln!("\ttokenize start.");
+    }
     let (tokens, tokenize_errors) = pass::tokenize(build_option, contents);
     if !tokenize_errors.is_empty() {
         emit_all_errors_and_exit(&tokenize_errors, &main_mod.file_path, build_option);
@@ -44,7 +38,10 @@ fn process_main_module(
 
     dump_tokens_to_stderr(&tokens, build_option.debug);
 
-    // STEP2: parsse
+    // STEP2: parse
+    if build_option.verbose {
+        eprintln!("\tparse start.");
+    }
     let mut functions = pass::parse(build_option, tokens);
 
     for req_mod in main_mod.requires.borrow().iter() {
@@ -55,6 +52,9 @@ fn process_main_module(
     dump_functions_to_stderr(&functions, build_option.debug);
 
     // STEP3: 型検査(各関数内に入っていく)
+    if build_option.verbose {
+        eprintln!("\ttype_check start.");
+    }
     for (_func_name, func) in functions.iter() {
         let errors = pass::type_check_fn(build_option, &functions, func);
 
@@ -64,11 +64,17 @@ fn process_main_module(
     }
 
     // STEP4: スタックフレーム割付
+    if build_option.verbose {
+        eprintln!("\tallocating stack frame.");
+    }
     for (_func_name, func) in functions.iter_mut() {
         func.alloc_frame();
     }
 
     // STEP5: コード生成
+    if build_option.verbose {
+        eprintln!("\tgenerating x64 assembly start.");
+    }
     pass::codegen::x64::codegen(build_option, functions)
 }
 
@@ -80,29 +86,32 @@ fn proc_external_module(
         eprintln!("process {} module...", ext_mod.file_path);
     }
 
-    if ext_mod.subs.borrow().len() == 0 {
-        let req_contents = operate::read_program_from_file(&ext_mod.file_path);
+    if ext_mod.is_parent() {
+        // サブモジュールをすべて処理して，返す
+        let mut all_subs_functions: BTreeMap<String, resource::PFunction> = BTreeMap::new();
 
-        // STEP1: tokenize
-        let (req_tokens, tokenize_errors) = pass::tokenize(build_option, req_contents);
-        if !tokenize_errors.is_empty() {
-            emit_all_errors_and_exit(&tokenize_errors, &ext_mod.file_path, build_option);
+        for sub in ext_mod.subs.borrow().iter() {
+            let mut sub_functions = proc_external_module(build_option, sub);
+            all_subs_functions.append(&mut sub_functions);
         }
-        dump_tokens_to_stderr(&req_tokens, build_option.debug);
-
-        // STEP2: parse
-        let req_functions = pass::parse(build_option, req_tokens);
-        dump_functions_to_stderr(&req_functions, build_option.debug);
-
-        return req_functions;
+        return all_subs_functions;
     }
-    let mut all_subs_functions: BTreeMap<String, resource::PFunction> = BTreeMap::new();
 
-    for sub in ext_mod.subs.borrow().iter() {
-        let mut sub_functions = proc_external_module(build_option, sub);
-        all_subs_functions.append(&mut sub_functions);
+    // 末端モジュールの場合
+    let req_contents = operate::read_program_from_file(&ext_mod.file_path);
+
+    // STEP1: tokenize
+    let (req_tokens, tokenize_errors) = pass::tokenize(build_option, req_contents);
+    if !tokenize_errors.is_empty() {
+        emit_all_errors_and_exit(&tokenize_errors, &ext_mod.file_path, build_option);
     }
-    all_subs_functions
+    dump_tokens_to_stderr(&req_tokens, build_option.debug);
+
+    // STEP2: parse
+    let req_functions = pass::parse(build_option, req_tokens);
+    dump_functions_to_stderr(&req_functions, build_option.debug);
+
+    req_functions
 }
 
 fn dump_tokens_to_stderr(tokens: &[resource::Token], debug: bool) {

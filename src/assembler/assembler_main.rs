@@ -3,7 +3,10 @@ extern crate elf_utilities;
 use crate::assembler::x64;
 use crate::common::*;
 
-pub fn x64_assemble(build_option: &option::BuildOption, asm_file: arch::x64::AssemblyFile) {
+pub fn x64_assemble(
+    build_option: &option::BuildOption,
+    asm_file: arch::x64::AssemblyFile,
+) -> x64::ELFBuilder {
     if build_option.verbose {
         eprintln!("start assembling...");
     }
@@ -37,10 +40,7 @@ pub fn x64_assemble(build_option: &option::BuildOption, asm_file: arch::x64::Ass
     // ヘッダの調整
     object_file_builder.condition_elf_header();
 
-    if build_option.stop_link {
-        // オブジェクトファイルを生成して終了
-        object_file_builder.generate_elf_file("obj.o");
-    }
+    object_file_builder
 }
 
 fn new_object_file() -> elf_utilities::file::ELF64 {
