@@ -91,7 +91,7 @@ impl<'a> res::Lexer<'a> {
         self.skip_offset(word.len());
 
         // 予約語かチェック
-        if let Some(t_kind) = self.check_reserved(&word) {
+        if let Some(t_kind) = Self::check_reserved(&word) {
             return Some(res::Token::new(cur_pos, t_kind));
         }
 
@@ -175,7 +175,7 @@ impl<'a> res::Lexer<'a> {
         Some(res::Token::new(cur_pos, res::TokenKind::BLANK))
     }
 
-    fn check_reserved(&self, s: &str) -> Option<res::TokenKind> {
+    fn check_reserved(s: &str) -> Option<res::TokenKind> {
         match s {
             "true" => Some(res::TokenKind::TRUE),
             "false" => Some(res::TokenKind::FALSE),
@@ -196,5 +196,35 @@ impl<'a> res::Lexer<'a> {
             "str" => Some(res::TokenKind::STR),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tokenize_main_tests {
+    use super::*;
+
+    #[test]
+    fn test_check_reserved() {
+        assert!(res::Lexer::check_reserved("true").is_some());
+        assert!(res::Lexer::check_reserved("false").is_some());
+        assert!(res::Lexer::check_reserved("boolean").is_some());
+        assert!(res::Lexer::check_reserved("ifret").is_some());
+        assert!(res::Lexer::check_reserved("if").is_some());
+        assert!(res::Lexer::check_reserved("else").is_some());
+        assert!(res::Lexer::check_reserved("int64").is_some());
+        assert!(res::Lexer::check_reserved("func").is_some());
+        assert!(res::Lexer::check_reserved("return").is_some());
+        assert!(res::Lexer::check_reserved("declare").is_some());
+        assert!(res::Lexer::check_reserved("countup").is_some());
+        assert!(res::Lexer::check_reserved("from").is_some());
+        assert!(res::Lexer::check_reserved("to").is_some());
+        assert!(res::Lexer::check_reserved("require").is_some());
+        assert!(res::Lexer::check_reserved("asm").is_some());
+        assert!(res::Lexer::check_reserved("noreturn").is_some());
+        assert!(res::Lexer::check_reserved("str").is_some());
+
+        assert!(res::Lexer::check_reserved("ident").is_none());
+        assert!(res::Lexer::check_reserved("x_value").is_none());
+        assert!(res::Lexer::check_reserved("x11").is_none());
     }
 }

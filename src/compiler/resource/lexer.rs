@@ -56,6 +56,9 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn consume_contents(&mut self, len: usize) {
+        if self.contents.len() < len {
+            return;
+        }
         self.contents.drain(..len);
     }
     pub fn skip_crlf(&mut self) {
