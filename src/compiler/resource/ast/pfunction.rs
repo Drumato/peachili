@@ -14,6 +14,8 @@ pub struct PFunction {
     pub strings: BTreeMap<String, u64>,
     return_type: res::PType,
     args: Vec<String>,
+
+    module_path: String,
 }
 
 impl PFunction {
@@ -22,6 +24,7 @@ impl PFunction {
         ptype: res::PType,
         arg_names: Vec<String>,
         def_pos: pos::Position,
+        path: String,
     ) -> Self {
         Self {
             name: func_name,
@@ -32,9 +35,13 @@ impl PFunction {
             strings: BTreeMap::new(),
             return_type: ptype,
             args: arg_names,
+            module_path: path,
         }
     }
 
+    pub fn copy_module_path(&self) -> String {
+        self.module_path.to_string()
+    }
     pub fn replace_statements(&mut self, stmts: Vec<res::StatementNode>) {
         self.stmts = stmts;
     }

@@ -7,16 +7,17 @@ use crate::compiler::resource as res;
 // パーサに文字列リテラルを格納するメンバを作って，Vec<PFunction>と一緒に返す
 pub fn parse(
     opt: &option::BuildOption,
+    module_path: &str,
     tokens: Vec<res::Token>,
 ) -> BTreeMap<String, res::PFunction> {
     let mut parser: res::Parser = res::Parser::new(opt, tokens);
-    parser.toplevel();
+    parser.toplevel(module_path);
 
     parser.give_functions()
 }
 
 impl<'a> res::Parser<'a> {
-    fn toplevel(&mut self) {
+    fn toplevel(&mut self, module_path: &str) {
         self.skip_require();
 
         // 関数列のパース
@@ -25,11 +26,11 @@ impl<'a> res::Parser<'a> {
                 break;
             }
 
-            self.function();
+            self.function(module_path.to_string());
         }
     }
 
-    fn function(&mut self) {
+    fn function(&mut self, module_path: String) {
         let def_func_pos = self.current_token().get_pos();
         self.progress();
 
@@ -57,7 +58,8 @@ impl<'a> res::Parser<'a> {
 
         let return_type = self.expect_ptype();
 
-        let mut defined_func = res::PFunction::new(name.clone(), return_type, args, def_func_pos);
+        let mut defined_func =
+            res::PFunction::new(name.clone(), return_type, args, def_func_pos, module_path);
         defined_func.set_locals(arg_map);
         self.add_pfunction(name.clone(), defined_func);
 
