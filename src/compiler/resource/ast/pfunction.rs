@@ -39,6 +39,20 @@ impl PFunction {
         }
     }
 
+    pub fn collect_arg_types(&self) -> Vec<res::PType> {
+        let locals = self.get_locals();
+        let args = self.get_args();
+
+        let mut arg_types: Vec<res::PType> = Vec::new();
+
+        for arg in args.iter() {
+            let arg_type = locals.get(arg).unwrap().get_type();
+            arg_types.push(res::PType::get_global_type_from(arg_type));
+        }
+
+        arg_types
+    }
+
     pub fn copy_module_path(&self) -> String {
         self.module_path.to_string()
     }

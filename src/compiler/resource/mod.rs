@@ -2,6 +2,7 @@ pub use ast::*;
 pub use lexer::*;
 pub use parser::*;
 pub use ptype::*;
+pub use tld::*;
 pub use token::*;
 pub use type_system::*;
 
@@ -12,3 +13,4 @@ pub mod ptype;
 pub mod token;
 pub mod type_system;
 // pub mod llvm;
+pub mod tld;

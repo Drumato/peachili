@@ -40,13 +40,17 @@ fn process_main_module(
         functions.append(&mut req_functions);
     }
 
-    // STEP3: 型検査(各関数内に入っていく)
-    type_check_phase(build_option, &functions);
+    // STEP3: resolve TLD
+    // TODO: see Issue#12
+    let tld_map = resolve_tld_phase(build_option, &functions);
 
-    // STEP4: スタックフレーム割付
+    // STEP4: 型検査(各関数内に入っていく)
+    type_check_phase(build_option, &functions, &tld_map);
+
+    // STEP5: スタックフレーム割付
     allocate_frame_phase(build_option, &mut functions);
 
-    // STEP5: コード生成
+    // STEP6: コード生成
     if build_option.verbose {
         eprintln!("\tgenerating x64 assembly start.");
     }
@@ -130,9 +134,40 @@ fn parse_phase(
     func_map
 }
 
+fn resolve_tld_phase(
+    build_option: &option::BuildOption,
+    func_map: &BTreeMap<String, resource::PFunction>,
+) -> BTreeMap<String, resource::TopLevelDecl> {
+    let function_number = func_map.len() as u64;
+    let resolve_tld_pb = indicatif::ProgressBar::new(function_number);
+    resolve_tld_pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .progress_chars("#>-"),
+    );
+
+    let start = time::Instant::now();
+
+    let mut resolver: resource::TLDResolver = Default::default();
+
+    for (func_name, func) in func_map.iter() {
+        resolve_tld_pb.set_message(&format!("resolve tld in {}", func_name));
+
+        resolver.resolve_fn(build_option, func_name, func);
+
+        resolve_tld_pb.inc(1);
+    }
+
+    let end = time::Instant::now();
+    resolve_tld_pb.finish_with_message(&format!("resolve tld done!(in {:?})", end - start));
+
+    resolver.give_map()
+}
+
 fn type_check_phase(
     build_option: &option::BuildOption,
     func_map: &BTreeMap<String, resource::PFunction>,
+    tld_map: &BTreeMap<String, resource::TopLevelDecl>,
 ) {
     let function_number = func_map.len() as u64;
     let type_check_pb = indicatif::ProgressBar::new(function_number);
@@ -146,7 +181,7 @@ fn type_check_phase(
     for (func_name, func) in func_map.iter() {
         type_check_pb.set_message(&format!("type check in {}", func_name));
 
-        let errors = pass::type_check_fn(build_option, func_map, func);
+        let errors = pass::type_check_fn(build_option, tld_map, func);
 
         if !errors.is_empty() {
             let module_path = func.copy_module_path();

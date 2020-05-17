@@ -1,11 +1,30 @@
 #[allow(dead_code)]
-#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PType {
     pub kind: PTypeKind,
     pub size: usize,
 }
 
 impl PType {
+    // 型チェック時に毎回タイプを生成するとコストがかかる
+    // ここではグローバルな実体の参照を取り回すことで，型検査を実装する
+    pub const GLOBAL_INT_TYPE: Self = Self {
+        kind: PTypeKind::INT64,
+        size: 8,
+    };
+    pub const GLOBAL_BOOLEAN_TYPE: Self = Self {
+        kind: PTypeKind::BOOLEAN,
+        size: 8,
+    };
+    pub const GLOBAL_NORETURN_TYPE: Self = Self {
+        kind: PTypeKind::NORETURN,
+        size: 0,
+    };
+    pub const GLOBAL_STR_TYPE: Self = Self {
+        kind: PTypeKind::STR,
+        size: 8,
+    };
+
     fn new(k: PTypeKind, s: usize) -> Self {
         Self { kind: k, size: s }
     }
@@ -28,6 +47,15 @@ impl PType {
     pub fn type_size(&self) -> usize {
         self.size
     }
+
+    pub fn get_global_type_from(pt: &Self) -> Self {
+        match &pt.kind {
+            PTypeKind::BOOLEAN => Self::GLOBAL_BOOLEAN_TYPE,
+            PTypeKind::INT64 => Self::GLOBAL_INT_TYPE,
+            PTypeKind::STR => Self::GLOBAL_STR_TYPE,
+            PTypeKind::NORETURN => Self::GLOBAL_NORETURN_TYPE,
+        }
+    }
 }
 
 impl std::fmt::Display for PType {
@@ -36,7 +64,7 @@ impl std::fmt::Display for PType {
     }
 }
 
-#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum PTypeKind {
     INT64,
     STR,
