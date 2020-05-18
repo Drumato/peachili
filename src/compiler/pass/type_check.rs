@@ -65,17 +65,28 @@ impl<'a> res::TypeChecker<'a> {
 
                     return None;
                 }
-
                 let local_var = locals.get(&defined_name).unwrap();
-                Some(res::PType::get_global_type_from(local_var.get_type()))
+                let var_type = res::PType::get_global_type_from(local_var.get_type());
+
+                // 型mapからも探す
+                if let res::PTypeKind::UNRESOLVED(type_name) = &var_type.kind {
+                    eprintln!("type_name -> {}", type_name);
+
+                    if let Some(src_type) = tld_map.get(type_name) {
+                        let alias_type = res::PType::get_global_type_from(src_type.get_src_type());
+                        return Some(alias_type);
+                    }
+                }
+
+                Some(var_type)
             }
 
             res::ExpressionNodeKind::CALL(name, _args) => {
                 let called_name = res::IdentName::last_name(name);
 
-                let called_func_opt = tld_map.get(&called_name);
+                let called_decl_opt = tld_map.get(&called_name);
 
-                if called_func_opt.is_none() {
+                if called_decl_opt.is_none() {
                     let call_pos = ex.copy_pos();
                     self.detect_error(er::CompileError::called_undefined_function(
                         called_name,
@@ -84,8 +95,11 @@ impl<'a> res::TypeChecker<'a> {
 
                     return None;
                 }
+
+                let called_decl = called_decl_opt.unwrap();
+
                 Some(res::PType::get_global_type_from(
-                    called_func_opt.unwrap().get_return_type(),
+                    called_decl.get_return_type(),
                 ))
             }
 

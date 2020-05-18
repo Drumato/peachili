@@ -13,12 +13,12 @@ pub struct Parser<'a> {
     col: usize,
 
     tokens: Vec<res::Token>,
-    functions: BTreeMap<String, res::PFunction>,
+    root: res::ASTRoot,
 }
 
 impl<'a> Parser<'a> {
     pub fn add_pfunction(&mut self, name: String, func: res::PFunction) {
-        self.functions.insert(name, func);
+        self.root.add_pfunction(name, func);
     }
 }
 
@@ -31,22 +31,26 @@ impl<'a> Parser<'a> {
             next_token: 1,
             row: 1,
             col: 1,
-            functions: BTreeMap::new(),
+            root: Default::default(),
         }
-    }
-    pub fn give_functions(self) -> BTreeMap<String, res::PFunction> {
-        self.functions
     }
 
+    pub fn give_root(self) -> res::ASTRoot {
+        self.root
+    }
+
+    pub fn get_typedefs(&self) -> &BTreeMap<String, res::PType> {
+        self.root.get_typedefs()
+    }
+
+    pub fn add_typedef(&mut self, type_name: String, src_type: res::PType) {
+        self.root.add_typedef(type_name, src_type);
+    }
     pub fn add_local_var_to(&mut self, func_name: &str, var_name: String, pvar: res::PVariable) {
-        if let Some(p_func) = self.functions.get_mut(func_name) {
-            p_func.add_local(var_name, pvar);
-        }
+        self.root.add_local_var_to(func_name, var_name, pvar);
     }
     pub fn add_string_to(&mut self, func_name: &str, contents: String, hash: u64) {
-        if let Some(p_func) = self.functions.get_mut(func_name) {
-            p_func.add_string(contents, hash);
-        }
+        self.root.add_string_to(func_name, contents, hash);
     }
 
     pub fn cur_token_is(&self, tk: &res::TokenKind) -> bool {
@@ -60,9 +64,7 @@ impl<'a> Parser<'a> {
         &self.tokens[offset].kind
     }
     pub fn replace_statements(&mut self, name: &str, stmts: Vec<res::StatementNode>) {
-        if let Some(p_func) = self.functions.get_mut(name) {
-            p_func.replace_statements(stmts);
-        }
+        self.root.replace_statement(name, stmts);
     }
 
     pub fn save_current_offset(&self) -> usize {

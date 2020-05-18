@@ -99,6 +99,7 @@ pub enum TokenKind {
     NORETURN,
     INT64,
     STR,
+    PUBTYPE,
 }
 
 impl TokenKind {
@@ -164,6 +165,7 @@ impl TokenKind {
             Self::NORETURN => "noreturn",
             Self::INT64 => "int64",
             Self::STR => "str",
+            Self::PUBTYPE => "pubtype",
         }
     }
 }

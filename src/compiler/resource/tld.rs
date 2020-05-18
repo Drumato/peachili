@@ -16,10 +16,21 @@ impl TopLevelDecl {
         Self::new(TLDKind::FN(fn_ret, fn_args))
     }
 
+    pub fn new_alias(src_type: res::PType) -> Self {
+        Self::new(TLDKind::ALIAS(src_type))
+    }
+
     pub fn get_return_type(&self) -> &res::PType {
         match &self.kind {
             TLDKind::FN(return_type, _arg_types) => return_type,
-            // _ => panic!("not a function"),
+            _ => panic!("not a function"),
+        }
+    }
+
+    pub fn get_src_type(&self) -> &res::PType {
+        match &self.kind {
+            TLDKind::ALIAS(arg_type) => arg_type,
+            _ => panic!("not an alias"),
         }
     }
 }
@@ -28,7 +39,7 @@ impl TopLevelDecl {
 pub enum TLDKind {
     // CONST,
     FN(res::PType, Vec<(String, res::PType)>),
-    // ALIAS,
+    ALIAS(res::PType),
     // TYPE,
 }
 

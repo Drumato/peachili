@@ -24,6 +24,10 @@ impl PType {
         kind: PTypeKind::STR,
         size: 8,
     };
+    pub const GLOBAL_UNRESOLVED_TYPE: Self = Self {
+        kind: PTypeKind::UNRESOLVED(String::new()),
+        size: 0,
+    };
 
     fn new(k: PTypeKind, s: usize) -> Self {
         Self { kind: k, size: s }
@@ -37,6 +41,9 @@ impl PType {
     }
     pub fn new_str() -> Self {
         Self::new(PTypeKind::STR, 8)
+    }
+    pub fn new_unresolved(name: String) -> Self {
+        Self::new(PTypeKind::UNRESOLVED(name), 0)
     }
 
     // TODO: サイズは1のほうが効率的
@@ -54,6 +61,7 @@ impl PType {
             PTypeKind::INT64 => Self::GLOBAL_INT_TYPE,
             PTypeKind::STR => Self::GLOBAL_STR_TYPE,
             PTypeKind::NORETURN => Self::GLOBAL_NORETURN_TYPE,
+            PTypeKind::UNRESOLVED(_name) => Self::GLOBAL_UNRESOLVED_TYPE,
         }
     }
 }
@@ -70,6 +78,7 @@ pub enum PTypeKind {
     STR,
     NORETURN,
     BOOLEAN,
+    UNRESOLVED(String),
 }
 
 impl PTypeKind {
@@ -79,6 +88,7 @@ impl PTypeKind {
             Self::STR => "str",
             Self::NORETURN => "noreturn",
             Self::BOOLEAN => "boolean",
+            Self::UNRESOLVED(_name) => "unresolved",
         }
     }
 }

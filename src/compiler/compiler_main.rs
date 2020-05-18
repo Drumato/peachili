@@ -33,43 +33,43 @@ fn process_main_module(
     let tokens = tokenize_phase(build_option, &main_mod.file_path, contents);
 
     // STEP2: parse
-    let mut functions = parse_phase(build_option, &main_mod.file_path, tokens);
+    let mut root = parse_phase(build_option, &main_mod.file_path, tokens);
 
     for req_mod in main_mod.requires.borrow().iter() {
-        let mut req_functions = proc_external_module(build_option, req_mod);
-        functions.append(&mut req_functions);
+        let req_root = proc_external_module(build_option, req_mod);
+        root.append(req_root);
     }
 
     // STEP3: resolve TLD
     // TODO: see Issue#12
-    let tld_map = resolve_tld_phase(build_option, &functions);
+    let tld_map = resolve_tld_phase(build_option, &root);
 
     // STEP4: 型検査(各関数内に入っていく)
-    type_check_phase(build_option, &functions, &tld_map);
+    type_check_phase(build_option, &root, &tld_map);
 
-    // STEP5: スタックフレーム割付
-    allocate_frame_phase(build_option, &mut functions);
+    // STEP5: スタックフレーム割付 && unresolvedな型解決
+    allocate_frame_phase(build_option, root.get_mutable_functions());
 
     // STEP6: コード生成
     if build_option.verbose {
         eprintln!("\tgenerating x64 assembly start.");
     }
-    pass::codegen::x64::codegen(build_option, functions)
+    pass::codegen::x64::codegen(build_option, root.give_functions())
 }
 
 fn proc_external_module(
     build_option: &option::BuildOption,
     ext_mod: &module::Module,
-) -> BTreeMap<String, resource::PFunction> {
+) -> resource::ASTRoot {
     if ext_mod.is_parent() {
         // サブモジュールをすべて処理して，返す
-        let mut all_subs_functions: BTreeMap<String, resource::PFunction> = BTreeMap::new();
+        let mut all_ast_root: resource::ASTRoot = Default::default();
 
         for sub in ext_mod.subs.borrow().iter() {
-            let mut sub_functions = proc_external_module(build_option, sub);
-            all_subs_functions.append(&mut sub_functions);
+            let sub_root = proc_external_module(build_option, sub);
+            all_ast_root.append(sub_root);
         }
-        return all_subs_functions;
+        return all_ast_root;
     }
 
     // 末端モジュールの場合
@@ -114,14 +114,14 @@ fn parse_phase(
     build_option: &option::BuildOption,
     module_path: &str,
     tokens: Vec<resource::Token>,
-) -> BTreeMap<String, resource::PFunction> {
+) -> resource::ASTRoot {
     let start = time::Instant::now();
-    let func_map = pass::parse(build_option, module_path, tokens);
+    let root = pass::parse(build_option, module_path, tokens);
     let end = time::Instant::now();
 
     // TODO: パースエラー
 
-    dump_functions_to_stderr(&func_map, build_option.debug);
+    dump_functions_to_stderr(&root, build_option.debug);
 
     if build_option.verbose {
         eprintln!(
@@ -131,13 +131,16 @@ fn parse_phase(
             end - start
         );
     }
-    func_map
+    root
 }
 
 fn resolve_tld_phase(
     build_option: &option::BuildOption,
-    func_map: &BTreeMap<String, resource::PFunction>,
+    root: &resource::ASTRoot,
 ) -> BTreeMap<String, resource::TopLevelDecl> {
+    let func_map = root.get_functions();
+    let type_map = root.get_typedefs();
+
     let function_number = func_map.len() as u64;
     let resolve_tld_pb = indicatif::ProgressBar::new(function_number);
     resolve_tld_pb.set_style(
@@ -149,6 +152,8 @@ fn resolve_tld_phase(
     let start = time::Instant::now();
 
     let mut resolver: resource::TLDResolver = Default::default();
+
+    resolver.resolve_typedefs(build_option, type_map);
 
     for (func_name, func) in func_map.iter() {
         resolve_tld_pb.set_message(&format!("resolve tld in {}", func_name));
@@ -166,10 +171,10 @@ fn resolve_tld_phase(
 
 fn type_check_phase(
     build_option: &option::BuildOption,
-    func_map: &BTreeMap<String, resource::PFunction>,
+    root: &resource::ASTRoot,
     tld_map: &BTreeMap<String, resource::TopLevelDecl>,
 ) {
-    let function_number = func_map.len() as u64;
+    let function_number = root.get_functions().len() as u64;
     let type_check_pb = indicatif::ProgressBar::new(function_number);
     type_check_pb.set_style(
         indicatif::ProgressStyle::default_bar()
@@ -178,6 +183,8 @@ fn type_check_phase(
     );
 
     let start = time::Instant::now();
+
+    let func_map = root.get_functions();
     for (func_name, func) in func_map.iter() {
         type_check_pb.set_message(&format!("type check in {}", func_name));
 
@@ -230,14 +237,15 @@ fn dump_tokens_to_stderr(tokens: &[resource::Token], debug: bool) {
     }
 }
 
-fn dump_functions_to_stderr(functions: &BTreeMap<String, resource::PFunction>, debug: bool) {
+fn dump_functions_to_stderr(root: &resource::ASTRoot, debug: bool) {
     if !debug {
         return;
     }
 
     eprintln!("++++++++ dump-functions ++++++++");
 
-    for (_name, f) in functions.iter() {
+    let func_map = root.get_functions();
+    for (_name, f) in func_map.iter() {
         eprintln!("{}", f);
     }
 }

@@ -9,11 +9,11 @@ pub fn parse(
     opt: &option::BuildOption,
     module_path: &str,
     tokens: Vec<res::Token>,
-) -> BTreeMap<String, res::PFunction> {
+) -> res::ASTRoot {
     let mut parser: res::Parser = res::Parser::new(opt, tokens);
     parser.toplevel(module_path);
 
-    parser.give_functions()
+    parser.give_root()
 }
 
 impl<'a> res::Parser<'a> {
@@ -22,16 +22,30 @@ impl<'a> res::Parser<'a> {
 
         // 関数列のパース
         loop {
-            if !self.cur_token_is(&res::TokenKind::FUNC) {
-                break;
+            let cur_token = self.current_token();
+            match &cur_token.kind {
+                res::TokenKind::FUNC => self.function(module_path.to_string()),
+                res::TokenKind::PUBTYPE => self.type_alias(),
+                _ => break,
             }
-
-            self.function(module_path.to_string());
         }
     }
 
+    fn type_alias(&mut self) {
+        let def_func_pos = self.current_position();
+        self.progress();
+
+        let type_name = self.expect_name();
+
+        self.expect(res::TokenKind::ASSIGN);
+
+        let src_type = self.expect_ptype();
+        self.expect_semicolon(&def_func_pos);
+
+        self.add_typedef(type_name, src_type);
+    }
     fn function(&mut self, module_path: String) {
-        let def_func_pos = self.current_token().get_pos();
+        let def_func_pos = self.current_position();
         self.progress();
 
         let name = self.expect_name();
@@ -73,12 +87,13 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let ptype_kind = self.get_specified_token(ptype_offset);
-        match *ptype_kind {
+        match ptype_kind {
             res::TokenKind::INT64 => res::PType::new_int64(),
             res::TokenKind::NORETURN => res::PType::new_noreturn(),
             res::TokenKind::STR => res::PType::new_str(),
             res::TokenKind::BOOLEAN => res::PType::new_boolean(),
-            _ => panic!("can't find such a type -> {}", ptype_kind.to_str()),
+            res::TokenKind::IDENTIFIER(name) => res::PType::new_unresolved(name.to_string()),
+            _ => res::PType::new_unresolved(String::new()),
         }
     }
 
