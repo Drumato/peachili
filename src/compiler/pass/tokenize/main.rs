@@ -144,6 +144,13 @@ impl<'a> res::Lexer<'a> {
 
         self.skip_offset(length);
 
+        if self.cur_offset_char() == 'u' {
+            let unsigned_value = number_str.parse::<u64>().unwrap();
+            self.skip_offset(1);
+
+            return Some(res::Token::new_uint(cur_pos, unsigned_value));
+        }
+
         Some(res::Token::new_int(cur_pos, decimal_value.unwrap()))
     }
 
@@ -225,6 +232,7 @@ impl<'a> res::Lexer<'a> {
             "noreturn" => Some(res::TokenKind::NORETURN),
             "str" => Some(res::TokenKind::STR),
             "pubtype" => Some(res::TokenKind::PUBTYPE),
+            "uint64" => Some(res::TokenKind::UINT64),
             _ => None,
         }
     }
@@ -254,6 +262,7 @@ mod tokenize_main_tests {
         assert!(res::Lexer::check_reserved("noreturn").is_some());
         assert!(res::Lexer::check_reserved("str").is_some());
         assert!(res::Lexer::check_reserved("pubtype").is_some());
+        assert!(res::Lexer::check_reserved("uint64").is_some());
 
         assert!(res::Lexer::check_reserved("ident").is_none());
         assert!(res::Lexer::check_reserved("x_value").is_none());

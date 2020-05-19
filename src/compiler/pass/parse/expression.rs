@@ -100,6 +100,7 @@ impl<'a> res::Parser<'a> {
 
         match cur_kind {
             res::TokenKind::INTEGER(_v) => self.integer_literal(),
+            res::TokenKind::UNSIGNEDINTEGER(_v) => self.uint_literal(),
             res::TokenKind::STRLIT(_contents) => self.create_string_symbol(func_name),
             res::TokenKind::IDENTIFIER(_name) => self.identifier(func_name),
             res::TokenKind::TRUE => self.boolean_literal(true),
@@ -115,6 +116,14 @@ impl<'a> res::Parser<'a> {
 
         // primary() で整数リテラルであることを検査しているのでunwrap()してよい．
         res::ExpressionNode::new_intlit(cur_int_value.unwrap(), cur_pos)
+    }
+    pub fn uint_literal(&mut self) -> res::ExpressionNode {
+        let cur_pos = self.current_position();
+        let cur_uint_value = self.current_token().get_uint_value();
+        self.progress();
+
+        // primary() で整数リテラルであることを検査しているのでunwrap()してよい．
+        res::ExpressionNode::new_uintlit(cur_uint_value.unwrap(), cur_pos)
     }
 
     pub fn create_string_symbol(&mut self, func_name: &str) -> res::ExpressionNode {

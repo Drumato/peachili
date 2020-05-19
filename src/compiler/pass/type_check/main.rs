@@ -82,6 +82,7 @@ impl<'a> res::TypeChecker<'a> {
     ) -> Option<res::PType> {
         match &ex.kind {
             res::ExpressionNodeKind::INTEGER(_v) => Some(res::PType::GLOBAL_INT_TYPE),
+            res::ExpressionNodeKind::UNSIGNEDINTEGER(_v) => Some(res::PType::GLOBAL_UINT_TYPE),
             res::ExpressionNodeKind::STRLIT(_contents, _hash) => Some(res::PType::GLOBAL_STR_TYPE),
             res::ExpressionNodeKind::TRUE | res::ExpressionNodeKind::FALSE => {
                 Some(res::PType::GLOBAL_BOOLEAN_TYPE)

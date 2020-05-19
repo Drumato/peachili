@@ -23,5 +23,6 @@ build_and_test_peadchili_executable "if_expr_stmt1.go"
 build_and_test_peadchili_executable "if_expr_stmt2.go"
 build_and_test_peadchili_executable "invalid_assignment.go"
 build_and_test_peadchili_executable "add_int64_and_boolean.go"
+build_and_test_peadchili_executable "uint_and_sint.go"
 
 echo -e "\n\nOK"

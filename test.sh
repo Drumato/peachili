@@ -49,5 +49,6 @@ try 0 "hello_world.go"
 try 15 "boolean_1.go"
 try 30 "boolean_2.go"
 try 30 "type_alias.go"
+try 1 "unsigned_int.go"
 
 echo -e "\n\nOK"

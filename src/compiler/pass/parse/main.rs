@@ -66,6 +66,7 @@ impl<'a> res::Parser<'a> {
 
         self.add_typedef(type_name, src_type);
     }
+
     fn function(&mut self, module_path: String) {
         let def_func_pos = self.current_position();
         self.progress();
@@ -111,6 +112,7 @@ impl<'a> res::Parser<'a> {
         let ptype_kind = self.get_specified_token(ptype_offset);
         match ptype_kind {
             res::TokenKind::INT64 => res::PType::new_int64(),
+            res::TokenKind::UINT64 => res::PType::new_uint64(),
             res::TokenKind::NORETURN => res::PType::new_noreturn(),
             res::TokenKind::STR => res::PType::new_str(),
             res::TokenKind::BOOLEAN => res::PType::new_boolean(),

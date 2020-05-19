@@ -12,6 +12,10 @@ impl PType {
         kind: PTypeKind::INT64,
         size: 8,
     };
+    pub const GLOBAL_UINT_TYPE: Self = Self {
+        kind: PTypeKind::UINT64,
+        size: 8,
+    };
     pub const GLOBAL_BOOLEAN_TYPE: Self = Self {
         kind: PTypeKind::BOOLEAN,
         size: 8,
@@ -36,6 +40,9 @@ impl PType {
     pub fn new_int64() -> Self {
         Self::new(PTypeKind::INT64, 8)
     }
+    pub fn new_uint64() -> Self {
+        Self::new(PTypeKind::UINT64, 8)
+    }
     pub fn new_noreturn() -> Self {
         Self::new(PTypeKind::NORETURN, 0)
     }
@@ -59,6 +66,7 @@ impl PType {
         match &pt.kind {
             PTypeKind::BOOLEAN => Self::GLOBAL_BOOLEAN_TYPE,
             PTypeKind::INT64 => Self::GLOBAL_INT_TYPE,
+            PTypeKind::UINT64 => Self::GLOBAL_UINT_TYPE,
             PTypeKind::STR => Self::GLOBAL_STR_TYPE,
             PTypeKind::NORETURN => Self::GLOBAL_NORETURN_TYPE,
             PTypeKind::UNRESOLVED(_name) => Self::GLOBAL_UNRESOLVED_TYPE,
@@ -75,6 +83,7 @@ impl std::fmt::Display for PType {
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum PTypeKind {
     INT64,
+    UINT64,
     STR,
     NORETURN,
     BOOLEAN,
@@ -85,6 +94,7 @@ impl PTypeKind {
     fn to_str(&self) -> &'static str {
         match self {
             Self::INT64 => "int64",
+            Self::UINT64 => "uint64",
             Self::STR => "str",
             Self::NORETURN => "noreturn",
             Self::BOOLEAN => "boolean",

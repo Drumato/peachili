@@ -18,6 +18,7 @@ impl Instruction {
         match &self.kind {
             // immediate
             InstKind::PUSHINT64(v) => format!("pushq {}", v.to_at()),
+            InstKind::PUSHUINT64(v) => format!("pushq {}", v.to_at()),
             InstKind::MOVIMMTOREG64(value, dst) => {
                 format!("movq {}, {}", value.to_at(), dst.to_at())
             }
@@ -64,6 +65,10 @@ impl Instruction {
     pub fn pushint64(int_value: i64) -> Self {
         Self::new(InstKind::PUSHINT64(Immediate::new_int64(int_value)))
     }
+    pub fn pushuint64(int_value: u64) -> Self {
+        Self::new(InstKind::PUSHUINT64(Immediate::new_uint64(int_value)))
+    }
+
     // register
     pub fn addreg_toreg64(src: Reg64, dst: Reg64) -> Self {
         Self::new(InstKind::ADDREGTOREG64(src, dst))
@@ -149,6 +154,7 @@ pub enum InstKind {
 
     // push
     PUSHINT64(Immediate),
+    PUSHUINT64(Immediate),
 
     // ****************
     // *   Register   *

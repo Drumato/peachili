@@ -97,7 +97,7 @@ mod tokenizer_tests {
     }
 
     fn element_test_case() -> String {
-        "10 20 30 x y_s1 \"Hello, World\"".to_string()
+        "10 20 30 40u x y_s1 \"Hello, World\"".to_string()
     }
 
     fn element_test_expects() -> Vec<tok::TokenKind> {
@@ -105,6 +105,7 @@ mod tokenizer_tests {
             tok::TokenKind::INTEGER(10),
             tok::TokenKind::INTEGER(20),
             tok::TokenKind::INTEGER(30),
+            tok::TokenKind::UNSIGNEDINTEGER(40),
             tok::TokenKind::IDENTIFIER("x".to_string()),
             tok::TokenKind::IDENTIFIER("y_s1".to_string()),
             tok::TokenKind::STRLIT("Hello, World".to_string()),

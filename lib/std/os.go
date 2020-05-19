@@ -11,3 +11,5 @@ func write(fd int64, buf str, count int64) noreturn {
         "syscall"
     };
 }
+
+// pubtype FileDescriptor = uint64;

@@ -203,6 +203,9 @@ impl Generator {
             res::ExpressionNodeKind::INTEGER(v) => {
                 self.add_inst_to_cursym(x64::Instruction::pushint64(*v));
             }
+            res::ExpressionNodeKind::UNSIGNEDINTEGER(v) => {
+                self.add_inst_to_cursym(x64::Instruction::pushuint64(*v));
+            }
             res::ExpressionNodeKind::TRUE => {
                 self.add_inst_to_cursym(x64::Instruction::pushint64(1));
             }

@@ -23,6 +23,9 @@ impl Token {
     pub fn new_int(cur_pos: pos::Position, int_value: i64) -> Self {
         Self::new(cur_pos, TokenKind::INTEGER(int_value))
     }
+    pub fn new_uint(cur_pos: pos::Position, int_value: u64) -> Self {
+        Self::new(cur_pos, TokenKind::UNSIGNEDINTEGER(int_value))
+    }
     pub fn get_pos(&self) -> pos::Position {
         let (row, column) = self.position.get_pos();
         pos::Position::new(row, column)
@@ -31,6 +34,13 @@ impl Token {
     pub fn get_int_value(&self) -> Option<i64> {
         match self.kind {
             TokenKind::INTEGER(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn get_uint_value(&self) -> Option<u64> {
+        match self.kind {
+            TokenKind::UNSIGNEDINTEGER(v) => Some(v),
             _ => None,
         }
     }
@@ -59,6 +69,7 @@ impl std::fmt::Display for Token {
 #[derive(PartialEq, Debug, Clone)]
 pub enum TokenKind {
     INTEGER(i64),
+    UNSIGNEDINTEGER(u64),
     STRLIT(String),
     IDENTIFIER(String),
 
@@ -98,6 +109,7 @@ pub enum TokenKind {
     RETURN,
     NORETURN,
     INT64,
+    UINT64,
     STR,
     PUBTYPE,
 }
@@ -125,6 +137,7 @@ impl TokenKind {
     pub fn to_str(&self) -> &'static str {
         match self {
             Self::INTEGER(_val) => "integer",
+            Self::UNSIGNEDINTEGER(_val) => "unsigned-integer",
             Self::STRLIT(_val) => "string-lit",
             Self::IDENTIFIER(_val) => "identifier",
 
@@ -164,6 +177,7 @@ impl TokenKind {
             Self::RETURN => "return",
             Self::NORETURN => "noreturn",
             Self::INT64 => "int64",
+            Self::UINT64 => "uint64",
             Self::STR => "str",
             Self::PUBTYPE => "pubtype",
         }

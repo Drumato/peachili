@@ -185,6 +185,7 @@ impl x64::Assembler {
 
             // push
             arch::x64::InstKind::PUSHINT64(immediate) => self.generate_pushint64(immediate),
+            arch::x64::InstKind::PUSHUINT64(immediate) => self.generate_pushint64(immediate),
             arch::x64::InstKind::PUSHREG64(value) => self.generate_pushreg64(value),
 
             // sub

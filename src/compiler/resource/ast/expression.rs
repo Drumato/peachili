@@ -39,6 +39,9 @@ impl ExpressionNode {
     pub fn new_intlit(int_value: i64, ex_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::INTEGER(int_value), ex_pos)
     }
+    pub fn new_uintlit(int_value: u64, ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::UNSIGNEDINTEGER(int_value), ex_pos)
+    }
 
     pub fn new_strlit(contents: String, hash: u64, ex_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::STRLIT(contents, hash), ex_pos)
@@ -133,6 +136,7 @@ impl std::fmt::Display for ExpressionNode {
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum ExpressionNodeKind {
     INTEGER(i64),
+    UNSIGNEDINTEGER(u64),
     STRLIT(String, u64),
     IDENT(IdentName),
     CALL(IdentName, Vec<ExpressionNode>),
@@ -164,6 +168,7 @@ impl std::fmt::Display for ExpressionNodeKind {
             Self::TRUE => write!(f, "true"),
             Self::FALSE => write!(f, "false"),
             Self::INTEGER(v) => write!(f, "{}", v),
+            Self::UNSIGNEDINTEGER(v) => write!(f, "{}u", v),
             Self::STRLIT(contents, _hash) => write!(f, "\"{}\"", contents),
             Self::IDENT(ident) => write!(f, "{}", ident),
             Self::CALL(ident, args) => {
