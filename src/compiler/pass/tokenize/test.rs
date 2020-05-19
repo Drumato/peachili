@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tokenizer_tests {
     use crate::common::option as opt;
-    use crate::compiler::pass::tokenize::main::*;
+    use crate::compiler::pass;
     use crate::compiler::resource::token as tok;
 
     #[test]
@@ -9,9 +9,7 @@ mod tokenizer_tests {
         let build_option: opt::BuildOption = Default::default();
         let contents = keyword_test_case();
 
-        let (tokens, tokenize_errors) = tokenize(&build_option, contents);
-
-        assert!(tokenize_errors.is_empty());
+        let tokens = pass::tokenize_phase(&build_option, "test_module", contents);
 
         let expects = keyword_test_expects();
 
@@ -25,9 +23,7 @@ mod tokenizer_tests {
         let build_option: opt::BuildOption = Default::default();
         let contents = symbol_test_case();
 
-        let (tokens, tokenize_errors) = tokenize(&build_option, contents);
-
-        assert!(tokenize_errors.is_empty());
+        let tokens = pass::tokenize_phase(&build_option, "test_module", contents);
 
         let expects = symbol_test_expects();
 
@@ -41,9 +37,7 @@ mod tokenizer_tests {
         let build_option: opt::BuildOption = Default::default();
         let contents = element_test_case();
 
-        let (tokens, tokenize_errors) = tokenize(&build_option, contents);
-
-        assert!(tokenize_errors.is_empty());
+        let tokens = pass::tokenize_phase(&build_option, "test_module", contents);
 
         let expects = element_test_expects();
 
