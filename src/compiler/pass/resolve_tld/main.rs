@@ -1,7 +1,42 @@
 use std::collections::BTreeMap;
+use std::time;
 
 use crate::common::option as opt;
 use crate::compiler::resource as res;
+
+pub fn resolve_tld_phase(
+    build_option: &opt::BuildOption,
+    root: &res::ASTRoot,
+) -> BTreeMap<String, res::TopLevelDecl> {
+    let func_map = root.get_functions();
+    let type_map = root.get_typedefs();
+
+    let function_number = func_map.len() as u64;
+    let resolve_tld_pb = indicatif::ProgressBar::new(function_number);
+    resolve_tld_pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .progress_chars("#>-"),
+    );
+
+    let start = time::Instant::now();
+
+    let mut resolver: res::TLDResolver = Default::default();
+    resolver.resolve_typedefs(build_option, type_map);
+
+    for (func_name, func) in func_map.iter() {
+        resolve_tld_pb.set_message(&format!("resolve tld in {}", func_name));
+
+        resolver.resolve_fn(build_option, func_name, func);
+
+        resolve_tld_pb.inc(1);
+    }
+
+    let end = time::Instant::now();
+    resolve_tld_pb.finish_with_message(&format!("resolve tld done!(in {:?})", end - start));
+
+    resolver.give_map()
+}
 
 impl res::TLDResolver {
     pub fn resolve_typedefs(

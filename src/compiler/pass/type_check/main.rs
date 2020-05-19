@@ -1,12 +1,45 @@
 use std::collections::BTreeMap;
+use std::time;
 
-use crate::common::{error as er, option};
+use crate::common::{error as er, operate, option};
 use crate::compiler::resource as res;
 
 // 型チェック時に毎回タイプを生成するとコストがかかる
 // ここではグローバルな実体の参照を取り回すことで，型検査を実装する
+pub fn type_check_phase(
+    build_option: &option::BuildOption,
+    root: &res::ASTRoot,
+    tld_map: &BTreeMap<String, res::TopLevelDecl>,
+) {
+    let function_number = root.get_functions().len() as u64;
+    let type_check_pb = indicatif::ProgressBar::new(function_number);
+    type_check_pb.set_style(
+        indicatif::ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .progress_chars("#>-"),
+    );
 
-pub fn type_check_fn(
+    let start = time::Instant::now();
+
+    let func_map = root.get_functions();
+    for (func_name, func) in func_map.iter() {
+        type_check_pb.set_message(&format!("type check in {}", func_name));
+
+        let errors = type_check_fn(build_option, tld_map, func);
+
+        if !errors.is_empty() {
+            let module_path = func.copy_module_path();
+            operate::emit_all_errors_and_exit(&errors, &module_path, build_option);
+        }
+
+        type_check_pb.inc(1);
+    }
+    let end = time::Instant::now();
+
+    type_check_pb.finish_with_message(&format!("type check done!(in {:?})", end - start));
+}
+
+fn type_check_fn(
     build_opt: &option::BuildOption,
     tld_map: &BTreeMap<String, res::TopLevelDecl>,
     this_func: &res::PFunction,

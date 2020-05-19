@@ -1,15 +1,37 @@
 use std::collections::BTreeMap;
+use std::time;
+
+use colored::*;
 
 use crate::common::{option, position};
 use crate::compiler::resource as res;
 
-// TODO: 文字列リテラル群を返すように調整する．
-// パーサに文字列リテラルを格納するメンバを作って，Vec<PFunction>と一緒に返す
-pub fn parse(
-    opt: &option::BuildOption,
+pub fn parse_phase(
+    build_option: &option::BuildOption,
     module_path: &str,
     tokens: Vec<res::Token>,
 ) -> res::ASTRoot {
+    let start = time::Instant::now();
+
+    // TODO: パースエラー
+    let root = parse(build_option, module_path, tokens);
+
+    let end = time::Instant::now();
+
+    if build_option.verbose {
+        eprintln!(
+            "    {}: parse {} done in {:?}",
+            "STEP2".bold().green(),
+            module_path,
+            end - start
+        );
+    }
+    root
+}
+
+// TODO: 文字列リテラル群を返すように調整する．
+// パーサに文字列リテラルを格納するメンバを作って，Vec<PFunction>と一緒に返す
+fn parse(opt: &option::BuildOption, module_path: &str, tokens: Vec<res::Token>) -> res::ASTRoot {
     let mut parser: res::Parser = res::Parser::new(opt, tokens);
     parser.toplevel(module_path);
 

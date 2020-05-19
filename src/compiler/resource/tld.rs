@@ -29,7 +29,7 @@ impl TopLevelDecl {
 
     pub fn get_src_type(&self) -> &res::PType {
         match &self.kind {
-            TLDKind::ALIAS(arg_type) => arg_type,
+            TLDKind::ALIAS(src_type) => src_type,
             _ => panic!("not an alias"),
         }
     }

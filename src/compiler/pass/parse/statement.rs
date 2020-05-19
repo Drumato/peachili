@@ -63,12 +63,7 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let name = self.expect_name();
-        let mut ptype = self.expect_ptype();
-        if let res::PTypeKind::UNRESOLVED(type_name) = &ptype.kind {
-            if let Some(src_type) = self.get_typedefs().get(type_name) {
-                ptype = src_type.clone();
-            }
-        }
+        let ptype = self.expect_ptype();
 
         let declared_var = res::PVariable::new_local(ptype);
         self.add_local_var_to(func_name, name, declared_var);

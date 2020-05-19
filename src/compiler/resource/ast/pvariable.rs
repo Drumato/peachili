@@ -19,6 +19,9 @@ impl PVariable {
         Self::new(PVarKind::LOCAL(0), var_type)
     }
 
+    pub fn set_type(&mut self, t: res::PType) {
+        self.ptype = t;
+    }
     pub fn get_type(&self) -> &res::PType {
         &self.ptype
     }

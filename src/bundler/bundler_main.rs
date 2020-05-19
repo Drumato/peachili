@@ -5,7 +5,7 @@ use std::fs;
 use typed_arena::Arena;
 
 use crate::bundler::bundle_parser as bp;
-use crate::common::{error, module, operate, option};
+use crate::common::{module, operate, option};
 use crate::compiler::pass;
 use crate::compiler::resource as res;
 
@@ -108,11 +108,7 @@ impl<'a> module::Module<'a> {
                 None
             } else {
                 let contents = operate::read_program_from_file(&self.file_path);
-                let (tokens, errors) = pass::tokenize(build_option, contents);
-
-                if !errors.is_empty() {
-                    emit_all_errors_and_exit(&errors, &self.file_path, build_option);
-                }
+                let tokens = pass::tokenize_phase(build_option, &self.file_path, contents);
 
                 Some(tokens)
             };
@@ -125,11 +121,7 @@ impl<'a> module::Module<'a> {
                 self.file_path = extended;
                 let contents = operate::read_program_from_file(&self.file_path);
 
-                let (tokens, errors) = pass::tokenize(build_option, contents);
-
-                if !errors.is_empty() {
-                    emit_all_errors_and_exit(&errors, &self.file_path, build_option);
-                }
+                let tokens = pass::tokenize_phase(build_option, &self.file_path, contents);
 
                 return Some(tokens);
             }
@@ -159,11 +151,7 @@ impl<'a> module::Module<'a> {
         self.file_path = combined_path;
 
         let contents = operate::read_program_from_file(&self.file_path);
-        let (tokens, errors) = pass::tokenize(build_option, contents);
-
-        if !errors.is_empty() {
-            emit_all_errors_and_exit(&errors, &self.file_path, build_option);
-        }
+        let tokens = pass::tokenize_phase(build_option, &self.file_path, contents);
 
         Some(tokens)
     }
@@ -188,16 +176,4 @@ fn combined_libpath_and_file(file_path: &str) -> String {
     } else {
         format!("{}/{}", lib_path, file_path)
     }
-}
-
-fn emit_all_errors_and_exit(
-    errors: &[error::CompileError],
-    module_path: &str,
-    build_opt: &option::BuildOption,
-) -> ! {
-    for err in errors.iter() {
-        err.emit_stderr(module_path, build_opt);
-    }
-
-    std::process::exit(1);
 }
