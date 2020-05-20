@@ -36,12 +36,13 @@ impl res::PFunction {
         for (_name, pvar) in self.locals.iter_mut() {
             let current_type = pvar.get_type();
             if let res::PTypeKind::UNRESOLVED(type_name) = &current_type.kind {
-                if tld_map.get(type_name).is_none() {
+                let type_last = res::IdentName::last_name(type_name);
+                if tld_map.get(&type_last).is_none() {
                     // TODO: コンパイルエラー
                     panic!("should emit a compile-error");
                 }
 
-                let resolved_type = tld_map.get(type_name).unwrap().get_src_type();
+                let resolved_type = tld_map.get(&type_last).unwrap().get_src_type();
                 pvar.set_type(resolved_type.clone());
             }
         }

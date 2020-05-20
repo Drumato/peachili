@@ -1,3 +1,5 @@
+use crate::compiler::resource as res;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PType {
@@ -29,7 +31,10 @@ impl PType {
         size: 8,
     };
     pub const GLOBAL_UNRESOLVED_TYPE: Self = Self {
-        kind: PTypeKind::UNRESOLVED(String::new()),
+        kind: PTypeKind::UNRESOLVED(res::IdentName {
+            name: String::new(),
+            next: None,
+        }),
         size: 0,
     };
 
@@ -49,7 +54,7 @@ impl PType {
     pub fn new_str() -> Self {
         Self::new(PTypeKind::STR, 8)
     }
-    pub fn new_unresolved(name: String) -> Self {
+    pub fn new_unresolved(name: res::IdentName) -> Self {
         Self::new(PTypeKind::UNRESOLVED(name), 0)
     }
 
@@ -87,7 +92,7 @@ pub enum PTypeKind {
     STR,
     NORETURN,
     BOOLEAN,
-    UNRESOLVED(String),
+    UNRESOLVED(res::IdentName),
 }
 
 impl PTypeKind {

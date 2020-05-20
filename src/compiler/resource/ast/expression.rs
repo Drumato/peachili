@@ -226,8 +226,17 @@ impl std::fmt::Display for ExpressionNodeKind {
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct IdentName {
-    name: String,
-    next: Option<Box<IdentName>>,
+    pub name: String,
+    pub next: Option<Box<IdentName>>,
+}
+
+impl Default for IdentName {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            next: None,
+        }
+    }
 }
 
 impl IdentName {

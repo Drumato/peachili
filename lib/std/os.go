@@ -5,11 +5,11 @@ func exit_with(status int64) noreturn {
      };
  }
 
-func write(fd int64, buf str, count int64) noreturn {
+func write(fd FileDescriptor, buf str, count int64) noreturn {
     asm {
         "movq $1, %rax",
         "syscall"
     };
 }
 
-// pubtype FileDescriptor = uint64;
+pubtype FileDescriptor = uint64;

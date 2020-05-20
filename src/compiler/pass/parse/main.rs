@@ -106,18 +106,22 @@ impl<'a> res::Parser<'a> {
     }
 
     pub fn expect_ptype(&mut self) -> res::PType {
-        let ptype_offset = self.save_current_offset();
+        let ptype_kind = self.current_token_kind().clone();
+
+        if let res::TokenKind::IDENTIFIER(_name) = ptype_kind {
+            let ident = self.expect_identifier();
+            return res::PType::new_unresolved(ident);
+        }
+
         self.progress();
 
-        let ptype_kind = self.get_specified_token(ptype_offset);
         match ptype_kind {
             res::TokenKind::INT64 => res::PType::new_int64(),
             res::TokenKind::UINT64 => res::PType::new_uint64(),
             res::TokenKind::NORETURN => res::PType::new_noreturn(),
             res::TokenKind::STR => res::PType::new_str(),
             res::TokenKind::BOOLEAN => res::PType::new_boolean(),
-            res::TokenKind::IDENTIFIER(name) => res::PType::new_unresolved(name.to_string()),
-            _ => res::PType::new_unresolved(String::new()),
+            _ => res::PType::new_unresolved(Default::default()),
         }
     }
 

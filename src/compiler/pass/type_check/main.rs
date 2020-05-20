@@ -104,9 +104,9 @@ impl<'a> res::TypeChecker<'a> {
 
                 // 型mapからも探す
                 if let res::PTypeKind::UNRESOLVED(type_name) = &var_type.kind {
-                    eprintln!("type_name -> {}", type_name);
+                    let type_last = res::IdentName::last_name(type_name);
 
-                    if let Some(src_type) = tld_map.get(type_name) {
+                    if let Some(src_type) = tld_map.get(&type_last) {
                         let alias_type = res::PType::get_global_type_from(src_type.get_src_type());
                         return Some(alias_type);
                     }
