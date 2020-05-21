@@ -47,6 +47,14 @@ impl StatementNode {
     pub fn new_asm(args: Vec<String>, st_pos: pos::Position) -> Self {
         Self::new(StatementNodeKind::ASM(args), st_pos)
     }
+
+    pub fn new_varinit(
+        ident: res::ExpressionNode,
+        expr: res::ExpressionNode,
+        st_pos: pos::Position,
+    ) -> Self {
+        Self::new(StatementNodeKind::VARINIT(ident, expr), st_pos)
+    }
 }
 
 impl std::fmt::Display for StatementNode {
@@ -69,6 +77,7 @@ pub enum StatementNodeKind {
         Vec<StatementNode>,
     ),
     ASM(Vec<String>),
+    VARINIT(res::ExpressionNode, res::ExpressionNode),
 }
 
 impl std::fmt::Display for StatementNodeKind {
@@ -95,6 +104,7 @@ impl std::fmt::Display for StatementNodeKind {
 
                 write!(f, "}};")
             }
+            Self::VARINIT(ident, expr) => write!(f, "varinit {} = {};", ident, expr),
         }
     }
 }

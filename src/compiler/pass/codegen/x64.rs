@@ -97,6 +97,9 @@ impl Generator {
                     // self.add_inst_to_cursym(x64::Instruction::inline_asm(arg.clone()));
                 }
             }
+            res::StatementNodeKind::VARINIT(ident, expr) => {
+                self.gen_varinit_statement(ident, expr, local_map, string_map)
+            }
         }
     }
 
@@ -138,6 +141,20 @@ impl Generator {
         self.gen_expr(expr, local_map, string_map);
 
         self.gen_comment("end expression statement");
+    }
+
+    fn gen_varinit_statement(
+        &mut self,
+        ident: &res::ExpressionNode,
+        expr: &res::ExpressionNode,
+        local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
+    ) {
+        self.gen_comment("start varinit statement");
+
+        self.gen_assignment_left_value(ident, expr, local_map, string_map);
+
+        self.gen_comment("end varinit statement");
     }
 
     fn gen_countup_statement(
@@ -267,24 +284,7 @@ impl Generator {
             res::ExpressionNodeKind::ASSIGN(lval, rval) => {
                 self.gen_comment("start assign expression");
 
-                // 1． 左右子ノードをコンパイル
-                //     左辺値はアドレスを生成し，スタックに積んでおく．
-                self.gen_left_value(lval, local_map, string_map);
-                self.gen_expr(rval, local_map, string_map);
-
-                // 2．演算に必要なオペランドをレジスタに取り出す
-                self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
-                self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
-
-                // 3．代入 == メモリに格納
-                self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(
-                    Reg64::RDI,
-                    Reg64::RAX,
-                    0,
-                ));
-
-                // 4. 代入式のため，スタックにRDIの値を積んでおく
-                self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RDI));
+                self.gen_assignment_left_value(lval, rval, local_map, string_map);
 
                 self.gen_comment("end assign expression");
             }
@@ -431,6 +431,29 @@ impl Generator {
         ));
         self.add_inst_to_cursym(x64::Instruction::popreg64(x64::Reg64::RBP));
         self.add_inst_to_cursym(x64::Instruction::ret());
+    }
+
+    fn gen_assignment_left_value(
+        &mut self,
+        lval: &res::ExpressionNode,
+        rval: &res::ExpressionNode,
+        local_map: &BTreeMap<String, res::PVariable>,
+        string_map: &BTreeMap<String, u64>,
+    ) {
+        // 1． 左右子ノードをコンパイル
+        //     左辺値はアドレスを生成し，スタックに積んでおく．
+        self.gen_left_value(lval, local_map, string_map);
+        self.gen_expr(rval, local_map, string_map);
+
+        // 2．演算に必要なオペランドをレジスタに取り出す
+        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
+        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+
+        // 3．代入 == メモリに格納
+        self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(Reg64::RDI, Reg64::RAX, 0));
+
+        // 4. 代入式のため，スタックにRDIの値を積んでおく
+        self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RDI));
     }
 
     fn gen_left_value(

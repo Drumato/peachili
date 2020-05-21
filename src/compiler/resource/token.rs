@@ -112,6 +112,7 @@ pub enum TokenKind {
     UINT64,
     STR,
     PUBTYPE,
+    VARINIT,
 }
 
 impl TokenKind {
@@ -180,6 +181,7 @@ impl TokenKind {
             Self::UINT64 => "uint64",
             Self::STR => "str",
             Self::PUBTYPE => "pubtype",
+            Self::VARINIT => "varinit",
         }
     }
 }

@@ -71,6 +71,7 @@ impl<'a> res::TypeChecker<'a> {
             res::StatementNodeKind::VARDECL => None,
             res::StatementNodeKind::COUNTUP(_ident, _start_expr, _end_expr, _body) => None,
             res::StatementNodeKind::ASM(_asm_literals) => None,
+            res::StatementNodeKind::VARINIT(_ident, _expr) => None,
         }
     }
 

@@ -33,6 +33,7 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::DECLARE => self.vardecl_statement(func_name),
             res::TokenKind::COUNTUP => self.countup_statement(func_name),
             res::TokenKind::ASM => self.asm_statement(),
+            res::TokenKind::VARINIT => self.varinit_statement(func_name),
             _ => self.expression_statement(func_name),
         }
     }
@@ -128,5 +129,24 @@ impl<'a> res::Parser<'a> {
         self.expect_semicolon(&cur_pos);
 
         res::StatementNode::new_asm(asms, cur_pos)
+    }
+
+    fn varinit_statement(&mut self, func_name: &str) -> res::StatementNode {
+        let st_pos = self.current_position();
+        self.progress();
+
+        let ident = self.primary(func_name);
+        let ptype = self.expect_ptype();
+
+        let declared_var = res::PVariable::new_local(ptype);
+        self.add_local_var_to(func_name, ident.copy_ident_name(), declared_var);
+
+        self.expect(res::TokenKind::ASSIGN);
+
+        let init_expression = self.expression(func_name);
+
+        self.expect_semicolon(&st_pos);
+
+        res::StatementNode::new_varinit(ident, init_expression, st_pos)
     }
 }
