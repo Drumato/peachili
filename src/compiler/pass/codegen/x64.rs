@@ -173,12 +173,7 @@ impl Generator {
         let end_label = format!(".Lend{}", lnum);
 
         // initialize
-
-        self.gen_left_value(id, local_map, string_map);
-        self.gen_expr(start, local_map, string_map);
-        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
-        self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
-        self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(Reg64::RDI, Reg64::RAX, 0));
+        self.gen_assignment_left_value(id, start, local_map, string_map);
 
         // in loop
         self.add_inst_to_cursym(x64::Instruction::label(start_label.clone()));

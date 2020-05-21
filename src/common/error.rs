@@ -76,6 +76,10 @@ impl CompileError {
                 "a binary operation '{}' has two different-type operands -> '{}, {}'",
                 operator, lop_type, rop_type
             ),
+            CmpErrorKind::CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(const_var) => format!(
+                "unable to assign the expression to the constant '{}' is already initialized",
+                const_var
+            ),
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -116,6 +120,10 @@ impl CompileError {
                 "二項演算 '{}' の左右オペランドが異なる型 '{}, {}' を持っています",
                 operator, lop_type, rop_type
             ),
+
+            CmpErrorKind::CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(const_var) => {
+                format!("初期化されている定数 '{}' への代入文は無効です", const_var)
+            }
         }
     }
 
@@ -166,6 +174,16 @@ impl CompileError {
     ) -> Self {
         Self::new(
             CmpErrorKind::BOTHVALUESMUSTBESAMETYPEINASSIGNMENT(lvalue_type, rvalue_type),
+            err_pos,
+        )
+    }
+
+    pub fn cannot_assignment_to_constant_after_initialization(
+        lvalue: res::ExpressionNode,
+        err_pos: pos::Position,
+    ) -> Self {
+        Self::new(
+            CmpErrorKind::CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(lvalue),
             err_pos,
         )
     }
@@ -227,4 +245,8 @@ pub enum CmpErrorKind {
     /// kind.1 -> 左項
     /// kind.2 -> 右項
     BINARYOPERATIONMUSTHAVETOSAMETYPEOPERANDS(String, res::PType, res::PType),
+
+    /// 定数への再代入
+    /// kind.0 -> 定数ノード
+    CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(res::ExpressionNode),
 }

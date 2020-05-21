@@ -34,6 +34,7 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::COUNTUP => self.countup_statement(func_name),
             res::TokenKind::ASM => self.asm_statement(),
             res::TokenKind::VARINIT => self.varinit_statement(func_name),
+            res::TokenKind::CONST => self.const_statement(func_name),
             _ => self.expression_statement(func_name),
         }
     }
@@ -66,7 +67,7 @@ impl<'a> res::Parser<'a> {
         let name = self.expect_name();
         let ptype = self.expect_ptype();
 
-        let declared_var = res::PVariable::new_local(ptype);
+        let declared_var = res::PVariable::new_local(ptype, false);
         self.add_local_var_to(func_name, name, declared_var);
 
         self.expect_semicolon(&cur_pos);
@@ -81,7 +82,7 @@ impl<'a> res::Parser<'a> {
         let ident = self.primary(func_name);
         let ptype = self.expect_ptype();
 
-        let loop_var = res::PVariable::new_local(ptype);
+        let loop_var = res::PVariable::new_local(ptype, false);
         self.add_local_var_to(func_name, ident.copy_ident_name(), loop_var);
 
         self.expect(res::TokenKind::FROM);
@@ -138,7 +139,26 @@ impl<'a> res::Parser<'a> {
         let ident = self.primary(func_name);
         let ptype = self.expect_ptype();
 
-        let declared_var = res::PVariable::new_local(ptype);
+        let declared_var = res::PVariable::new_local(ptype, false);
+        self.add_local_var_to(func_name, ident.copy_ident_name(), declared_var);
+
+        self.expect(res::TokenKind::ASSIGN);
+
+        let init_expression = self.expression(func_name);
+
+        self.expect_semicolon(&st_pos);
+
+        res::StatementNode::new_varinit(ident, init_expression, st_pos)
+    }
+
+    fn const_statement(&mut self, func_name: &str) -> res::StatementNode {
+        let st_pos = self.current_position();
+        self.progress();
+
+        let ident = self.primary(func_name);
+        let ptype = self.expect_ptype();
+
+        let declared_var = res::PVariable::new_local(ptype, true);
         self.add_local_var_to(func_name, ident.copy_ident_name(), declared_var);
 
         self.expect(res::TokenKind::ASSIGN);

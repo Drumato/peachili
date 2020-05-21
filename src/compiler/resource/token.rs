@@ -113,6 +113,7 @@ pub enum TokenKind {
     STR,
     PUBTYPE,
     VARINIT,
+    CONST,
 }
 
 impl TokenKind {
@@ -182,6 +183,7 @@ impl TokenKind {
             Self::STR => "str",
             Self::PUBTYPE => "pubtype",
             Self::VARINIT => "varinit",
+            Self::CONST => "const",
         }
     }
 }

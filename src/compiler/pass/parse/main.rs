@@ -85,7 +85,7 @@ impl<'a> res::Parser<'a> {
             let arg_name = res::IdentName::correct_name(&self.expect_identifier());
             let arg_type = self.expect_ptype();
 
-            let arg_var = res::PVariable::new_local(arg_type);
+            let arg_var = res::PVariable::new_local(arg_type, false);
 
             arg_map.insert(arg_name.clone(), arg_var);
 

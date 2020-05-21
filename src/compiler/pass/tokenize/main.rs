@@ -234,6 +234,7 @@ impl<'a> res::Lexer<'a> {
             "pubtype" => Some(res::TokenKind::PUBTYPE),
             "uint64" => Some(res::TokenKind::UINT64),
             "varinit" => Some(res::TokenKind::VARINIT),
+            "const" => Some(res::TokenKind::CONST),
             _ => None,
         }
     }
@@ -265,6 +266,7 @@ mod tokenize_main_tests {
         assert!(res::Lexer::check_reserved("pubtype").is_some());
         assert!(res::Lexer::check_reserved("uint64").is_some());
         assert!(res::Lexer::check_reserved("varinit").is_some());
+        assert!(res::Lexer::check_reserved("const").is_some());
 
         assert!(res::Lexer::check_reserved("ident").is_none());
         assert!(res::Lexer::check_reserved("x_value").is_none());

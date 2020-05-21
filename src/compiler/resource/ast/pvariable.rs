@@ -5,18 +5,23 @@ use crate::compiler::resource as res;
 pub struct PVariable {
     kind: PVarKind,
     ptype: res::PType,
+    is_const: bool,
 }
 
 impl PVariable {
-    fn new(var_kind: PVarKind, var_type: res::PType) -> Self {
+    fn new(var_kind: PVarKind, var_type: res::PType, con: bool) -> Self {
         Self {
             kind: var_kind,
             ptype: var_type,
+            is_const: con,
         }
     }
 
-    pub fn new_local(var_type: res::PType) -> Self {
-        Self::new(PVarKind::LOCAL(0), var_type)
+    pub fn new_local(var_type: res::PType, is_const: bool) -> Self {
+        Self::new(PVarKind::LOCAL(0), var_type, is_const)
+    }
+    pub fn is_constant(&self) -> bool {
+        self.is_const
     }
 
     pub fn set_type(&mut self, t: res::PType) {

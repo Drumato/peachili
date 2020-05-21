@@ -1,5 +1,5 @@
 #!/bin/bash
-build_and_test_peadchili_executable() {
+build_and_test_peachili_executable() {
   input="$1"
   ../target/debug/peachili "$input" -L
   rustc_actual="$?"
@@ -16,13 +16,14 @@ echo -e "start to test invalid program...\n\n"
 
 cd failures
 
-build_and_test_peadchili_executable "invalid_integer_literal.go"
-build_and_test_peadchili_executable "if_expr1.go"
-build_and_test_peadchili_executable "if_expr2.go"
-build_and_test_peadchili_executable "if_expr_stmt1.go"
-build_and_test_peadchili_executable "if_expr_stmt2.go"
-build_and_test_peadchili_executable "invalid_assignment.go"
-build_and_test_peadchili_executable "add_int64_and_boolean.go"
-build_and_test_peadchili_executable "uint_and_sint.go"
+build_and_test_peachili_executable "invalid_integer_literal.go"
+build_and_test_peachili_executable "if_expr1.go"
+build_and_test_peachili_executable "if_expr2.go"
+build_and_test_peachili_executable "if_expr_stmt1.go"
+build_and_test_peachili_executable "if_expr_stmt2.go"
+build_and_test_peachili_executable "invalid_assignment.go"
+build_and_test_peachili_executable "add_int64_and_boolean.go"
+build_and_test_peachili_executable "uint_and_sint.go"
+build_and_test_peachili_executable "assignment_to_constant.go"
 
 echo -e "\n\nOK"

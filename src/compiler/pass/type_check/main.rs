@@ -180,6 +180,20 @@ impl<'a> res::TypeChecker<'a> {
                     return None;
                 }
 
+                // 左辺値がconst宣言されているかチェック
+                if let Some(pvar) = locals.get(&lvalue.copy_ident_name()) {
+                    if pvar.is_constant() {
+                        let err_pos = ex.copy_pos();
+                        self.detect_error(
+                            er::CompileError::cannot_assignment_to_constant_after_initialization(
+                                *lvalue.clone(),
+                                err_pos,
+                            ),
+                        );
+                        return None;
+                    }
+                }
+
                 if lvalue_type != rvalue_type {
                     let err_pos = ex.copy_pos();
                     self.detect_error(
