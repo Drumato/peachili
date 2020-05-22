@@ -28,5 +28,6 @@ build_and_test_peachili_executable "assignment_to_constant.go"
 build_and_test_peachili_executable "invalid_arg_types.go"
 build_and_test_peachili_executable "invalid_arg_number.go"
 build_and_test_peachili_executable "minus_to_unsigned.go"
+build_and_test_peachili_executable "return_in_noreturn_func.go"
 
 echo -e "\n\nOK"

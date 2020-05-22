@@ -25,7 +25,7 @@ pub fn type_check_phase(
     for (func_name, func) in func_map.iter() {
         type_check_pb.set_message(&format!("type check in {}", func_name));
 
-        let errors = type_check_fn(build_option, tld_map, func);
+        let errors = type_check_fn(build_option, tld_map, func_name, func);
 
         if !errors.is_empty() {
             let module_path = func.copy_module_path();
@@ -42,6 +42,7 @@ pub fn type_check_phase(
 fn type_check_fn(
     build_opt: &option::BuildOption,
     tld_map: &BTreeMap<String, res::TopLevelDecl>,
+    func_name: &str,
     this_func: &res::PFunction,
 ) -> Vec<er::CompileError> {
     let stmts = this_func.get_statements();
@@ -49,7 +50,7 @@ fn type_check_fn(
 
     let mut checker = res::TypeChecker::new(build_opt);
     for st in stmts.iter() {
-        checker.check_statement(st, tld_map, locals);
+        checker.check_statement(&func_name, st, tld_map, locals);
     }
 
     checker.give_errors()
@@ -58,27 +59,43 @@ fn type_check_fn(
 impl<'a> res::TypeChecker<'a> {
     fn check_statement(
         &mut self,
+        func_name: &str,
         st: &res::StatementNode,
         tld_map: &BTreeMap<String, res::TopLevelDecl>,
         locals: &BTreeMap<String, res::PVariable>,
     ) -> Option<res::PType> {
         match &st.kind {
-            res::StatementNodeKind::RETURN(_return_expr) => None,
-            res::StatementNodeKind::IFRET(return_expr) => {
-                self.check_expression(return_expr, tld_map, locals)
+            res::StatementNodeKind::RETURN(_return_expr) => {
+                let this_func = tld_map.get(func_name).unwrap();
+
+                if this_func.get_return_type().kind == res::PTypeKind::NORETURN {
+                    self.detect_error(er::CompileError::return_in_noreturn_function(st.copy_pos()));
+                }
+
+                None
             }
-            res::StatementNodeKind::EXPR(expr) => self.check_expression(expr, tld_map, locals),
+            res::StatementNodeKind::IFRET(return_expr) => {
+                self.check_expression(func_name, return_expr, tld_map, locals)
+            }
+            res::StatementNodeKind::EXPR(expr) => {
+                self.check_expression(func_name, expr, tld_map, locals)
+            }
             res::StatementNodeKind::VARDECL => None,
             res::StatementNodeKind::COUNTUP(_ident, _start_expr, _end_expr, _body) => None,
             res::StatementNodeKind::ASM(_asm_literals) => None,
-            res::StatementNodeKind::VARINIT(ident, expr) => {
-                self.try_to_resolve_assignment(st.copy_pos(), ident, expr, tld_map, locals, false)
-            }
+            res::StatementNodeKind::VARINIT(ident, expr) => self.try_to_resolve_assignment(
+                func_name,
+                (st.copy_pos(), ident, expr),
+                tld_map,
+                locals,
+                false,
+            ),
         }
     }
 
     fn check_expression(
         &mut self,
+        func_name: &str,
         ex: &res::ExpressionNode,
         tld_map: &BTreeMap<String, res::TopLevelDecl>,
         locals: &BTreeMap<String, res::PVariable>,
@@ -152,7 +169,8 @@ impl<'a> res::TypeChecker<'a> {
                 // 引数の型チェック
                 for (i, arg) in args.iter().enumerate() {
                     let defined_arg_type = &called_fn_args[i].1;
-                    let caller_arg_type = self.try_to_resolve_expression(arg, tld_map, locals);
+                    let caller_arg_type =
+                        self.try_to_resolve_expression(func_name, arg, tld_map, locals);
                     caller_arg_type.as_ref()?;
 
                     let caller_arg_type = caller_arg_type.unwrap();
@@ -174,7 +192,8 @@ impl<'a> res::TypeChecker<'a> {
             }
 
             res::ExpressionNodeKind::NEG(inner_op) => {
-                let inner_type = self.try_to_resolve_expression(inner_op, tld_map, locals);
+                let inner_type =
+                    self.try_to_resolve_expression(func_name, inner_op, tld_map, locals);
                 inner_type.as_ref()?;
 
                 let inner_type = inner_type.unwrap();
@@ -192,8 +211,8 @@ impl<'a> res::TypeChecker<'a> {
             | res::ExpressionNodeKind::SUB(lop, rop)
             | res::ExpressionNodeKind::MUL(lop, rop)
             | res::ExpressionNodeKind::DIV(lop, rop) => {
-                let lop_type = self.try_to_resolve_expression(lop, tld_map, locals);
-                let rop_type = self.try_to_resolve_expression(rop, tld_map, locals);
+                let lop_type = self.try_to_resolve_expression(func_name, lop, tld_map, locals);
+                let rop_type = self.try_to_resolve_expression(func_name, rop, tld_map, locals);
 
                 if lop_type.is_none() || rop_type.is_none() {
                     return None;
@@ -215,23 +234,27 @@ impl<'a> res::TypeChecker<'a> {
                 lop_type
             }
 
-            res::ExpressionNodeKind::ASSIGN(lvalue, rvalue) => {
-                self.try_to_resolve_assignment(ex.copy_pos(), lvalue, rvalue, tld_map, locals, true)
-            }
+            res::ExpressionNodeKind::ASSIGN(lvalue, rvalue) => self.try_to_resolve_assignment(
+                func_name,
+                (ex.copy_pos(), lvalue, rvalue),
+                tld_map,
+                locals,
+                true,
+            ),
 
             res::ExpressionNodeKind::IF(cond_expr, body) => {
-                if self.detect_conditional_expression_error(cond_expr, tld_map, locals) {
+                if self.detect_conditional_expression_error(func_name, cond_expr, tld_map, locals) {
                     return None;
                 }
-                self.check_block_statement(body, tld_map, locals)
+                self.check_block_statement(func_name, body, tld_map, locals)
             }
             res::ExpressionNodeKind::IFELSE(cond_expr, body, alter) => {
-                if self.detect_conditional_expression_error(cond_expr, tld_map, locals) {
+                if self.detect_conditional_expression_error(func_name, cond_expr, tld_map, locals) {
                     return None;
                 }
 
-                let body_type = self.check_block_statement(body, tld_map, locals);
-                let alter_type = self.check_block_statement(alter, tld_map, locals);
+                let body_type = self.check_block_statement(func_name, body, tld_map, locals);
+                let alter_type = self.check_block_statement(func_name, alter, tld_map, locals);
 
                 if body_type != alter_type {
                     let err_pos = ex.copy_pos();
@@ -249,12 +272,13 @@ impl<'a> res::TypeChecker<'a> {
     /// そうでなければfalse
     fn detect_conditional_expression_error(
         &mut self,
+        func_name: &str,
         cond_expr: &res::ExpressionNode,
         tld_map: &BTreeMap<String, res::TopLevelDecl>,
         locals: &BTreeMap<String, res::PVariable>,
     ) -> bool {
         // 型が解決できるかチェック
-        let cond_expr_type = self.try_to_resolve_expression(cond_expr, tld_map, locals);
+        let cond_expr_type = self.try_to_resolve_expression(func_name, cond_expr, tld_map, locals);
         if cond_expr_type.is_none() {
             return true;
         }
@@ -278,6 +302,7 @@ impl<'a> res::TypeChecker<'a> {
 
     fn check_block_statement(
         &mut self,
+        func_name: &str,
         block: &[res::StatementNode],
         tld_map: &BTreeMap<String, res::TopLevelDecl>,
         locals: &BTreeMap<String, res::PVariable>,
@@ -288,7 +313,7 @@ impl<'a> res::TypeChecker<'a> {
             }
 
             // ifret-statementのチェック
-            return self.check_statement(st, tld_map, locals);
+            return self.check_statement(func_name, st, tld_map, locals);
         }
 
         None
@@ -296,11 +321,12 @@ impl<'a> res::TypeChecker<'a> {
 
     fn try_to_resolve_expression(
         &mut self,
+        func_name: &str,
         ex: &res::ExpressionNode,
         tld_map: &BTreeMap<String, res::TopLevelDecl>,
         locals: &BTreeMap<String, res::PVariable>,
     ) -> Option<res::PType> {
-        let ex_type = self.check_expression(ex, tld_map, locals);
+        let ex_type = self.check_expression(func_name, ex, tld_map, locals);
 
         if ex_type.is_none() {
             let err_pos = ex.copy_pos();
@@ -315,15 +341,18 @@ impl<'a> res::TypeChecker<'a> {
 
     fn try_to_resolve_assignment(
         &mut self,
-        assign_pos: pos::Position,
-        lvalue: &res::ExpressionNode,
-        rvalue: &res::ExpressionNode,
+        func_name: &str,
+        expr_taple: (pos::Position, &res::ExpressionNode, &res::ExpressionNode),
         tld_map: &BTreeMap<String, res::TopLevelDecl>,
         locals: &BTreeMap<String, res::PVariable>,
         const_check: bool,
     ) -> Option<res::PType> {
-        let lvalue_type = self.try_to_resolve_expression(lvalue, tld_map, locals);
-        let rvalue_type = self.try_to_resolve_expression(rvalue, tld_map, locals);
+        let assign_pos = expr_taple.0;
+        let lvalue = expr_taple.1;
+        let rvalue = expr_taple.2;
+
+        let lvalue_type = self.try_to_resolve_expression(func_name, lvalue, tld_map, locals);
+        let rvalue_type = self.try_to_resolve_expression(func_name, rvalue, tld_map, locals);
 
         // try_to_resolve_expression() とは別にエラーを生成
         if rvalue_type.is_none() {

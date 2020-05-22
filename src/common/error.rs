@@ -91,6 +91,9 @@ impl CompileError {
             CmpErrorKind::CANNOTAPPLYMINUSTO(value_type) => {
                 format!("cannot apply unary operator `-` to type `{}`", value_type)
             }
+            CmpErrorKind::RETURNINNORETURNFUNC => {
+                "detect returning value in noreturn function".to_string()
+            }
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -147,6 +150,9 @@ impl CompileError {
                 "単項演算子 `-` を型 `{}` に適用することはできません",
                 value_type
             ),
+            CmpErrorKind::RETURNINNORETURNFUNC => {
+                "noreturn 型と定義された関数内で return statement を検知しました".to_string()
+            }
         }
     }
 
@@ -255,6 +261,10 @@ impl CompileError {
     pub fn cannotapplyminusto(value_type: res::PType, err_pos: pos::Position) -> Self {
         Self::new(CmpErrorKind::CANNOTAPPLYMINUSTO(value_type), err_pos)
     }
+
+    pub fn return_in_noreturn_function(err_pos: pos::Position) -> Self {
+        Self::new(CmpErrorKind::RETURNINNORETURNFUNC, err_pos)
+    }
 }
 
 #[derive(Clone)]
@@ -318,4 +328,7 @@ pub enum CmpErrorKind {
     /// マイナス演算子を適用できない型
     /// kind.0 -> 演算子を適用した型名
     CANNOTAPPLYMINUSTO(res::PType),
+
+    /// noreturn が返り値となっている関数内でreturn文
+    RETURNINNORETURNFUNC,
 }
