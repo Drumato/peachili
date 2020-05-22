@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::time;
 
-use crate::common::{error as er, operate, option};
+use crate::common::{error as er, operate, option, position as pos};
 use crate::compiler::resource as res;
 
 // 型チェック時に毎回タイプを生成するとコストがかかる
@@ -71,7 +71,9 @@ impl<'a> res::TypeChecker<'a> {
             res::StatementNodeKind::VARDECL => None,
             res::StatementNodeKind::COUNTUP(_ident, _start_expr, _end_expr, _body) => None,
             res::StatementNodeKind::ASM(_asm_literals) => None,
-            res::StatementNodeKind::VARINIT(_ident, _expr) => None,
+            res::StatementNodeKind::VARINIT(ident, expr) => {
+                self.try_to_resolve_assignment(st.copy_pos(), ident, expr, tld_map, locals, false)
+            }
         }
     }
 
@@ -101,22 +103,21 @@ impl<'a> res::TypeChecker<'a> {
                     return None;
                 }
                 let local_var = locals.get(&defined_name).unwrap();
-                let var_type = res::PType::get_global_type_from(local_var.get_type());
+                let var_type = local_var.get_type().clone();
 
                 // 型mapからも探す
                 if let res::PTypeKind::UNRESOLVED(type_name) = &var_type.kind {
                     let type_last = res::IdentName::last_name(type_name);
 
                     if let Some(src_type) = tld_map.get(&type_last) {
-                        let alias_type = res::PType::get_global_type_from(src_type.get_src_type());
-                        return Some(alias_type);
+                        return Some(src_type.get_src_type().clone());
                     }
                 }
 
                 Some(var_type)
             }
 
-            res::ExpressionNodeKind::CALL(name, _args) => {
+            res::ExpressionNodeKind::CALL(name, args) => {
                 let called_name = res::IdentName::last_name(name);
 
                 let called_decl_opt = tld_map.get(&called_name);
@@ -133,9 +134,58 @@ impl<'a> res::TypeChecker<'a> {
 
                 let called_decl = called_decl_opt.unwrap();
 
-                Some(res::PType::get_global_type_from(
-                    called_decl.get_return_type(),
-                ))
+                let called_fn_args = called_decl.get_args();
+
+                // 引数の数チェック
+                if called_fn_args.len() != args.len() {
+                    let err_pos = ex.copy_pos();
+                    self.detect_error(er::CompileError::arg_number_incorrect(
+                        called_name,
+                        called_fn_args.len(),
+                        args.len(),
+                        err_pos,
+                    ));
+
+                    return None;
+                }
+
+                // 引数の型チェック
+                for (i, arg) in args.iter().enumerate() {
+                    let defined_arg_type = &called_fn_args[i].1;
+                    let caller_arg_type = self.try_to_resolve_expression(arg, tld_map, locals);
+                    caller_arg_type.as_ref()?;
+
+                    let caller_arg_type = caller_arg_type.unwrap();
+
+                    if defined_arg_type != &caller_arg_type {
+                        let err_pos = ex.copy_pos();
+                        self.detect_error(er::CompileError::arg_type_incorrect(
+                            called_name,
+                            i,
+                            defined_arg_type.clone(),
+                            caller_arg_type,
+                            err_pos,
+                        ));
+                        return None;
+                    }
+                }
+
+                Some(called_decl.get_return_type().clone())
+            }
+
+            res::ExpressionNodeKind::NEG(inner_op) => {
+                let inner_type = self.try_to_resolve_expression(inner_op, tld_map, locals);
+                inner_type.as_ref()?;
+
+                let inner_type = inner_type.unwrap();
+                if inner_type.is_unsigned() {
+                    let err_pos = ex.copy_pos();
+                    self.detect_error(er::CompileError::cannotapplyminusto(inner_type, err_pos));
+
+                    return None;
+                }
+
+                Some(inner_type)
             }
 
             res::ExpressionNodeKind::ADD(lop, rop)
@@ -166,47 +216,7 @@ impl<'a> res::TypeChecker<'a> {
             }
 
             res::ExpressionNodeKind::ASSIGN(lvalue, rvalue) => {
-                let lvalue_type = self.try_to_resolve_expression(lvalue, tld_map, locals);
-                let rvalue_type = self.try_to_resolve_expression(rvalue, tld_map, locals);
-
-                // try_to_resolve_expression() とは別にエラーを生成
-                if rvalue_type.is_none() {
-                    let err_pos = ex.copy_pos();
-                    self.detect_error(er::CompileError::cannot_assignment_unresolved_right_value(
-                        *lvalue.clone(),
-                        *rvalue.clone(),
-                        err_pos,
-                    ));
-                    return None;
-                }
-
-                // 左辺値がconst宣言されているかチェック
-                if let Some(pvar) = locals.get(&lvalue.copy_ident_name()) {
-                    if pvar.is_constant() {
-                        let err_pos = ex.copy_pos();
-                        self.detect_error(
-                            er::CompileError::cannot_assignment_to_constant_after_initialization(
-                                *lvalue.clone(),
-                                err_pos,
-                            ),
-                        );
-                        return None;
-                    }
-                }
-
-                if lvalue_type != rvalue_type {
-                    let err_pos = ex.copy_pos();
-                    self.detect_error(
-                        er::CompileError::both_values_must_be_same_type_in_assignment(
-                            lvalue_type.unwrap(),
-                            rvalue_type.unwrap(),
-                            err_pos,
-                        ),
-                    );
-                    return None;
-                }
-
-                rvalue_type
+                self.try_to_resolve_assignment(ex.copy_pos(), lvalue, rvalue, tld_map, locals, true)
             }
 
             res::ExpressionNodeKind::IF(cond_expr, body) => {
@@ -232,7 +242,6 @@ impl<'a> res::TypeChecker<'a> {
 
                 body_type
             }
-            _ => None,
         }
     }
 
@@ -299,8 +308,60 @@ impl<'a> res::TypeChecker<'a> {
                 ex.clone(),
                 err_pos,
             ));
+            return None;
         }
         ex_type
+    }
+
+    fn try_to_resolve_assignment(
+        &mut self,
+        assign_pos: pos::Position,
+        lvalue: &res::ExpressionNode,
+        rvalue: &res::ExpressionNode,
+        tld_map: &BTreeMap<String, res::TopLevelDecl>,
+        locals: &BTreeMap<String, res::PVariable>,
+        const_check: bool,
+    ) -> Option<res::PType> {
+        let lvalue_type = self.try_to_resolve_expression(lvalue, tld_map, locals);
+        let rvalue_type = self.try_to_resolve_expression(rvalue, tld_map, locals);
+
+        // try_to_resolve_expression() とは別にエラーを生成
+        if rvalue_type.is_none() {
+            self.detect_error(er::CompileError::cannot_assignment_unresolved_right_value(
+                lvalue.clone(),
+                rvalue.clone(),
+                assign_pos,
+            ));
+            return None;
+        }
+
+        // 左辺値がconst宣言されているかチェック
+        if const_check {
+            if let Some(pvar) = locals.get(&lvalue.copy_ident_name()) {
+                if pvar.is_constant() {
+                    self.detect_error(
+                        er::CompileError::cannot_assignment_to_constant_after_initialization(
+                            lvalue.clone(),
+                            assign_pos,
+                        ),
+                    );
+                    return None;
+                }
+            }
+        }
+
+        if lvalue_type != rvalue_type {
+            self.detect_error(
+                er::CompileError::both_values_must_be_same_type_in_assignment(
+                    lvalue_type.unwrap(),
+                    rvalue_type.unwrap(),
+                    assign_pos,
+                ),
+            );
+            return None;
+        }
+
+        rvalue_type
     }
 
     fn is_boolean_type(&mut self, t: &res::PType) -> bool {

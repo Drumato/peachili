@@ -1,6 +1,6 @@
 use crate::compiler::resource as res;
 
-#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 #[allow(dead_code)]
 pub struct PVariable {
     kind: PVarKind,
@@ -41,6 +41,7 @@ impl PVariable {
             }
         }
     }
+
     pub fn get_stack_offset(&self) -> usize {
         match self.kind {
             PVarKind::LOCAL(offset) => offset,
@@ -48,7 +49,7 @@ impl PVariable {
     }
 }
 
-#[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 #[allow(dead_code)]
 pub enum PVarKind {
     LOCAL(usize), // stack offset

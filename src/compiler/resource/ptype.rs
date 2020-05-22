@@ -30,13 +30,6 @@ impl PType {
         kind: PTypeKind::STR,
         size: 8,
     };
-    pub const GLOBAL_UNRESOLVED_TYPE: Self = Self {
-        kind: PTypeKind::UNRESOLVED(res::IdentName {
-            name: String::new(),
-            next: None,
-        }),
-        size: 0,
-    };
 
     fn new(k: PTypeKind, s: usize) -> Self {
         Self { kind: k, size: s }
@@ -63,6 +56,12 @@ impl PType {
         Self::new(PTypeKind::BOOLEAN, 8)
     }
 
+    pub fn is_unsigned(&self) -> bool {
+        match &self.kind {
+            PTypeKind::UINT64 => true,
+            _ => false,
+        }
+    }
     pub fn type_size(&self) -> usize {
         self.size
     }
@@ -74,7 +73,9 @@ impl PType {
             PTypeKind::UINT64 => Self::GLOBAL_UINT_TYPE,
             PTypeKind::STR => Self::GLOBAL_STR_TYPE,
             PTypeKind::NORETURN => Self::GLOBAL_NORETURN_TYPE,
-            PTypeKind::UNRESOLVED(_name) => Self::GLOBAL_UNRESOLVED_TYPE,
+            PTypeKind::UNRESOLVED(_name) => {
+                panic!("unexpected calling get_global_type_from with unresolved type")
+            }
         }
     }
 }

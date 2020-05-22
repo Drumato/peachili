@@ -18,10 +18,10 @@ impl Default for ASTRoot {
 
 impl ASTRoot {
     pub fn add_typedef(&mut self, type_name: String, src_type: res::PType) {
-        self.type_map.insert(type_name, src_type);
+        assert!(self.type_map.insert(type_name, src_type).is_none());
     }
     pub fn add_pfunction(&mut self, name: String, func: res::PFunction) {
-        self.func_map.insert(name, func);
+        assert!(self.func_map.insert(name, func).is_none());
     }
     pub fn append(&mut self, mut sub_root: Self) {
         self.func_map.append(sub_root.get_mutable_functions());

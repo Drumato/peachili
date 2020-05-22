@@ -18,13 +18,16 @@ pub fn resolve_unknown_type_phase(
     );
 
     let start = time::Instant::now();
+
     for (func_name, func) in func_map.iter_mut() {
         resolve_type_pb.set_message(&format!("resolve unknown types in {}", func_name));
         func.resolve_type(tld_map);
 
         resolve_type_pb.inc(1);
     }
+
     let end = time::Instant::now();
+
     resolve_type_pb.finish_with_message(&format!(
         "resolve unknown types done!(in {:?})",
         end - start
@@ -35,10 +38,10 @@ impl res::PFunction {
     fn resolve_type(&mut self, tld_map: &BTreeMap<String, res::TopLevelDecl>) {
         for (_name, pvar) in self.locals.iter_mut() {
             let current_type = pvar.get_type();
+
             if let res::PTypeKind::UNRESOLVED(type_name) = &current_type.kind {
                 let type_last = res::IdentName::last_name(type_name);
                 if tld_map.get(&type_last).is_none() {
-                    // TODO: コンパイルエラー
                     panic!("should emit a compile-error");
                 }
 

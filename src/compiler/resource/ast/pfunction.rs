@@ -39,15 +39,24 @@ impl PFunction {
         }
     }
 
-    pub fn collect_arg_types(&self) -> Vec<res::PType> {
+    pub fn collect_arg_types(&self, type_map: &BTreeMap<String, res::PType>) -> Vec<res::PType> {
         let locals = self.get_locals();
         let args = self.get_args();
 
         let mut arg_types: Vec<res::PType> = Vec::new();
 
         for arg in args.iter() {
+            if let Some(pvar) = locals.get(arg) {
+                if let res::PTypeKind::UNRESOLVED(name) = &pvar.get_type().kind {
+                    let type_last = res::IdentName::last_name(name);
+                    arg_types.push(type_map.get(&type_last).unwrap().clone());
+
+                    continue;
+                }
+            }
+
             let arg_type = locals.get(arg).unwrap().get_type();
-            arg_types.push(res::PType::get_global_type_from(arg_type));
+            arg_types.push(arg_type.clone());
         }
 
         arg_types

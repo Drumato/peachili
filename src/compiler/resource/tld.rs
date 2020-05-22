@@ -26,6 +26,12 @@ impl TopLevelDecl {
             _ => panic!("not a function"),
         }
     }
+    pub fn get_args(&self) -> &[(String, res::PType)] {
+        match &self.kind {
+            TLDKind::FN(_return_type, arg_types) => arg_types,
+            _ => panic!("not a function"),
+        }
+    }
 
     pub fn get_src_type(&self) -> &res::PType {
         match &self.kind {
@@ -57,7 +63,7 @@ impl Default for TLDResolver {
 
 impl TLDResolver {
     pub fn insert_entry(&mut self, name: String, decl: TopLevelDecl) {
-        self.tld_map.insert(name, decl);
+        assert!(self.tld_map.insert(name, decl).is_none());
     }
     pub fn give_map(self) -> BTreeMap<String, TopLevelDecl> {
         self.tld_map

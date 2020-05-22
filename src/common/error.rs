@@ -80,6 +80,17 @@ impl CompileError {
                 "unable to assign the expression to the constant '{}' is already initialized",
                 const_var
             ),
+            CmpErrorKind::ARGTYPEINCORRECT(fn_name, idx, expected, actual) => format!(
+                "{}[{}] must be '{}' type，but got '{}'",
+                fn_name, idx, expected, actual
+            ),
+            CmpErrorKind::ARGNUMBERINCORRECT(fn_name, expected, actual) => format!(
+                "the function {} takes {} arguments but {} were suplied",
+                fn_name, expected, actual
+            ),
+            CmpErrorKind::CANNOTAPPLYMINUSTO(value_type) => {
+                format!("cannot apply unary operator `-` to type `{}`", value_type)
+            }
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -124,6 +135,18 @@ impl CompileError {
             CmpErrorKind::CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(const_var) => {
                 format!("初期化されている定数 '{}' への代入文は無効です", const_var)
             }
+            CmpErrorKind::ARGTYPEINCORRECT(fn_name, idx, expected, actual) => format!(
+                "{}[{}] は '{}' 型で定義されていますが， '{}' 型が渡されました",
+                fn_name, idx, expected, actual
+            ),
+            CmpErrorKind::ARGNUMBERINCORRECT(fn_name, expected, actual) => format!(
+                "関数 {} は {} つの引数が定義されていますが，{} つ渡されて呼び出されました",
+                fn_name, expected, actual
+            ),
+            CmpErrorKind::CANNOTAPPLYMINUSTO(value_type) => format!(
+                "単項演算子 `-` を型 `{}` に適用することはできません",
+                value_type
+            ),
         }
     }
 
@@ -203,6 +226,35 @@ impl CompileError {
             err_pos,
         )
     }
+
+    pub fn arg_type_incorrect(
+        fn_name: String,
+        arg_idx: usize,
+        expected_type: res::PType,
+        actual_type: res::PType,
+        err_pos: pos::Position,
+    ) -> Self {
+        Self::new(
+            CmpErrorKind::ARGTYPEINCORRECT(fn_name, arg_idx, expected_type, actual_type),
+            err_pos,
+        )
+    }
+
+    pub fn arg_number_incorrect(
+        fn_name: String,
+        expect: usize,
+        actual: usize,
+        err_pos: pos::Position,
+    ) -> Self {
+        Self::new(
+            CmpErrorKind::ARGNUMBERINCORRECT(fn_name, expect, actual),
+            err_pos,
+        )
+    }
+
+    pub fn cannotapplyminusto(value_type: res::PType, err_pos: pos::Position) -> Self {
+        Self::new(CmpErrorKind::CANNOTAPPLYMINUSTO(value_type), err_pos)
+    }
 }
 
 #[derive(Clone)]
@@ -249,4 +301,21 @@ pub enum CmpErrorKind {
     /// 定数への再代入
     /// kind.0 -> 定数ノード
     CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(res::ExpressionNode),
+
+    /// 引数の型の不一致
+    /// kind.0 -> 呼び出された関数名
+    /// kind.1 -> 引数の場所
+    /// kind.2 -> 定義された型
+    /// kind.3 -> 実際に渡された型
+    ARGTYPEINCORRECT(String, usize, res::PType, res::PType),
+
+    /// 引数の数の不一致
+    /// kind.0 -> 呼び出された関数名
+    /// kind.1 -> 定義された引数の数
+    /// kind.2 -> 渡された引数の数
+    ARGNUMBERINCORRECT(String, usize, usize),
+
+    /// マイナス演算子を適用できない型
+    /// kind.0 -> 演算子を適用した型名
+    CANNOTAPPLYMINUSTO(res::PType),
 }

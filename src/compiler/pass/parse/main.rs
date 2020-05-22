@@ -78,16 +78,18 @@ impl<'a> res::Parser<'a> {
         let mut arg_map: BTreeMap<String, res::PVariable> = BTreeMap::new();
 
         self.expect(res::TokenKind::LPAREN);
+
         loop {
             if self.eat_if_matched(&res::TokenKind::RPAREN) {
                 break;
             }
             let arg_name = res::IdentName::correct_name(&self.expect_identifier());
+
             let arg_type = self.expect_ptype();
 
             let arg_var = res::PVariable::new_local(arg_type, false);
 
-            arg_map.insert(arg_name.clone(), arg_var);
+            assert!(arg_map.insert(arg_name.clone(), arg_var).is_none());
 
             self.eat_if_matched(&res::TokenKind::COMMA);
             args.push(arg_name);
@@ -98,6 +100,7 @@ impl<'a> res::Parser<'a> {
         let mut defined_func =
             res::PFunction::new(name.clone(), return_type, args, def_func_pos, module_path);
         defined_func.set_locals(arg_map);
+
         self.add_pfunction(name.clone(), defined_func);
 
         let statements = self.compound_statement(&name);
@@ -110,6 +113,7 @@ impl<'a> res::Parser<'a> {
 
         if let res::TokenKind::IDENTIFIER(_name) = ptype_kind {
             let ident = self.expect_identifier();
+
             return res::PType::new_unresolved(ident);
         }
 
@@ -121,7 +125,7 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::NORETURN => res::PType::new_noreturn(),
             res::TokenKind::STR => res::PType::new_str(),
             res::TokenKind::BOOLEAN => res::PType::new_boolean(),
-            _ => res::PType::new_unresolved(Default::default()),
+            _ => panic!("got invalid ptype -> {:?}", ptype_kind),
         }
     }
 

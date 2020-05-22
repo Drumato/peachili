@@ -14,6 +14,10 @@ impl StatementNode {
             position: stmt_pos,
         }
     }
+    pub fn copy_pos(&self) -> pos::Position {
+        let (row, col) = self.position.get_pos();
+        pos::Position::new(row, col)
+    }
 
     pub fn new_return(expr: res::ExpressionNode, st_pos: pos::Position) -> Self {
         Self::new(StatementNodeKind::RETURN(expr), st_pos)
