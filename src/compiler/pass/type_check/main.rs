@@ -24,6 +24,13 @@ pub fn type_check_phase(
     let func_map = root.get_functions();
     for (func_name, func) in func_map.iter() {
         type_check_pb.set_message(&format!("type check in {}", func_name));
+        if func_name == "main"
+            && (!func.arg_empty() || func.get_return_type().kind != res::PTypeKind::NORETURN)
+        {
+            er::CompileError::main_must_have_no_args_and_noreturn()
+                .emit_stderr(&func.copy_func_name(), build_option);
+            std::process::exit(1);
+        }
 
         let errors = type_check_fn(build_option, tld_map, func_name, func);
 

@@ -1,7 +1,7 @@
 extern crate colored;
 extern crate indicatif;
 
-use crate::common::{arch, module, operate, option};
+use crate::common::{arch, error, module, operate, option};
 use crate::compiler::{pass, resource};
 
 pub fn compile_main(
@@ -23,7 +23,7 @@ fn process_main_module(
     // STEP1: tokenize
     let tokens = pass::tokenize_phase(build_option, &main_mod.file_path, contents);
 
-    // STEP2: parse
+    // STEP2: parsee
     let mut root = pass::parse_phase(build_option, &main_mod.file_path, tokens);
 
     for req_mod in main_mod.requires.borrow().iter() {
@@ -34,6 +34,12 @@ fn process_main_module(
     // STEP3: resolve TLD
     // TODO: see Issue#12
     let tld_map = pass::resolve_tld_phase(build_option, &root);
+
+    if !tld_map.contains_key("main") {
+        error::CompileError::main_must_exist().emit_stderr(&main_mod.file_path, build_option);
+
+        std::process::exit(1);
+    }
 
     // STEP4: unresolved な型解決
     pass::resolve_unknown_type_phase(build_option, root.get_mutable_functions(), &tld_map);

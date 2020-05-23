@@ -94,6 +94,10 @@ impl CompileError {
             CmpErrorKind::RETURNINNORETURNFUNC => {
                 "detect returning value in noreturn function".to_string()
             }
+            CmpErrorKind::MAINMUSTEXIST => "main function must be declared".to_string(),
+            CmpErrorKind::MAINMUSTHAVENOARGSANDNORETURN => {
+                "main function's signature must be `main() noreturn`".to_string()
+            }
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -152,6 +156,12 @@ impl CompileError {
             ),
             CmpErrorKind::RETURNINNORETURNFUNC => {
                 "noreturn 型と定義された関数内で return statement を検知しました".to_string()
+            }
+            CmpErrorKind::MAINMUSTEXIST => {
+                "main 関数は必ず定義されていなければなりません".to_string()
+            }
+            CmpErrorKind::MAINMUSTHAVENOARGSANDNORETURN => {
+                "main関数の型シグネチャは必ず `main() noreturn` でなければなりません".to_string()
             }
         }
     }
@@ -265,6 +275,17 @@ impl CompileError {
     pub fn return_in_noreturn_function(err_pos: pos::Position) -> Self {
         Self::new(CmpErrorKind::RETURNINNORETURNFUNC, err_pos)
     }
+
+    pub fn main_must_exist() -> Self {
+        Self::new(CmpErrorKind::MAINMUSTEXIST, Default::default())
+    }
+
+    pub fn main_must_have_no_args_and_noreturn() -> Self {
+        Self::new(
+            CmpErrorKind::MAINMUSTHAVENOARGSANDNORETURN,
+            Default::default(),
+        )
+    }
 }
 
 #[derive(Clone)]
@@ -331,4 +352,10 @@ pub enum CmpErrorKind {
 
     /// noreturn が返り値となっている関数内でreturn文
     RETURNINNORETURNFUNC,
+
+    /// main関数は必ず定義されていなければならない
+    MAINMUSTEXIST,
+
+    /// main関数の型シグネチャは固定
+    MAINMUSTHAVENOARGSANDNORETURN,
 }

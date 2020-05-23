@@ -2,6 +2,6 @@ require (
     "std"
 )
 
-func main() int64 {
+func main() noreturn {
   std::os::exit_with(3);
 }

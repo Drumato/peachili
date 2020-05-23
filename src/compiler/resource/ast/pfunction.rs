@@ -39,6 +39,10 @@ impl PFunction {
         }
     }
 
+    pub fn arg_empty(&self) -> bool {
+        self.args.is_empty()
+    }
+
     pub fn collect_arg_types(&self, type_map: &BTreeMap<String, res::PType>) -> Vec<res::PType> {
         let locals = self.get_locals();
         let args = self.get_args();

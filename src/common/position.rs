@@ -7,6 +7,12 @@ pub struct Position {
     row: usize,
 }
 
+impl Default for Position {
+    fn default() -> Self {
+        Self { column: 0, row: 0 }
+    }
+}
+
 #[allow(dead_code)]
 impl Position {
     pub fn new(r: usize, c: usize) -> Self {
