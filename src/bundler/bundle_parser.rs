@@ -1,4 +1,4 @@
-use crate::compiler::resource as res;
+use crate::compiler::general::resource as res;
 
 pub struct BundleParser {
     tokens: Vec<res::Token>,

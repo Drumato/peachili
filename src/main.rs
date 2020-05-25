@@ -3,8 +3,6 @@ extern crate clap;
 extern crate typed_arena;
 extern crate yaml_rust;
 
-use std::io::Write;
-
 use clap::App;
 use typed_arena::Arena;
 
@@ -15,6 +13,7 @@ pub mod assembler;
 pub mod bundler;
 pub mod common;
 pub mod compiler;
+pub mod x64_main;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arena: Arena<common::module::Module> = Arena::new();
@@ -38,24 +37,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // *    Compiler    *
     // ******************
 
-    let assembly_file = compiler::compile_main(&build_option, main_mod)?;
-
-    if build_option.stop_assemble {
-        // アセンブリファイルを生成してプロセスを終了
-        // とりあえずAT&T syntaxで
-        let mut asm_output = std::fs::File::create(&assembly_file.file_path).unwrap();
-        asm_output.write_all(assembly_file.to_at_code().as_bytes())?;
-        std::process::exit(0);
-    }
-
-    // *****************
-    // *   Assembler   *
-    // *****************
-    let elf_builder = assembler::x64_assemble(&build_option, assembly_file);
-
-    if build_option.stop_link {
-        // オブジェクトファイルを生成して終了
-        elf_builder.generate_elf_file("obj.o");
+    match build_option.target {
+        option::Target::X86_64 => x64_main::main(&build_option, main_mod)?,
+        option::Target::LLVMIR => panic!("llvm ir"),
     }
 
     Ok(())
@@ -70,6 +54,9 @@ fn initialize(matches: clap::ArgMatches) -> (String, option::BuildOption) {
 
     let lang_str = std::env::var("LANG").unwrap();
     let lang = option::Language::new(lang_str);
+    if let Some(target_str) = matches.value_of("target") {
+        build_option.target = option::Target::new(target_str);
+    }
 
     build_option.language = lang;
 

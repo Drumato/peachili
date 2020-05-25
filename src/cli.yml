@@ -25,3 +25,8 @@ args:
       short: i
       long: intel
       help: dump assembly with intel syntax
+  - target:
+      short: t
+      long: target
+      help: specify the target architecture(or code)
+      default_value: "x86_64"

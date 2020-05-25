@@ -3,7 +3,7 @@ extern crate colored;
 use colored::*;
 
 use crate::common::{option as opt, position as pos};
-use crate::compiler::resource as res;
+use crate::compiler::general::resource as res;
 
 #[derive(Clone)]
 pub struct CompileError {

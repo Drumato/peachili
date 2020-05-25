@@ -6,8 +6,8 @@ use typed_arena::Arena;
 
 use crate::bundler::bundle_parser as bp;
 use crate::common::{module, operate, option};
-use crate::compiler::pass;
-use crate::compiler::resource as res;
+use crate::compiler::general::pass;
+use crate::compiler::general::resource as res;
 
 pub fn bundle_main<'b>(
     build_option: &option::BuildOption,

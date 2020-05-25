@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use crate::compiler::resource as res;
+use crate::compiler::general::resource as res;
 
 #[derive(Clone)]
 pub struct Module<'a> {

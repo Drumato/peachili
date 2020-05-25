@@ -5,6 +5,7 @@ pub struct BuildOption {
     pub stop_assemble: bool,
     pub stop_link: bool,
     pub language: Language,
+    pub target: Target,
 }
 
 impl Default for BuildOption {
@@ -15,6 +16,7 @@ impl Default for BuildOption {
             stop_assemble: false,
             stop_link: false,
             language: Language::ENGLISH,
+            target: Target::X86_64,
         }
     }
 }
@@ -36,5 +38,21 @@ impl Language {
         }
 
         panic!("not supported LANG={}", env_string)
+    }
+}
+
+#[derive(Clone)]
+pub enum Target {
+    X86_64,
+    LLVMIR,
+}
+
+impl Target {
+    pub fn new(target_str: &str) -> Self {
+        match target_str {
+            "x86_64" => Self::X86_64,
+            "llvm-ir" => Self::LLVMIR,
+            _ => panic!("unsupported target -> {}", target_str),
+        }
     }
 }
