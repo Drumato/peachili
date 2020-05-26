@@ -13,6 +13,7 @@ pub mod assembler;
 pub mod bundler;
 pub mod common;
 pub mod compiler;
+pub mod llvm_main;
 pub mod x64_main;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match build_option.target {
         option::Target::X86_64 => x64_main::main(&build_option, main_mod)?,
-        option::Target::LLVMIR => panic!("llvm ir"),
+        option::Target::LLVMIR => llvm_main::main(&build_option, main_mod)?,
     }
 
     Ok(())

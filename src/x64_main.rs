@@ -13,11 +13,12 @@ pub fn main(
     let assembly_file = x64_compiler::compile_main(&build_option, main_mod);
 
     if build_option.stop_assemble {
-        // アセンブリファイルを生成してプロセスを終了
+        // アセンブリファイルを生成
         // とりあえずAT&T syntaxで
         let mut asm_output = std::fs::File::create(&assembly_file.file_path).unwrap();
         asm_output.write_all(assembly_file.to_at_code().as_bytes())?;
-        std::process::exit(0);
+
+        return Ok(());
     }
 
     // *****************
