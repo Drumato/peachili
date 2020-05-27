@@ -2,19 +2,19 @@ use std::time;
 
 use colored::*;
 
-use crate::common::{error, operate, option};
+use crate::common::{error, module, operate, option};
 use crate::compiler::general::resource as res;
 
 pub fn tokenize_phase(
     build_option: &option::BuildOption,
-    module_path: &str,
+    module: &mut module::Module,
     contents: String,
 ) -> Vec<res::Token> {
     let start = time::Instant::now();
 
     let (tokens, tokenize_errors) = tokenize(build_option, contents);
     if !tokenize_errors.is_empty() {
-        operate::emit_all_errors_and_exit(&tokenize_errors, module_path, build_option);
+        operate::emit_all_errors_and_exit(&tokenize_errors, &module.file_path, build_option);
     }
 
     let end = time::Instant::now();
@@ -23,7 +23,7 @@ pub fn tokenize_phase(
         eprintln!(
             "    {}: tokenize {} done in {:?}",
             "STEP1".bold().green(),
-            module_path,
+            &module.file_path,
             end - start
         );
     }

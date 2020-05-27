@@ -20,6 +20,9 @@ impl<'a> Resolver<'a> {
     pub fn get_module_as_mut(&mut self, id: module::ModuleId) -> Option<&mut module::Module> {
         self.allocator.get_module_as_mut(id)
     }
+    pub fn get_module_ref(&mut self, id: module::ModuleId) -> Option<&module::Module> {
+        self.allocator.get_module_ref(&id)
+    }
 
     pub fn set_visited_to_given_id(&mut self, id: module::ModuleId, visited: bool) {
         self.allocator.get_module_as_mut(id).unwrap().visited = visited;

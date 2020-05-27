@@ -1,4 +1,4 @@
-use crate::common::{error, module, operate, option};
+use crate::common::{error, module, option};
 use crate::compiler::general::{pass, resource as res};
 
 pub fn proc_frontend(
@@ -14,10 +14,8 @@ fn process_main_module(
     main_mod: &module::Module,
     module_allocator: &module::ModuleAllocator,
 ) -> res::ASTRoot {
-    let contents = operate::read_program_from_file(&main_mod.file_path);
-
-    // STEP1: tokenize
-    let tokens = pass::tokenize_phase(build_option, &main_mod.file_path, contents);
+    // 字句解析はBundlerがすでに終わらせている
+    let tokens = main_mod.tokens.clone();
 
     // STEP2: parse
     let mut root = pass::parse_phase(build_option, &main_mod.file_path, tokens);
@@ -69,11 +67,8 @@ fn proc_external_module(
         return all_ast_root;
     }
 
-    // 末端モジュールの場合
-    let contents = operate::read_program_from_file(&ext_mod.file_path);
-
-    // STEP1: tokenize
-    let tokens = pass::tokenize_phase(build_option, &ext_mod.file_path, contents);
+    // 字句解析はBundlerがすでに終わらせている
+    let tokens = ext_mod.tokens.clone();
 
     // STEP2: parse
     pass::parse_phase(build_option, &ext_mod.file_path, tokens)

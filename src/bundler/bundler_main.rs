@@ -11,6 +11,8 @@ pub fn bundle_main(
 ) -> module::ModuleId {
     let mut module_resolver = resolver::Resolver::new(module_allocator);
 
+    // mainモジュールのアロケート．
+    // 必ずソースファイルになっているはずなので，そのまま require を処理する
     let main_id = module_resolver.alloc_main_module(main_fp);
     module_resolver.tokenize_source_module(build_option, main_id);
 
@@ -33,11 +35,12 @@ impl<'a> resolver::Resolver<'a> {
 
         let mut_module = mut_module_wrap.unwrap();
 
+        // モジュール名をvalidなパスに変換し，格納
         let file_path = construct_file_path(&mut_module.file_path);
         mut_module.set_file_path(file_path);
 
         let contents = operate::read_program_from_file(&mut_module.file_path);
-        let tokens = pass::tokenize_phase(build_option, &mut_module.file_path, contents);
+        let tokens = pass::tokenize_phase(build_option, mut_module, contents);
 
         mut_module.set_tokens(tokens);
     }
@@ -50,15 +53,16 @@ impl<'a> resolver::Resolver<'a> {
             let source_module = self.get_module_as_mut(source_id).unwrap();
             let mut bundle_parser = bp::BundleParser::new(source_module.get_tokens_as_mut());
 
-            // `require` 無し -> パース終了
+            // `require` 無し -> 末端モジュールなのでパース終了
             if !bundle_parser.require_found() {
                 return;
             }
 
+            // require の中身をすべて収集する
             requires_names = bundle_parser.parse_each_modules();
         }
 
-        // moveしていい
+        // 各要求モジュールを再帰的に探索
         for required_name in requires_names {
             let required_path = construct_file_path(&required_name);
             let required_module_id = self.proc_external_module(build_option, required_path);
@@ -76,10 +80,11 @@ impl<'a> resolver::Resolver<'a> {
         let parent_module_path: String;
 
         {
-            let parent_module = self.get_module_as_mut(parent_id).unwrap();
+            let parent_module = self.get_module_ref(parent_id).unwrap();
             parent_module_path = parent_module.file_path.clone();
         }
 
+        // ディレクトリ内の各ファイルを再帰的に探索
         for entry in fs::read_dir(&parent_module_path).unwrap() {
             let child_file = entry.unwrap();
             let child_file_path_part = child_file.path().to_str().unwrap().to_string();
