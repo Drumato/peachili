@@ -1,13 +1,14 @@
 use crate::compiler::general::resource as res;
 
-pub struct BundleParser {
-    tokens: Vec<res::Token>,
+pub struct BundleParser<'a> {
+    tokens: &'a mut Vec<res::Token>,
 }
 
-impl BundleParser {
-    pub fn new(tks: Vec<res::Token>) -> Self {
+impl<'a> BundleParser<'a> {
+    pub fn new(tks: &'a mut Vec<res::Token>) -> Self {
         Self { tokens: tks }
     }
+
     pub fn require_found(&self) -> bool {
         if self.tokens_invalid() {
             panic!("bundle failed in parsing file.");
@@ -41,6 +42,7 @@ impl BundleParser {
 
         subs_name
     }
+
     fn tokens_invalid(&self) -> bool {
         self.tokens.is_empty()
     }

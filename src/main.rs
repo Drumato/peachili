@@ -1,13 +1,12 @@
 #[macro_use]
 extern crate clap;
-extern crate typed_arena;
+extern crate id_arena;
 extern crate yaml_rust;
 
 use clap::App;
-use typed_arena::Arena;
 
 use bundler::bundler_main;
-use common::option;
+use common::{module, option};
 
 pub mod assembler;
 pub mod bundler;
@@ -17,30 +16,26 @@ pub mod llvm_main;
 pub mod x64_main;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let arena: Arena<common::module::Module> = Arena::new();
-
+    let mut module_allocator: module::ModuleAllocator = Default::default();
     let yaml = load_yaml!("cli.yml");
     let matches = App::from(yaml).get_matches();
 
     let (main_file_path, build_option) = initialize(matches);
 
-    if build_option.verbose {
-        eprintln!("verbose mode is on...");
-    }
-
     // ******************
     // *    Bundler     *
     // ******************
 
-    let main_mod = bundler_main::bundle_main(&build_option, main_file_path, &arena);
+    let main_mod_id =
+        bundler_main::bundle_main(&build_option, main_file_path, &mut module_allocator);
 
     // ******************
     // *    Compiler    *
     // ******************
 
     match build_option.target {
-        option::Target::X86_64 => x64_main::main(&build_option, main_mod)?,
-        option::Target::LLVMIR => llvm_main::main(&build_option, main_mod)?,
+        option::Target::X86_64 => x64_main::main(&build_option, main_mod_id, module_allocator)?,
+        option::Target::LLVMIR => llvm_main::main(&build_option, main_mod_id, module_allocator)?,
     }
 
     Ok(())

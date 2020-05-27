@@ -4,13 +4,15 @@ use crate::compiler::general::{pass, resource as res};
 pub fn proc_frontend(
     build_option: &option::BuildOption,
     main_mod: &module::Module,
+    module_allocator: &module::ModuleAllocator,
 ) -> res::ASTRoot {
-    process_main_module(build_option, main_mod)
+    process_main_module(build_option, main_mod, module_allocator)
 }
 
 fn process_main_module(
     build_option: &option::BuildOption,
     main_mod: &module::Module,
+    module_allocator: &module::ModuleAllocator,
 ) -> res::ASTRoot {
     let contents = operate::read_program_from_file(&main_mod.file_path);
 
@@ -21,8 +23,10 @@ fn process_main_module(
     let mut root = pass::parse_phase(build_option, &main_mod.file_path, tokens);
 
     // mainモジュールが依存するモジュールすべてのパースを行い，全体のASTRootを構築する
-    for req_mod in main_mod.requires.borrow().iter() {
-        let req_root = proc_external_module(build_option, req_mod);
+    let requires = main_mod.get_locked_requires();
+    for req_mod_id in requires.iter() {
+        let req_mod = module_allocator.get_module_ref(req_mod_id).unwrap();
+        let req_root = proc_external_module(build_option, req_mod, module_allocator);
         root.append(req_root);
     }
 
@@ -48,14 +52,17 @@ fn process_main_module(
 fn proc_external_module(
     build_option: &option::BuildOption,
     ext_mod: &module::Module,
+    module_allocator: &module::ModuleAllocator,
 ) -> res::ASTRoot {
     // ext_mod がディレクトリの場合
     if ext_mod.is_parent() {
         // サブモジュールをすべて処理して，返す
         let mut all_ast_root: res::ASTRoot = Default::default();
 
-        for sub in ext_mod.subs.borrow().iter() {
-            let sub_root = proc_external_module(build_option, sub);
+        let submodules = ext_mod.get_locked_submodules();
+        for sub_id in submodules.iter() {
+            let sub = module_allocator.get_module_ref(sub_id).unwrap();
+            let sub_root = proc_external_module(build_option, sub, module_allocator);
             all_ast_root.append(sub_root);
         }
 
