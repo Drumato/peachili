@@ -3,10 +3,13 @@ extern crate clap;
 extern crate id_arena;
 extern crate yaml_rust;
 
+use std::sync::{Arc, Mutex};
+
 use clap::App;
 
 use bundler::bundler_main;
 use common::{module, option};
+use compiler::general::resource as res;
 
 pub mod assembler;
 pub mod bundler;
@@ -16,7 +19,10 @@ pub mod llvm_main;
 pub mod x64_main;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // スタティックなライフタイムを必要とするアロケータ達
     let mut module_allocator: module::ModuleAllocator = Default::default();
+    let const_pool: res::ConstAllocator = Default::default();
+
     let yaml = load_yaml!("cli.yml");
     let matches = App::from(yaml).get_matches();
 
@@ -26,8 +32,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // *    Bundler     *
     // ******************
 
-    let main_mod_id =
-        bundler_main::bundle_main(&build_option, main_file_path, &mut module_allocator);
+    // 各モジュールで共有したいので，Arc<Mutex<T>>に
+    let main_mod_id = bundler_main::bundle_main(
+        &build_option,
+        main_file_path,
+        &mut module_allocator,
+        Arc::new(Mutex::new(const_pool)),
+    );
 
     // ******************
     // *    Compiler    *

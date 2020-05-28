@@ -1,7 +1,7 @@
 use crate::compiler::general::resource as res;
 
 impl<'a> res::Parser<'a> {
-    pub fn compound_statement(&mut self, func_name: &str) -> Vec<res::StatementNode> {
+    pub fn compound_statement(&mut self, func_name_id: res::PStringId) -> Vec<res::StatementNode> {
         if !self.eat_if_matched(&res::TokenKind::LBRACE) {
             let cur_pos = self.current_position();
             panic!(
@@ -18,89 +18,89 @@ impl<'a> res::Parser<'a> {
                 break;
             }
 
-            statements.push(self.statement(func_name));
+            statements.push(self.statement(func_name_id));
         }
 
         statements
     }
 
-    pub fn statement(&mut self, func_name: &str) -> res::StatementNode {
+    pub fn statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let cur_kind = self.current_token_kind();
 
         match cur_kind {
-            res::TokenKind::RETURN => self.return_statement(func_name),
-            res::TokenKind::IFRET => self.ifret_statement(func_name),
-            res::TokenKind::DECLARE => self.vardecl_statement(func_name),
-            res::TokenKind::COUNTUP => self.countup_statement(func_name),
+            res::TokenKind::RETURN => self.return_statement(func_name_id),
+            res::TokenKind::IFRET => self.ifret_statement(func_name_id),
+            res::TokenKind::DECLARE => self.vardecl_statement(func_name_id),
+            res::TokenKind::COUNTUP => self.countup_statement(func_name_id),
             res::TokenKind::ASM => self.asm_statement(),
-            res::TokenKind::VARINIT => self.varinit_statement(func_name),
-            res::TokenKind::CONST => self.const_statement(func_name),
-            _ => self.expression_statement(func_name),
+            res::TokenKind::VARINIT => self.varinit_statement(func_name_id),
+            res::TokenKind::CONST => self.const_statement(func_name_id),
+            _ => self.expression_statement(func_name_id),
         }
     }
 
-    fn return_statement(&mut self, func_name: &str) -> res::StatementNode {
+    fn return_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
-        let expr = self.expression(func_name);
+        let expr = self.expression(func_name_id);
 
         self.expect_semicolon(&cur_pos);
 
         res::StatementNode::new_return(expr, cur_pos)
     }
 
-    fn ifret_statement(&mut self, func_name: &str) -> res::StatementNode {
+    fn ifret_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
-        let expr = self.expression(func_name);
+        let expr = self.expression(func_name_id);
         self.expect_semicolon(&cur_pos);
 
         res::StatementNode::new_ifret(expr, cur_pos)
     }
 
-    fn vardecl_statement(&mut self, func_name: &str) -> res::StatementNode {
+    fn vardecl_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
-        let name = self.expect_name();
+        let name_id = self.expect_name();
         let ptype = self.expect_ptype();
 
         let declared_var = res::PVariable::new_local(ptype, false);
-        self.add_local_var_to(func_name, name, declared_var);
+        self.add_local_var_to(func_name_id, vec![name_id], declared_var);
 
         self.expect_semicolon(&cur_pos);
 
         res::StatementNode::new_vardecl(cur_pos)
     }
 
-    fn countup_statement(&mut self, func_name: &str) -> res::StatementNode {
+    fn countup_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let cur_pos = self.current_position();
         self.progress();
 
-        let ident = self.primary(func_name);
+        let ident = self.primary(func_name_id);
         let ptype = self.expect_ptype();
 
         let loop_var = res::PVariable::new_local(ptype, false);
-        self.add_local_var_to(func_name, ident.copy_ident_name(), loop_var);
+        self.add_local_var_to(func_name_id, ident.get_ident_ids(), loop_var);
 
         self.expect(res::TokenKind::FROM);
-        let start_expr = self.expression(func_name);
+        let start_expr = self.expression(func_name_id);
 
         self.expect(res::TokenKind::TO);
-        let end_expr = self.expression(func_name);
+        let end_expr = self.expression(func_name_id);
 
-        let body = self.compound_statement(func_name);
+        let body = self.compound_statement(func_name_id);
 
         self.expect_semicolon(&cur_pos);
 
         res::StatementNode::new_countup(ident, start_expr, end_expr, body, cur_pos)
     }
 
-    fn expression_statement(&mut self, func_name: &str) -> res::StatementNode {
+    fn expression_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let cur_pos = self.current_position();
-        let expr = self.expression(func_name);
+        let expr = self.expression(func_name_id);
         self.expect_semicolon(&cur_pos);
 
         res::StatementNode::new_expr(expr, cur_pos)
@@ -114,7 +114,7 @@ impl<'a> res::Parser<'a> {
             panic!("expected {{");
         }
 
-        let mut asms: Vec<String> = Vec::new();
+        let mut asms: Vec<res::PStringId> = Vec::new();
 
         loop {
             if self.eat_if_matched(&res::TokenKind::RBRACE) {
@@ -124,7 +124,7 @@ impl<'a> res::Parser<'a> {
             let (contents, hash, cur_pos) = self.parse_string_literal();
             let asm_contents_node = res::ExpressionNode::new_strlit(contents, hash, cur_pos);
 
-            asms.push(asm_contents_node.copy_str_contents());
+            asms.push(asm_contents_node.get_str_id());
             self.eat_if_matched(&res::TokenKind::COMMA);
         }
         self.expect_semicolon(&cur_pos);
@@ -132,38 +132,38 @@ impl<'a> res::Parser<'a> {
         res::StatementNode::new_asm(asms, cur_pos)
     }
 
-    fn varinit_statement(&mut self, func_name: &str) -> res::StatementNode {
+    fn varinit_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let st_pos = self.current_position();
         self.progress();
 
-        let ident = self.primary(func_name);
+        let ident = self.primary(func_name_id);
         let ptype = self.expect_ptype();
 
         let declared_var = res::PVariable::new_local(ptype, false);
-        self.add_local_var_to(func_name, ident.copy_ident_name(), declared_var);
+        self.add_local_var_to(func_name_id, ident.get_ident_ids(), declared_var);
 
         self.expect(res::TokenKind::ASSIGN);
 
-        let init_expression = self.expression(func_name);
+        let init_expression = self.expression(func_name_id);
 
         self.expect_semicolon(&st_pos);
 
         res::StatementNode::new_varinit(ident, init_expression, st_pos)
     }
 
-    fn const_statement(&mut self, func_name: &str) -> res::StatementNode {
+    fn const_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let st_pos = self.current_position();
         self.progress();
 
-        let ident = self.primary(func_name);
+        let ident = self.primary(func_name_id);
         let ptype = self.expect_ptype();
 
         let declared_var = res::PVariable::new_local(ptype, true);
-        self.add_local_var_to(func_name, ident.copy_ident_name(), declared_var);
+        self.add_local_var_to(func_name_id, ident.get_ident_ids(), declared_var);
 
         self.expect(res::TokenKind::ASSIGN);
 
-        let init_expression = self.expression(func_name);
+        let init_expression = self.expression(func_name_id);
 
         self.expect_semicolon(&st_pos);
 

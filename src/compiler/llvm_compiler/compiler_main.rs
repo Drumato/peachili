@@ -11,6 +11,6 @@ pub fn compile_main(
 )
 /* -> llvm_scratch::Module */
 {
-    let main_mod = module_allocator.get_module_ref(&main_mod_id).unwrap();
-    let mut _ast_root = general::frontend::proc_frontend(build_option, main_mod, module_allocator);
+    let mut _ast_root =
+        general::frontend::proc_frontend(build_option, main_mod_id, module_allocator);
 }

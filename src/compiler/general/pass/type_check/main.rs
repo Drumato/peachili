@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::time;
 
-use crate::common::{error as er, operate, option, position as pos};
+use crate::common::{error as er, module, operate, option, position as pos};
 use crate::compiler::general::resource as res;
 
 // 型チェック時に毎回タイプを生成するとコストがかかる
@@ -9,8 +9,10 @@ use crate::compiler::general::resource as res;
 pub fn type_check_phase(
     build_option: &option::BuildOption,
     root: &res::ASTRoot,
-    tld_map: &BTreeMap<String, res::TopLevelDecl>,
+    tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+    module_allocator: &module::ModuleAllocator,
 ) {
+    // プログレスバーの初期化
     let function_number = root.get_functions().len() as u64;
     let type_check_pb = indicatif::ProgressBar::new(function_number);
     type_check_pb.set_style(
@@ -22,18 +24,32 @@ pub fn type_check_phase(
     let start = time::Instant::now();
 
     let func_map = root.get_functions();
-    for (func_name, func) in func_map.iter() {
+    let mut main_exists = false;
+
+    for (func_name_id, func) in func_map.iter() {
+        let const_pool = module_allocator
+            .get_module_ref(&func.module_id)
+            .unwrap()
+            .get_const_pool_ref();
+        let func_name = const_pool.get(*func_name_id).unwrap();
+
         type_check_pb.set_message(&format!("type check in {}", func_name));
-        if func_name == "main"
-            && (!func.arg_empty() || func.get_return_type().kind != res::PTypeKind::NORETURN)
-        {
-            er::CompileError::main_must_have_no_args_and_noreturn()
-                .emit_stderr(&func.copy_func_name(), build_option);
-            std::process::exit(1);
+
+        // mainシンボルの存在をチェック
+        if func_name.compare_str("main".to_string()) {
+            main_exists = true;
+
+            // mainシンボルの型シグネチャが不正である
+            if !func.arg_empty() || func.get_return_type().kind != res::PTypeKind::NORETURN {
+                er::CompileError::main_must_have_no_args_and_noreturn()
+                    .emit_stderr("", build_option);
+                std::process::exit(1);
+            }
         }
 
-        let errors = type_check_fn(build_option, tld_map, func_name, func);
+        let errors = type_check_fn(build_option, tld_map, *func_name_id, func, &const_pool);
 
+        // ある関数をチェックした結果エラーを発見した場合
         if !errors.is_empty() {
             let module_path = func.copy_module_path();
             operate::emit_all_errors_and_exit(&errors, &module_path, build_option);
@@ -41,23 +57,31 @@ pub fn type_check_phase(
 
         type_check_pb.inc(1);
     }
+
     let end = time::Instant::now();
+
+    // mainシンボルが存在しなかったとき
+    if !main_exists {
+        er::CompileError::main_must_exist().emit_stderr("", build_option);
+        std::process::exit(1);
+    }
 
     type_check_pb.finish_with_message(&format!("type check done!(in {:?})", end - start));
 }
 
 fn type_check_fn(
     build_opt: &option::BuildOption,
-    tld_map: &BTreeMap<String, res::TopLevelDecl>,
-    func_name: &str,
+    tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+    func_name_id: res::PStringId,
     this_func: &res::PFunction,
+    const_pool: &res::ConstAllocator,
 ) -> Vec<er::CompileError> {
     let stmts = this_func.get_statements();
     let locals = this_func.get_locals();
 
     let mut checker = res::TypeChecker::new(build_opt);
     for st in stmts.iter() {
-        checker.check_statement(&func_name, st, tld_map, locals);
+        checker.check_statement(func_name_id, st, tld_map, locals, const_pool);
     }
 
     checker.give_errors()
@@ -66,14 +90,15 @@ fn type_check_fn(
 impl<'a> res::TypeChecker<'a> {
     fn check_statement(
         &mut self,
-        func_name: &str,
+        func_name_id: res::PStringId,
         st: &res::StatementNode,
-        tld_map: &BTreeMap<String, res::TopLevelDecl>,
-        locals: &BTreeMap<String, res::PVariable>,
+        tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+        locals: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        const_pool: &res::ConstAllocator,
     ) -> Option<res::PType> {
         match &st.kind {
             res::StatementNodeKind::RETURN(_return_expr) => {
-                let this_func = tld_map.get(func_name).unwrap();
+                let this_func = tld_map.get(&func_name_id).unwrap();
 
                 if this_func.get_return_type().kind == res::PTypeKind::NORETURN {
                     self.detect_error(er::CompileError::return_in_noreturn_function(st.copy_pos()));
@@ -82,30 +107,32 @@ impl<'a> res::TypeChecker<'a> {
                 None
             }
             res::StatementNodeKind::IFRET(return_expr) => {
-                self.check_expression(func_name, return_expr, tld_map, locals)
+                self.check_expression(func_name_id, return_expr, tld_map, locals, const_pool)
             }
             res::StatementNodeKind::EXPR(expr) => {
-                self.check_expression(func_name, expr, tld_map, locals)
+                self.check_expression(func_name_id, expr, tld_map, locals, const_pool)
             }
             res::StatementNodeKind::VARDECL => None,
             res::StatementNodeKind::COUNTUP(_ident, _start_expr, _end_expr, _body) => None,
             res::StatementNodeKind::ASM(_asm_literals) => None,
             res::StatementNodeKind::VARINIT(ident, expr) => self.try_to_resolve_assignment(
-                func_name,
+                func_name_id,
                 (st.copy_pos(), ident, expr),
                 tld_map,
                 locals,
                 false,
+                const_pool,
             ),
         }
     }
 
     fn check_expression(
         &mut self,
-        func_name: &str,
+        func_name_id: res::PStringId,
         ex: &res::ExpressionNode,
-        tld_map: &BTreeMap<String, res::TopLevelDecl>,
-        locals: &BTreeMap<String, res::PVariable>,
+        tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+        locals: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        const_pool: &res::ConstAllocator,
     ) -> Option<res::PType> {
         match &ex.kind {
             res::ExpressionNodeKind::INTEGER(_v) => Some(res::PType::GLOBAL_INT_TYPE),
@@ -115,18 +142,18 @@ impl<'a> res::TypeChecker<'a> {
                 Some(res::PType::GLOBAL_BOOLEAN_TYPE)
             }
             res::ExpressionNodeKind::IDENT(name) => {
-                let defined_name = res::IdentName::last_name(name);
+                let defined_name_id = res::IdentName::last_name(name);
 
-                if locals.get(&defined_name).is_none() {
+                if locals.get(vec![defined_name_id].as_slice()).is_none() {
                     let ident_pos = ex.copy_pos();
                     self.detect_error(er::CompileError::used_undefined_auto_var(
-                        defined_name,
+                        const_pool.get(defined_name_id).unwrap().copy_value(),
                         ident_pos,
                     ));
 
                     return None;
                 }
-                let local_var = locals.get(&defined_name).unwrap();
+                let local_var = locals.get(vec![defined_name_id].as_slice()).unwrap();
                 let var_type = local_var.get_type().clone();
 
                 // 型mapからも探す
@@ -142,14 +169,15 @@ impl<'a> res::TypeChecker<'a> {
             }
 
             res::ExpressionNodeKind::CALL(name, args) => {
-                let called_name = res::IdentName::last_name(name);
+                // 呼び出されている関数がTLDに存在するかチェック
+                let called_name_id = res::IdentName::last_name(name);
+                let called_decl_opt = tld_map.get(&called_name_id);
 
-                let called_decl_opt = tld_map.get(&called_name);
-
+                // TLDに存在しない -> 未定義関数の呼び出し
                 if called_decl_opt.is_none() {
                     let call_pos = ex.copy_pos();
                     self.detect_error(er::CompileError::called_undefined_function(
-                        called_name,
+                        const_pool.get(called_name_id).unwrap().copy_value(),
                         call_pos,
                     ));
 
@@ -164,7 +192,7 @@ impl<'a> res::TypeChecker<'a> {
                 if called_fn_args.len() != args.len() {
                     let err_pos = ex.copy_pos();
                     self.detect_error(er::CompileError::arg_number_incorrect(
-                        called_name,
+                        const_pool.get(called_name_id).unwrap().copy_value(),
                         called_fn_args.len(),
                         args.len(),
                         err_pos,
@@ -176,8 +204,13 @@ impl<'a> res::TypeChecker<'a> {
                 // 引数の型チェック
                 for (i, arg) in args.iter().enumerate() {
                     let defined_arg_type = &called_fn_args[i].1;
-                    let caller_arg_type =
-                        self.try_to_resolve_expression(func_name, arg, tld_map, locals);
+                    let caller_arg_type = self.try_to_resolve_expression(
+                        func_name_id,
+                        arg,
+                        tld_map,
+                        locals,
+                        const_pool,
+                    );
                     caller_arg_type.as_ref()?;
 
                     let caller_arg_type = caller_arg_type.unwrap();
@@ -185,7 +218,7 @@ impl<'a> res::TypeChecker<'a> {
                     if defined_arg_type != &caller_arg_type {
                         let err_pos = ex.copy_pos();
                         self.detect_error(er::CompileError::arg_type_incorrect(
-                            called_name,
+                            const_pool.get(called_name_id).unwrap().copy_value(),
                             i,
                             defined_arg_type.clone(),
                             caller_arg_type,
@@ -199,8 +232,13 @@ impl<'a> res::TypeChecker<'a> {
             }
 
             res::ExpressionNodeKind::NEG(inner_op) => {
-                let inner_type =
-                    self.try_to_resolve_expression(func_name, inner_op, tld_map, locals);
+                let inner_type = self.try_to_resolve_expression(
+                    func_name_id,
+                    inner_op,
+                    tld_map,
+                    locals,
+                    const_pool,
+                );
                 inner_type.as_ref()?;
 
                 let inner_type = inner_type.unwrap();
@@ -218,8 +256,10 @@ impl<'a> res::TypeChecker<'a> {
             | res::ExpressionNodeKind::SUB(lop, rop)
             | res::ExpressionNodeKind::MUL(lop, rop)
             | res::ExpressionNodeKind::DIV(lop, rop) => {
-                let lop_type = self.try_to_resolve_expression(func_name, lop, tld_map, locals);
-                let rop_type = self.try_to_resolve_expression(func_name, rop, tld_map, locals);
+                let lop_type =
+                    self.try_to_resolve_expression(func_name_id, lop, tld_map, locals, const_pool);
+                let rop_type =
+                    self.try_to_resolve_expression(func_name_id, rop, tld_map, locals, const_pool);
 
                 if lop_type.is_none() || rop_type.is_none() {
                     return None;
@@ -242,26 +282,41 @@ impl<'a> res::TypeChecker<'a> {
             }
 
             res::ExpressionNodeKind::ASSIGN(lvalue, rvalue) => self.try_to_resolve_assignment(
-                func_name,
+                func_name_id,
                 (ex.copy_pos(), lvalue, rvalue),
                 tld_map,
                 locals,
                 true,
+                const_pool,
             ),
 
             res::ExpressionNodeKind::IF(cond_expr, body) => {
-                if self.detect_conditional_expression_error(func_name, cond_expr, tld_map, locals) {
+                if self.detect_conditional_expression_error(
+                    func_name_id,
+                    cond_expr,
+                    tld_map,
+                    locals,
+                    const_pool,
+                ) {
                     return None;
                 }
-                self.check_block_statement(func_name, body, tld_map, locals)
+                self.check_block_statement(func_name_id, body, tld_map, locals, const_pool)
             }
             res::ExpressionNodeKind::IFELSE(cond_expr, body, alter) => {
-                if self.detect_conditional_expression_error(func_name, cond_expr, tld_map, locals) {
+                if self.detect_conditional_expression_error(
+                    func_name_id,
+                    cond_expr,
+                    tld_map,
+                    locals,
+                    const_pool,
+                ) {
                     return None;
                 }
 
-                let body_type = self.check_block_statement(func_name, body, tld_map, locals);
-                let alter_type = self.check_block_statement(func_name, alter, tld_map, locals);
+                let body_type =
+                    self.check_block_statement(func_name_id, body, tld_map, locals, const_pool);
+                let alter_type =
+                    self.check_block_statement(func_name_id, alter, tld_map, locals, const_pool);
 
                 if body_type != alter_type {
                     let err_pos = ex.copy_pos();
@@ -279,13 +334,15 @@ impl<'a> res::TypeChecker<'a> {
     /// そうでなければfalse
     fn detect_conditional_expression_error(
         &mut self,
-        func_name: &str,
+        func_name_id: res::PStringId,
         cond_expr: &res::ExpressionNode,
-        tld_map: &BTreeMap<String, res::TopLevelDecl>,
-        locals: &BTreeMap<String, res::PVariable>,
+        tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+        locals: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        const_pool: &res::ConstAllocator,
     ) -> bool {
         // 型が解決できるかチェック
-        let cond_expr_type = self.try_to_resolve_expression(func_name, cond_expr, tld_map, locals);
+        let cond_expr_type =
+            self.try_to_resolve_expression(func_name_id, cond_expr, tld_map, locals, const_pool);
         if cond_expr_type.is_none() {
             return true;
         }
@@ -309,10 +366,11 @@ impl<'a> res::TypeChecker<'a> {
 
     fn check_block_statement(
         &mut self,
-        func_name: &str,
+        func_name_id: res::PStringId,
         block: &[res::StatementNode],
-        tld_map: &BTreeMap<String, res::TopLevelDecl>,
-        locals: &BTreeMap<String, res::PVariable>,
+        tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+        locals: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        const_pool: &res::ConstAllocator,
     ) -> Option<res::PType> {
         for st in block.iter() {
             if !self.is_ifret(st) {
@@ -320,7 +378,7 @@ impl<'a> res::TypeChecker<'a> {
             }
 
             // ifret-statementのチェック
-            return self.check_statement(func_name, st, tld_map, locals);
+            return self.check_statement(func_name_id, st, tld_map, locals, const_pool);
         }
 
         None
@@ -328,12 +386,13 @@ impl<'a> res::TypeChecker<'a> {
 
     fn try_to_resolve_expression(
         &mut self,
-        func_name: &str,
+        func_name_id: res::PStringId,
         ex: &res::ExpressionNode,
-        tld_map: &BTreeMap<String, res::TopLevelDecl>,
-        locals: &BTreeMap<String, res::PVariable>,
+        tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+        locals: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        const_pool: &res::ConstAllocator,
     ) -> Option<res::PType> {
-        let ex_type = self.check_expression(func_name, ex, tld_map, locals);
+        let ex_type = self.check_expression(func_name_id, ex, tld_map, locals, const_pool);
 
         if ex_type.is_none() {
             let err_pos = ex.copy_pos();
@@ -348,18 +407,21 @@ impl<'a> res::TypeChecker<'a> {
 
     fn try_to_resolve_assignment(
         &mut self,
-        func_name: &str,
+        func_name_id: res::PStringId,
         expr_taple: (pos::Position, &res::ExpressionNode, &res::ExpressionNode),
-        tld_map: &BTreeMap<String, res::TopLevelDecl>,
-        locals: &BTreeMap<String, res::PVariable>,
+        tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+        locals: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
         const_check: bool,
+        const_pool: &res::ConstAllocator,
     ) -> Option<res::PType> {
         let assign_pos = expr_taple.0;
         let lvalue = expr_taple.1;
         let rvalue = expr_taple.2;
 
-        let lvalue_type = self.try_to_resolve_expression(func_name, lvalue, tld_map, locals);
-        let rvalue_type = self.try_to_resolve_expression(func_name, rvalue, tld_map, locals);
+        let lvalue_type =
+            self.try_to_resolve_expression(func_name_id, lvalue, tld_map, locals, const_pool);
+        let rvalue_type =
+            self.try_to_resolve_expression(func_name_id, rvalue, tld_map, locals, const_pool);
 
         // try_to_resolve_expression() とは別にエラーを生成
         if rvalue_type.is_none() {
@@ -373,7 +435,7 @@ impl<'a> res::TypeChecker<'a> {
 
         // 左辺値がconst宣言されているかチェック
         if const_check {
-            if let Some(pvar) = locals.get(&lvalue.copy_ident_name()) {
+            if let Some(pvar) = locals.get(&lvalue.get_ident_ids()) {
                 if pvar.is_constant() {
                     self.detect_error(
                         er::CompileError::cannot_assignment_to_constant_after_initialization(

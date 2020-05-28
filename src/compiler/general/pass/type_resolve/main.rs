@@ -1,14 +1,16 @@
 use std::collections::BTreeMap;
 use std::time;
 
-use crate::common::option as opt;
+use crate::common::{module, option as opt};
 use crate::compiler::general::resource as res;
 
 pub fn resolve_unknown_type_phase(
     _build_option: &opt::BuildOption,
-    func_map: &mut BTreeMap<String, res::PFunction>,
-    tld_map: &BTreeMap<String, res::TopLevelDecl>,
+    func_map: &mut BTreeMap<res::PStringId, res::PFunction>,
+    tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
+    module_allocator: &module::ModuleAllocator,
 ) {
+    // プログレスバーの初期化
     let function_number = func_map.len() as u64;
     let resolve_type_pb = indicatif::ProgressBar::new(function_number);
     resolve_type_pb.set_style(
@@ -19,7 +21,13 @@ pub fn resolve_unknown_type_phase(
 
     let start = time::Instant::now();
 
-    for (func_name, func) in func_map.iter_mut() {
+    for (func_name_id, func) in func_map.iter_mut() {
+        let const_pool = module_allocator
+            .get_module_ref(&func.module_id)
+            .unwrap()
+            .get_const_pool_ref();
+
+        let func_name = const_pool.get(*func_name_id).unwrap();
         resolve_type_pb.set_message(&format!("resolve unknown types in {}", func_name));
         func.resolve_type(tld_map);
 
@@ -35,7 +43,7 @@ pub fn resolve_unknown_type_phase(
 }
 
 impl res::PFunction {
-    fn resolve_type(&mut self, tld_map: &BTreeMap<String, res::TopLevelDecl>) {
+    fn resolve_type(&mut self, tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>) {
         for (_name, pvar) in self.locals.iter_mut() {
             let current_type = pvar.get_type();
 

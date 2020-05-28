@@ -9,16 +9,17 @@ pub struct ExpressionNode {
 }
 
 impl ExpressionNode {
-    pub fn copy_ident_name(&self) -> String {
+    pub fn get_ident_ids(&self) -> Vec<res::PStringId> {
         match &self.kind {
             ExpressionNodeKind::IDENT(id_name) => IdentName::correct_name(id_name),
-            _ => panic!("unexpected call `copy_ident_name` with {}", self.kind),
+            _ => panic!("unexpected call `get_ident_id` with {}", self.kind),
         }
     }
-    pub fn copy_str_contents(&self) -> String {
+
+    pub fn get_str_id(&self) -> res::PStringId {
         match &self.kind {
-            ExpressionNodeKind::STRLIT(contents, _hash) => contents.to_string(),
-            _ => panic!("unexpected call `copy_str_contents` with {}", self.kind),
+            ExpressionNodeKind::STRLIT(contents_id, _hash) => *contents_id,
+            _ => panic!("unexpected call `get_str_id` with {}", self.kind),
         }
     }
     pub fn copy_pos(&self) -> pos::Position {
@@ -43,8 +44,8 @@ impl ExpressionNode {
         Self::new(ExpressionNodeKind::UNSIGNEDINTEGER(int_value), ex_pos)
     }
 
-    pub fn new_strlit(contents: String, hash: u64, ex_pos: pos::Position) -> Self {
-        Self::new(ExpressionNodeKind::STRLIT(contents, hash), ex_pos)
+    pub fn new_strlit(contents_id: res::PStringId, hash: u64, ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::STRLIT(contents_id, hash), ex_pos)
     }
 
     pub fn new_true(ex_pos: pos::Position) -> Self {
@@ -137,7 +138,7 @@ impl std::fmt::Display for ExpressionNode {
 pub enum ExpressionNodeKind {
     INTEGER(i64),
     UNSIGNEDINTEGER(u64),
-    STRLIT(String, u64),
+    STRLIT(res::PStringId, u64),
     IDENT(IdentName),
     CALL(IdentName, Vec<ExpressionNode>),
     TRUE,
@@ -169,7 +170,7 @@ impl std::fmt::Display for ExpressionNodeKind {
             Self::FALSE => write!(f, "false"),
             Self::INTEGER(v) => write!(f, "{}", v),
             Self::UNSIGNEDINTEGER(v) => write!(f, "{}u", v),
-            Self::STRLIT(contents, _hash) => write!(f, "\"{}\"", contents),
+            Self::STRLIT(contents, _hash) => write!(f, "\"{:?}\"", contents),
             Self::IDENT(ident) => write!(f, "{}", ident),
             Self::CALL(ident, args) => {
                 write!(f, "{}(", ident)?;
@@ -226,56 +227,54 @@ impl std::fmt::Display for ExpressionNodeKind {
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct IdentName {
-    pub name: String,
+    pub name: res::PStringId,
     pub next: Option<Box<IdentName>>,
 }
 
-impl Default for IdentName {
-    fn default() -> Self {
+impl IdentName {
+    fn new(base_id: res::PStringId, nxt: Option<Box<IdentName>>) -> Self {
         Self {
-            name: String::new(),
-            next: None,
+            name: base_id,
+            next: nxt,
         }
     }
-}
 
-impl IdentName {
-    fn new(n: String, nxt: Option<Box<IdentName>>) -> Self {
-        Self { name: n, next: nxt }
-    }
-
-    pub fn new_terminated(name: String) -> Self {
-        Self::new(name, None)
+    pub fn new_terminated(base_id: res::PStringId) -> Self {
+        Self::new(base_id, None)
     }
 
     pub fn append_next(&mut self, next: IdentName) {
         self.next = Some(Box::new(next));
     }
 
-    pub fn correct_name(s: &IdentName) -> String {
-        let mut st = s.name.clone();
+    pub fn correct_name(s: &IdentName) -> Vec<res::PStringId> {
+        let mut corrected: Vec<res::PStringId> = Vec::new();
+        corrected.push(s.name);
 
         let mut prev = &s.next;
+
         loop {
             if prev.is_none() {
                 break;
             }
-            st = format!("{}_{}", st, prev.as_ref().unwrap().name);
+
+            corrected.push(prev.as_ref().unwrap().name);
             prev = &prev.as_ref().unwrap().next;
         }
 
-        st
+        corrected
     }
 
-    pub fn last_name(s: &IdentName) -> String {
-        let mut st = s.name.clone();
+    pub fn last_name(s: &IdentName) -> res::PStringId {
+        let mut st = s.name;
 
         let mut prev = &s.next;
         loop {
             if prev.is_none() {
                 break;
             }
-            st = prev.as_ref().unwrap().name.clone();
+
+            st = prev.as_ref().unwrap().name;
             prev = &prev.as_ref().unwrap().next;
         }
 
@@ -285,6 +284,6 @@ impl IdentName {
 
 impl std::fmt::Display for IdentName {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", IdentName::correct_name(self))
+        write!(f, "{:?}", IdentName::correct_name(self))
     }
 }

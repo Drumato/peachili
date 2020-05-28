@@ -1,3 +1,8 @@
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
+
 use crate::common::{error, operate, option, position};
 use crate::compiler::general::resource as res;
 
@@ -9,10 +14,17 @@ pub struct Lexer<'a> {
     contents: String,
     tokens: Vec<res::Token>,
     errors: Vec<error::CompileError>,
+    const_pool: Arc<Mutex<res::ConstAllocator>>,
+    buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(opt: &'a option::BuildOption, program: String) -> Self {
+    pub fn new(
+        opt: &'a option::BuildOption,
+        program: String,
+        pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
+    ) -> Self {
         Self {
             build_option: opt,
             col: 1,
@@ -20,10 +32,27 @@ impl<'a> Lexer<'a> {
             contents: program,
             tokens: Vec::new(),
             errors: Vec::new(),
+            const_pool: pool,
+            buffer_cache,
         }
     }
-    pub fn give_token(self) -> Vec<res::Token> {
-        self.tokens
+
+    pub fn check_already_alloced(&self, st: &str) -> bool {
+        self.buffer_cache.lock().unwrap().contains_key(st)
+    }
+    pub fn get_cached_id(&self, st: &str) -> res::PStringId {
+        *self.buffer_cache.lock().unwrap().get(st).unwrap()
+    }
+    pub fn insert_new_buffer(&mut self, st: String) -> res::PStringId {
+        let id = self.alloc_string(st.clone());
+        self.buffer_cache.lock().unwrap().insert(st, id);
+        id
+    }
+    pub fn give_token_and_const_arena(self) -> (Vec<res::Token>, Arc<Mutex<res::ConstAllocator>>) {
+        (self.tokens, self.const_pool)
+    }
+    fn alloc_string(&mut self, v: String) -> res::PStringId {
+        self.const_pool.lock().unwrap().alloc_string(v)
     }
     pub fn copy_errors(&self) -> Vec<error::CompileError> {
         self.errors.clone()

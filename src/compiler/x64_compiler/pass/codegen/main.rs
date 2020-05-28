@@ -2,18 +2,23 @@ use std::collections::BTreeMap;
 
 use crate::common::arch::x64;
 use crate::common::arch::x64::Reg64;
-use crate::common::option;
+use crate::common::{module, option};
 use crate::compiler::general::resource as res;
 
 // x64用コード生成
 pub fn codegen(
     _build_option: &option::BuildOption,
-    functions: BTreeMap<String, res::PFunction>,
+    functions: BTreeMap<res::PStringId, res::PFunction>,
+    module_allocator: &module::ModuleAllocator,
 ) -> x64::AssemblyFile {
     let mut generator = Generator::new("asm.s".to_string());
 
     for (_func_name, func) in functions {
-        generator.gen_symbol_from_func(func);
+        let const_pool = module_allocator
+            .get_module_ref(&func.module_id)
+            .unwrap()
+            .get_const_pool_ref();
+        generator.gen_symbol_from_func(func, &const_pool);
         generator.set_label(1);
     }
     generator.give_assembly()
@@ -26,8 +31,11 @@ struct Generator {
 }
 
 impl Generator {
-    fn gen_symbol_from_func(&mut self, func: res::PFunction) {
-        let symbol_name = func.copy_func_name();
+    fn gen_symbol_from_func(&mut self, func: res::PFunction, const_pool: &res::ConstAllocator) {
+        let symbol_name = const_pool
+            .get(func.get_func_name_id())
+            .unwrap()
+            .copy_value();
         let is_main_symbol = symbol_name.as_str() == "main";
         let this_sym = x64::Symbol::new(symbol_name);
         self.add_symbol(this_sym);
@@ -40,12 +48,12 @@ impl Generator {
         let string_map = func.get_strings();
 
         // 引数がある場合は，所定のスタックオフセットに格納
-        for (arg_i, name) in func.get_args().iter().enumerate() {
+        for (arg_i, name_id) in func.get_args().iter().enumerate() {
             let arg_reg = Self::caller_reg64(arg_i);
 
-            let arg_var = local_map.get(name);
+            let arg_var = local_map.get(vec![*name_id].as_slice());
             if arg_var.is_none() {
-                panic!("{} is not defined", name);
+                panic!("{:?} is not defined", name_id);
             }
             self.add_inst_to_cursym(x64::Instruction::movreg_tomem64(
                 arg_reg,
@@ -55,7 +63,7 @@ impl Generator {
         }
 
         for st in func.get_statements() {
-            self.gen_insts_from_statement(st, local_map, string_map);
+            self.gen_insts_from_statement(st, local_map, string_map, const_pool);
         }
 
         // 暗黙的に return 0; を挿入する．
@@ -65,40 +73,42 @@ impl Generator {
 
         self.gen_function_epilogue();
 
-        for (contents, hash) in string_map.iter() {
-            self.add_string_to_cursym(contents.clone(), *hash);
+        for (contents_id, hash) in string_map.iter() {
+            let contents = const_pool.get(*contents_id).unwrap().copy_value();
+            self.add_string_to_cursym(contents, *hash);
         }
     }
 
     fn gen_insts_from_statement(
         &mut self,
         st: &res::StatementNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         match &st.kind {
             res::StatementNodeKind::RETURN(expr) => {
-                self.gen_return_statement(expr, local_map, string_map)
+                self.gen_return_statement(expr, local_map, string_map, const_pool)
             }
             res::StatementNodeKind::IFRET(expr) => {
-                self.gen_ifret_statement(expr, local_map, string_map)
+                self.gen_ifret_statement(expr, local_map, string_map, const_pool)
             }
             res::StatementNodeKind::EXPR(expr) => {
-                self.gen_expression_statement(expr, local_map, string_map)
+                self.gen_expression_statement(expr, local_map, string_map, const_pool)
             }
             res::StatementNodeKind::VARDECL => (),
             res::StatementNodeKind::COUNTUP(id, start, end, body) => {
-                self.gen_countup_statement(id, start, end, body, local_map, string_map)
+                self.gen_countup_statement(id, start, end, body, local_map, string_map, const_pool)
             }
             res::StatementNodeKind::ASM(args) => {
-                for arg in args.iter() {
-                    let inst = self.gen_inst_from_asm(arg);
+                for arg_id in args.iter() {
+                    let inst = self.gen_inst_from_asm(*arg_id, const_pool);
                     self.add_inst_to_cursym(inst);
                     // self.add_inst_to_cursym(x64::Instruction::inline_asm(arg.clone()));
                 }
             }
             res::StatementNodeKind::VARINIT(ident, expr) => {
-                self.gen_varinit_statement(ident, expr, local_map, string_map)
+                self.gen_varinit_statement(ident, expr, local_map, string_map, const_pool)
             }
         }
     }
@@ -106,12 +116,13 @@ impl Generator {
     fn gen_return_statement(
         &mut self,
         expr: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         self.gen_comment("start return statement");
 
-        self.gen_expr(expr, local_map, string_map);
+        self.gen_expr(expr, local_map, string_map, const_pool);
         self.add_inst_to_cursym(x64::Instruction::popreg64(x64::Reg64::RAX));
 
         self.gen_comment("end return statement");
@@ -120,12 +131,13 @@ impl Generator {
     fn gen_ifret_statement(
         &mut self,
         expr: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         self.gen_comment("start ifret statement");
 
-        self.gen_expr(expr, local_map, string_map);
+        self.gen_expr(expr, local_map, string_map, const_pool);
 
         self.gen_comment("end ifret statement");
     }
@@ -133,12 +145,13 @@ impl Generator {
     fn gen_expression_statement(
         &mut self,
         expr: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         self.gen_comment("start expression statement");
 
-        self.gen_expr(expr, local_map, string_map);
+        self.gen_expr(expr, local_map, string_map, const_pool);
 
         self.gen_comment("end expression statement");
     }
@@ -147,24 +160,27 @@ impl Generator {
         &mut self,
         ident: &res::ExpressionNode,
         expr: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         self.gen_comment("start varinit statement");
 
-        self.gen_assignment_left_value(ident, expr, local_map, string_map);
+        self.gen_assignment_left_value(ident, expr, local_map, string_map, const_pool);
 
         self.gen_comment("end varinit statement");
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn gen_countup_statement(
         &mut self,
         id: &res::ExpressionNode,
         start: &res::ExpressionNode,
         end: &res::ExpressionNode,
         body: &[res::StatementNode],
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         self.gen_comment("start countup statement");
 
@@ -173,14 +189,14 @@ impl Generator {
         let end_label = format!(".Lend{}", lnum);
 
         // initialize
-        self.gen_assignment_left_value(id, start, local_map, string_map);
+        self.gen_assignment_left_value(id, start, local_map, string_map, const_pool);
 
         // in loop
         self.add_inst_to_cursym(x64::Instruction::label(start_label.clone()));
 
         // check whether condition is satisfied
-        self.gen_expr(id, local_map, string_map);
-        self.gen_expr(end, local_map, string_map);
+        self.gen_expr(id, local_map, string_map, const_pool);
+        self.gen_expr(end, local_map, string_map, const_pool);
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
         self.add_inst_to_cursym(x64::Instruction::cmpreg_andreg64(Reg64::RDI, Reg64::RAX));
@@ -188,7 +204,7 @@ impl Generator {
 
         // contents
         for st in body.iter() {
-            self.gen_insts_from_statement(st, local_map, string_map);
+            self.gen_insts_from_statement(st, local_map, string_map, const_pool);
         }
 
         // increment
@@ -207,8 +223,9 @@ impl Generator {
     fn gen_expr(
         &mut self,
         ex: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         match &ex.kind {
             // primary
@@ -241,7 +258,7 @@ impl Generator {
             res::ExpressionNodeKind::CALL(ident, args) => {
                 self.gen_comment("start call expression");
                 for arg in args.iter() {
-                    self.gen_expr(arg, local_map, string_map);
+                    self.gen_expr(arg, local_map, string_map, const_pool);
                 }
 
                 let arg_number: usize = if args.is_empty() { 0 } else { args.len() - 1 };
@@ -251,7 +268,10 @@ impl Generator {
                     self.add_inst_to_cursym(x64::Instruction::popreg64(arg_reg));
                 }
 
-                self.add_inst_to_cursym(x64::Instruction::call(res::IdentName::last_name(ident)));
+                let last_name_id = res::IdentName::last_name(ident);
+                self.add_inst_to_cursym(x64::Instruction::call(
+                    const_pool.get(last_name_id).unwrap().copy_value(),
+                ));
 
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
 
@@ -260,33 +280,33 @@ impl Generator {
 
             // unary-expression
             res::ExpressionNodeKind::NEG(value) => {
-                self.gen_unary_expr("-", value, local_map, string_map);
+                self.gen_unary_expr("-", value, local_map, string_map, const_pool);
             }
 
             // binary-expression
             res::ExpressionNodeKind::ADD(lop, rop) => {
-                self.gen_binary_expr("+", lop, rop, local_map, string_map)
+                self.gen_binary_expr("+", lop, rop, local_map, string_map, const_pool)
             }
             res::ExpressionNodeKind::SUB(lop, rop) => {
-                self.gen_binary_expr("-", lop, rop, local_map, string_map)
+                self.gen_binary_expr("-", lop, rop, local_map, string_map, const_pool)
             }
             res::ExpressionNodeKind::MUL(lop, rop) => {
-                self.gen_binary_expr("*", lop, rop, local_map, string_map)
+                self.gen_binary_expr("*", lop, rop, local_map, string_map, const_pool)
             }
             res::ExpressionNodeKind::DIV(lop, rop) => {
-                self.gen_binary_expr("/", lop, rop, local_map, string_map)
+                self.gen_binary_expr("/", lop, rop, local_map, string_map, const_pool)
             }
             res::ExpressionNodeKind::ASSIGN(lval, rval) => {
                 self.gen_comment("start assign expression");
 
-                self.gen_assignment_left_value(lval, rval, local_map, string_map);
+                self.gen_assignment_left_value(lval, rval, local_map, string_map, const_pool);
 
                 self.gen_comment("end assign expression");
             }
             res::ExpressionNodeKind::IF(condition, body) => {
                 self.gen_comment("start if expression");
 
-                self.gen_expr(condition, local_map, string_map);
+                self.gen_expr(condition, local_map, string_map, const_pool);
                 let fin_label = format!(".Lend{}", self.consume_label());
 
                 // condition
@@ -295,7 +315,7 @@ impl Generator {
                 self.add_inst_to_cursym(x64::Instruction::jump_equal_label(fin_label.clone()));
 
                 for st in body.iter() {
-                    self.gen_insts_from_statement(st, local_map, string_map);
+                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::label(fin_label));
@@ -305,7 +325,7 @@ impl Generator {
             res::ExpressionNodeKind::IFELSE(condition, body, alter) => {
                 self.gen_comment("start if-else expression");
 
-                self.gen_expr(condition, local_map, string_map);
+                self.gen_expr(condition, local_map, string_map, const_pool);
                 let label_num = self.consume_label();
                 let else_label = format!(".Lelse{}", label_num);
                 let fin_label = format!(".Lend{}", label_num);
@@ -316,14 +336,14 @@ impl Generator {
                 self.add_inst_to_cursym(x64::Instruction::jump_equal_label(else_label.clone()));
 
                 for st in body.iter() {
-                    self.gen_insts_from_statement(st, local_map, string_map);
+                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::jump_label(fin_label.clone()));
                 self.add_inst_to_cursym(x64::Instruction::label(else_label));
 
                 for st in alter.iter() {
-                    self.gen_insts_from_statement(st, local_map, string_map);
+                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::label(fin_label));
@@ -345,11 +365,12 @@ impl Generator {
         &mut self,
         operator: &str,
         value: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         // 1． 子ノードをコンパイル
-        self.gen_expr(value, local_map, string_map);
+        self.gen_expr(value, local_map, string_map, const_pool);
 
         // 2．演算に必要なオペランドをレジスタに取り出す
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
@@ -369,12 +390,13 @@ impl Generator {
         operator: &str,
         lop: &res::ExpressionNode,
         rop: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         // 1． 左右子ノードをコンパイル
-        self.gen_expr(lop, local_map, string_map);
-        self.gen_expr(rop, local_map, string_map);
+        self.gen_expr(lop, local_map, string_map, const_pool);
+        self.gen_expr(rop, local_map, string_map, const_pool);
 
         // 2．演算に必要なオペランドをレジスタに取り出す
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
@@ -432,13 +454,14 @@ impl Generator {
         &mut self,
         lval: &res::ExpressionNode,
         rval: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
     ) {
         // 1． 左右子ノードをコンパイル
         //     左辺値はアドレスを生成し，スタックに積んでおく．
         self.gen_left_value(lval, local_map, string_map);
-        self.gen_expr(rval, local_map, string_map);
+        self.gen_expr(rval, local_map, string_map, const_pool);
 
         // 2．演算に必要なオペランドをレジスタに取り出す
         self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RDI));
@@ -454,16 +477,16 @@ impl Generator {
     fn gen_left_value(
         &mut self,
         lval: &res::ExpressionNode,
-        local_map: &BTreeMap<String, res::PVariable>,
-        _string_map: &BTreeMap<String, u64>,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        _string_map: &BTreeMap<res::PStringId, u64>,
     ) {
         match &lval.kind {
             res::ExpressionNodeKind::IDENT(id_name) => {
-                let name = res::IdentName::last_name(id_name);
-                let cur_pvar = local_map.get(&name);
+                let name_id = res::IdentName::last_name(id_name);
+                let cur_pvar = local_map.get(vec![name_id].as_slice());
 
                 if cur_pvar.is_none() {
-                    panic!("{} is not defined", name);
+                    panic!("{:?} is not defined", name_id);
                 }
 
                 self.add_inst_to_cursym(x64::Instruction::movreg_toreg64(Reg64::RBP, Reg64::RAX));
@@ -481,7 +504,13 @@ impl Generator {
         self.add_inst_to_cursym(x64::Instruction::comment(contents.to_string()));
     }
 
-    fn gen_inst_from_asm(&self, asm_str: &str) -> x64::Instruction {
+    fn gen_inst_from_asm(
+        &self,
+        asm_str_id: res::PStringId,
+        const_pool: &res::ConstAllocator,
+    ) -> x64::Instruction {
+        let asm_str = const_pool.get(asm_str_id).unwrap().copy_value();
+
         let asm_splitted: Vec<&str> = asm_str.split(' ').collect();
         let length = asm_splitted.len();
 

@@ -1,22 +1,36 @@
-use std::fs;
+use std::{
+    collections::BTreeMap,
+    fs,
+    sync::{Arc, Mutex},
+};
 
 use crate::bundler::{bundle_parser as bp, resolver};
 use crate::common::{module, operate, option};
-use crate::compiler::general::pass;
+use crate::compiler::general::{pass, resource as res};
 
 pub fn bundle_main(
     build_option: &option::BuildOption,
     main_fp: String,
     module_allocator: &mut module::ModuleAllocator,
+    const_pool: Arc<Mutex<res::ConstAllocator>>,
 ) -> module::ModuleId {
+    // buffer_cacheを用いて，すでにアロケートしたPStringIdを使い回すようにする．
+    // ライフタイムはbundle_main内なので，そこまでメモリを圧迫することはないと思う
     let mut module_resolver = resolver::Resolver::new(module_allocator);
+    let buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>> =
+        Arc::new(Mutex::new(BTreeMap::new()));
 
     // mainモジュールのアロケート．
     // 必ずソースファイルになっているはずなので，そのまま require を処理する
     let main_id = module_resolver.alloc_main_module(main_fp);
-    module_resolver.tokenize_source_module(build_option, main_id);
+    module_resolver.tokenize_source_module(
+        build_option,
+        main_id,
+        const_pool.clone(),
+        buffer_cache.clone(),
+    );
 
-    module_resolver.proc_requires(build_option, main_id);
+    module_resolver.proc_requires(build_option, main_id, const_pool, buffer_cache);
 
     main_id
 }
@@ -26,6 +40,8 @@ impl<'a> resolver::Resolver<'a> {
         &mut self,
         build_option: &option::BuildOption,
         mod_id: module::ModuleId,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
     ) {
         let mut_module_wrap = self.get_module_as_mut(mod_id);
 
@@ -40,15 +56,28 @@ impl<'a> resolver::Resolver<'a> {
         mut_module.set_file_path(file_path);
 
         let contents = operate::read_program_from_file(&mut_module.file_path);
-        let tokens = pass::tokenize_phase(build_option, mut_module, contents);
+        let (tokens, const_arena) =
+            pass::tokenize_phase(build_option, mut_module, contents, const_pool, buffer_cache);
 
         mut_module.set_tokens(tokens);
+        mut_module.set_const_arena(const_arena);
     }
 
-    fn proc_requires(&mut self, build_option: &option::BuildOption, source_id: module::ModuleId) {
-        let requires_names: Vec<String>;
+    fn proc_requires(
+        &mut self,
+        build_option: &option::BuildOption,
+        source_id: module::ModuleId,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
+    ) {
+        let requires_names: Vec<res::PStringId>;
         {
-            self.tokenize_source_module(build_option, source_id);
+            self.tokenize_source_module(
+                build_option,
+                source_id,
+                const_pool.clone(),
+                buffer_cache.clone(),
+            );
 
             let source_module = self.get_module_as_mut(source_id).unwrap();
             let mut bundle_parser = bp::BundleParser::new(source_module.get_tokens_as_mut());
@@ -63,9 +92,23 @@ impl<'a> resolver::Resolver<'a> {
         }
 
         // 各要求モジュールを再帰的に探索
-        for required_name in requires_names {
+        for required_name_id in requires_names {
+            let required_name = {
+                let source_module = self.get_module_ref(source_id).unwrap();
+                source_module
+                    .get_const_pool_ref()
+                    .get(required_name_id)
+                    .unwrap()
+                    .copy_value()
+            };
+
             let required_path = construct_file_path(&required_name);
-            let required_module_id = self.proc_external_module(build_option, required_path);
+            let required_module_id = self.proc_external_module(
+                build_option,
+                required_path,
+                const_pool.clone(),
+                buffer_cache.clone(),
+            );
 
             let source_module = self.get_module_as_mut(source_id).unwrap();
             let mut required_modules = source_module.get_locked_requires();
@@ -76,7 +119,13 @@ impl<'a> resolver::Resolver<'a> {
         self.set_visited_to_given_id(source_id, true);
     }
 
-    fn proc_submodules(&mut self, build_option: &option::BuildOption, parent_id: module::ModuleId) {
+    fn proc_submodules(
+        &mut self,
+        build_option: &option::BuildOption,
+        parent_id: module::ModuleId,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
+    ) {
         let parent_module_path: String;
 
         {
@@ -90,7 +139,12 @@ impl<'a> resolver::Resolver<'a> {
             let child_file_path_part = child_file.path().to_str().unwrap().to_string();
             let child_file_path = construct_file_path(&child_file_path_part);
 
-            let sub_module_id = self.proc_external_module(build_option, child_file_path);
+            let sub_module_id = self.proc_external_module(
+                build_option,
+                child_file_path,
+                const_pool.clone(),
+                buffer_cache.clone(),
+            );
 
             let parent_module = self.get_module_as_mut(parent_id).unwrap();
             let mut sub_modules = parent_module.get_locked_submodules();
@@ -102,13 +156,15 @@ impl<'a> resolver::Resolver<'a> {
         &mut self,
         build_option: &option::BuildOption,
         ext_path: String,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
     ) -> module::ModuleId {
         let ext_mod_id = self.alloc_external_module(ext_path.to_string());
 
         if fs::metadata(&ext_path).unwrap().is_dir() {
-            self.proc_submodules(build_option, ext_mod_id);
+            self.proc_submodules(build_option, ext_mod_id, const_pool, buffer_cache);
         } else {
-            self.proc_requires(build_option, ext_mod_id);
+            self.proc_requires(build_option, ext_mod_id, const_pool, buffer_cache);
         }
 
         ext_mod_id

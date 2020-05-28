@@ -17,8 +17,8 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn add_pfunction(&mut self, name: String, func: res::PFunction) {
-        self.root.add_pfunction(name, func);
+    pub fn add_pfunction(&mut self, name_id: res::PStringId, func: res::PFunction) {
+        self.root.add_pfunction(name_id, func);
     }
 }
 
@@ -39,18 +39,28 @@ impl<'a> Parser<'a> {
         self.root
     }
 
-    pub fn get_typedefs(&self) -> &BTreeMap<String, res::PType> {
+    pub fn get_typedefs(&self) -> &BTreeMap<res::PStringId, res::PType> {
         self.root.get_typedefs()
     }
 
-    pub fn add_typedef(&mut self, type_name: String, src_type: res::PType) {
-        self.root.add_typedef(type_name, src_type);
+    pub fn add_typedef(&mut self, type_name_id: res::PStringId, src_type: res::PType) {
+        self.root.add_typedef(type_name_id, src_type);
     }
-    pub fn add_local_var_to(&mut self, func_name: &str, var_name: String, pvar: res::PVariable) {
-        self.root.add_local_var_to(func_name, var_name, pvar);
+    pub fn add_local_var_to(
+        &mut self,
+        func_name_id: res::PStringId,
+        var_name_ids: Vec<res::PStringId>,
+        pvar: res::PVariable,
+    ) {
+        self.root.add_local_var_to(func_name_id, var_name_ids, pvar);
     }
-    pub fn add_string_to(&mut self, func_name: &str, contents: String, hash: u64) {
-        self.root.add_string_to(func_name, contents, hash);
+    pub fn add_string_to(
+        &mut self,
+        func_name_id: res::PStringId,
+        contents_id: res::PStringId,
+        hash: u64,
+    ) {
+        self.root.add_string_to(func_name_id, contents_id, hash);
     }
 
     pub fn cur_token_is(&self, tk: &res::TokenKind) -> bool {
@@ -63,8 +73,8 @@ impl<'a> Parser<'a> {
     pub fn get_specified_token(&self, offset: usize) -> &res::TokenKind {
         &self.tokens[offset].kind
     }
-    pub fn replace_statements(&mut self, name: &str, stmts: Vec<res::StatementNode>) {
-        self.root.replace_statement(name, stmts);
+    pub fn replace_statements(&mut self, name_id: res::PStringId, stmts: Vec<res::StatementNode>) {
+        self.root.replace_statement(name_id, stmts);
     }
 
     pub fn save_current_offset(&self) -> usize {

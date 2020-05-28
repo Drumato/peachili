@@ -64,6 +64,7 @@ pub struct Module {
     pub subs: ModuleVec,
     pub functions: Vec<res::PFunction>,
     pub tokens: Vec<res::Token>,
+    pub const_arena: Arc<Mutex<res::ConstAllocator>>,
 }
 
 #[allow(dead_code)]
@@ -77,6 +78,7 @@ impl Module {
             subs: Default::default(),
             functions: Vec::new(),
             tokens: Vec::new(),
+            const_arena: Arc::new(Mutex::new(Default::default())),
         }
     }
 
@@ -96,7 +98,13 @@ impl Module {
     pub fn set_tokens(&mut self, tokens: Vec<res::Token>) {
         self.tokens = tokens;
     }
+    pub fn set_const_arena(&mut self, allocator: Arc<Mutex<res::ConstAllocator>>) {
+        self.const_arena = allocator;
+    }
 
+    pub fn get_const_pool_ref(&self) -> MutexGuard<res::ConstAllocator> {
+        self.const_arena.lock().unwrap()
+    }
     pub fn get_tokens_as_mut(&mut self) -> &mut Vec<res::Token> {
         &mut self.tokens
     }

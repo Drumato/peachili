@@ -1,47 +1,52 @@
-use std::time;
-
-use colored::*;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 use crate::common::{error, module, operate, option};
 use crate::compiler::general::resource as res;
+
+type Tokens = Vec<res::Token>;
+type GuardedCache = Arc<Mutex<res::ConstAllocator>>;
+type TokenizeReturn = (Tokens, GuardedCache);
+type CompileErrors = Vec<error::CompileError>;
 
 pub fn tokenize_phase(
     build_option: &option::BuildOption,
     module: &mut module::Module,
     contents: String,
-) -> Vec<res::Token> {
-    let start = time::Instant::now();
-
-    let (tokens, tokenize_errors) = tokenize(build_option, contents);
+    const_pool: Arc<Mutex<res::ConstAllocator>>,
+    buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
+) -> TokenizeReturn {
+    let ((tokens, const_allocator), tokenize_errors) =
+        tokenize(build_option, contents, const_pool, buffer_cache);
     if !tokenize_errors.is_empty() {
         operate::emit_all_errors_and_exit(&tokenize_errors, &module.file_path, build_option);
     }
 
-    let end = time::Instant::now();
-
     if build_option.verbose {
-        eprintln!(
-            "    {}: tokenize {} done in {:?}",
-            "STEP1".bold().green(),
-            &module.file_path,
-            end - start
-        );
+        eprintln!("++++++++ tokenize ++++++++");
+        for tk in tokens.iter() {
+            eprintln!("\t{}", tk);
+        }
     }
 
-    tokens
+    (tokens, const_allocator)
 }
 
 fn tokenize(
     opt: &option::BuildOption,
     contents: String,
-) -> (Vec<res::Token>, Vec<error::CompileError>) {
-    let mut lexer = res::Lexer::new(opt, contents);
+    const_pool: Arc<Mutex<res::ConstAllocator>>,
+    buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
+) -> (TokenizeReturn, CompileErrors) {
+    let mut lexer = res::Lexer::new(opt, contents, const_pool, buffer_cache);
 
     lexer.construct_tokens();
 
     // lexer is dropped after calling `lexer.give_token()`.
     let errors = lexer.copy_errors();
-    (lexer.give_token(), errors)
+    (lexer.give_token_and_const_arena(), errors)
 }
 
 impl<'a> res::Lexer<'a> {
@@ -104,11 +109,21 @@ impl<'a> res::Lexer<'a> {
         self.skip_offset(1);
 
         let contents = self.cut_contents(|c| c != &'"');
+        let cached = self.check_already_alloced(&contents);
 
         // 終端の `"` を読み飛ばすため+1
         self.skip_offset(contents.len() + 1);
 
-        Some(res::Token::new(cur_pos, res::TokenKind::STRLIT(contents)))
+        let string_lit_id = if cached {
+            self.get_cached_id(&contents)
+        } else {
+            self.insert_new_buffer(contents)
+        };
+
+        Some(res::Token::new(
+            cur_pos,
+            res::TokenKind::STRLIT(string_lit_id),
+        ))
     }
     fn scan_word(&mut self) -> Option<res::Token> {
         // 現在のオフセットを退避
@@ -116,6 +131,7 @@ impl<'a> res::Lexer<'a> {
 
         // 文字列を読み取る
         let word = self.cut_contents(|c| c.is_alphabetic() || c == &'_' || c.is_ascii_digit());
+        let cached = self.check_already_alloced(&word);
 
         // オフセットを進める
         self.skip_offset(word.len());
@@ -126,7 +142,16 @@ impl<'a> res::Lexer<'a> {
         }
 
         // 識別子
-        Some(res::Token::new(cur_pos, res::TokenKind::IDENTIFIER(word)))
+        let ident_id = if cached {
+            self.get_cached_id(&word)
+        } else {
+            self.insert_new_buffer(word)
+        };
+
+        Some(res::Token::new(
+            cur_pos,
+            res::TokenKind::IDENTIFIER(ident_id),
+        ))
     }
 
     fn scan_number(&mut self) -> Option<res::Token> {

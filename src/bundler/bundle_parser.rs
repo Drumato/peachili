@@ -15,32 +15,32 @@ impl<'a> BundleParser<'a> {
         }
         self.tokens[0].kind == res::TokenKind::REQUIRE
     }
-    pub fn parse_each_modules(&mut self) -> Vec<String> {
+    pub fn parse_each_modules(&mut self) -> Vec<res::PStringId> {
         if self.tokens[1].kind != res::TokenKind::LPAREN {
             panic!("enumerating required modules must be start with `(`");
         }
 
         let mut module_offset: usize = 2;
-        let mut subs_name: Vec<String> = Vec::new();
+        let mut reqs_name: Vec<res::PStringId> = Vec::new();
 
         loop {
             if self.tokens[module_offset].kind == res::TokenKind::RPAREN {
                 break;
             }
 
-            let cur_contents = self.tokens[module_offset].copy_strlit_contents();
-            if cur_contents.is_none() {
+            let str_id = self.tokens[module_offset].get_str_id();
+            if str_id.is_none() {
                 panic!(
                     "{} module name must be covered with `\"`",
                     self.tokens[module_offset].get_pos()
                 );
             }
 
-            subs_name.push(cur_contents.unwrap());
+            reqs_name.push(str_id.unwrap());
             module_offset += 1;
         }
 
-        subs_name
+        reqs_name
     }
 
     fn tokens_invalid(&self) -> bool {
