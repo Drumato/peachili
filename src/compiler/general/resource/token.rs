@@ -1,4 +1,5 @@
 use crate::common::position as pos;
+use crate::compiler::general::resource as res;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Token {
@@ -45,16 +46,16 @@ impl Token {
         }
     }
 
-    pub fn copy_ident_name(&self) -> Option<String> {
+    pub fn get_ident_id(&self) -> Option<res::PStringId> {
         match &self.kind {
-            TokenKind::IDENTIFIER(name) => Some(name.to_string()),
+            TokenKind::IDENTIFIER(name_id) => Some(*name_id),
             _ => None,
         }
     }
 
-    pub fn copy_strlit_contents(&self) -> Option<String> {
+    pub fn get_str_id(&self) -> Option<res::PStringId> {
         match &self.kind {
-            TokenKind::STRLIT(contents) => Some(contents.to_string()),
+            TokenKind::STRLIT(contents_id) => Some(*contents_id),
             _ => None,
         }
     }
@@ -62,7 +63,7 @@ impl Token {
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} {}", self.position, self.kind.to_str())
+        write!(f, "{} {}", self.position, self.kind)
     }
 }
 
@@ -70,8 +71,8 @@ impl std::fmt::Display for Token {
 pub enum TokenKind {
     INTEGER(i64),
     UNSIGNEDINTEGER(u64),
-    STRLIT(String),
-    IDENTIFIER(String),
+    STRLIT(res::PStringId),
+    IDENTIFIER(res::PStringId),
 
     // 記号
     PLUS,
@@ -114,6 +115,59 @@ pub enum TokenKind {
     PUBTYPE,
     VARINIT,
     CONST,
+}
+
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::INTEGER(val) => write!(f, "{}", val),
+            Self::UNSIGNEDINTEGER(val) => write!(f, "{}u", val),
+            Self::STRLIT(id) => write!(f, "str-{:?}", id),
+            Self::IDENTIFIER(id) => write!(f, "ident-{:?}", id),
+
+            // 記号
+            Self::PLUS => write!(f, "+"),
+            Self::MINUS => write!(f, "-"),
+            Self::ASTERISK => write!(f, "*"),
+            Self::SLASH => write!(f, "/"),
+            Self::DOUBLESLASH => write!(f, "//"),
+            Self::LPAREN => write!(f, "("),
+            Self::RPAREN => write!(f, ")"),
+            Self::LBRACE => write!(f, "{{"),
+            Self::RBRACE => write!(f, "}}"),
+            Self::COLON => write!(f, ":"),
+            Self::DOUBLECOLON => write!(f, "::"),
+            Self::SEMICOLON => write!(f, ";"),
+            Self::ASSIGN => write!(f, "="),
+            Self::BLANK => write!(f, "BLANK"),
+            Self::NEWLINE => write!(f, "NEWLINE"),
+            Self::COMMA => write!(f, ","),
+            Self::EOF => write!(f, "eof"),
+
+            // 予約語
+            Self::BOOLEAN => write!(f, "boolean"),
+            Self::TRUE => write!(f, "true"),
+            Self::FALSE => write!(f, "false"),
+            Self::REQUIRE => write!(f, "require"),
+            Self::IF => write!(f, "if"),
+            Self::ELSE => write!(f, "else"),
+            Self::IFRET => write!(f, "ifret"),
+            Self::FUNC => write!(f, "func"),
+            Self::DECLARE => write!(f, "declare"),
+            Self::COUNTUP => write!(f, "countup"),
+            Self::FROM => write!(f, "from"),
+            Self::TO => write!(f, "to"),
+            Self::ASM => write!(f, "asm"),
+            Self::RETURN => write!(f, "return"),
+            Self::NORETURN => write!(f, "noreturn"),
+            Self::INT64 => write!(f, "int64"),
+            Self::UINT64 => write!(f, "uint64"),
+            Self::STR => write!(f, "str"),
+            Self::PUBTYPE => write!(f, "pubtype"),
+            Self::VARINIT => write!(f, "varinit"),
+            Self::CONST => write!(f, "const"),
+        }
+    }
 }
 
 impl TokenKind {

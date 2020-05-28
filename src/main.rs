@@ -1,45 +1,52 @@
 #[macro_use]
 extern crate clap;
-extern crate typed_arena;
+extern crate id_arena;
 extern crate yaml_rust;
 
+use std::sync::{Arc, Mutex};
+
 use clap::App;
-use typed_arena::Arena;
 
 use bundler::bundler_main;
-use common::option;
+use common::{module, option};
+use compiler::general::resource as res;
 
 pub mod assembler;
 pub mod bundler;
 pub mod common;
 pub mod compiler;
+pub mod llvm_main;
 pub mod x64_main;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let arena: Arena<common::module::Module> = Arena::new();
+    // スタティックなライフタイムを必要とするアロケータ達
+    let mut module_allocator: module::ModuleAllocator = Default::default();
+    let const_pool: res::ConstAllocator = Default::default();
 
     let yaml = load_yaml!("cli.yml");
     let matches = App::from(yaml).get_matches();
 
     let (main_file_path, build_option) = initialize(matches);
 
-    if build_option.verbose {
-        eprintln!("verbose mode is on...");
-    }
-
     // ******************
     // *    Bundler     *
     // ******************
 
-    let main_mod = bundler_main::bundle_main(&build_option, main_file_path, &arena);
+    // 各モジュールで共有したいので，Arc<Mutex<T>>に
+    let main_mod_id = bundler_main::bundle_main(
+        &build_option,
+        main_file_path,
+        &mut module_allocator,
+        Arc::new(Mutex::new(const_pool)),
+    );
 
     // ******************
     // *    Compiler    *
     // ******************
 
     match build_option.target {
-        option::Target::X86_64 => x64_main::main(&build_option, main_mod)?,
-        option::Target::LLVMIR => panic!("llvm ir"),
+        option::Target::X86_64 => x64_main::main(&build_option, main_mod_id, module_allocator)?,
+        option::Target::LLVMIR => llvm_main::main(&build_option, main_mod_id, module_allocator)?,
     }
 
     Ok(())

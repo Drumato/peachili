@@ -1,160 +1,212 @@
-extern crate typed_arena;
+use std::{
+    collections::BTreeMap,
+    fs,
+    sync::{Arc, Mutex},
+};
 
-use std::fs;
-
-use typed_arena::Arena;
-
-use crate::bundler::bundle_parser as bp;
+use crate::bundler::{bundle_parser as bp, resolver};
 use crate::common::{module, operate, option};
-use crate::compiler::general::pass;
-use crate::compiler::general::resource as res;
+use crate::compiler::general::{pass, resource as res};
 
-pub fn bundle_main<'b>(
+pub fn bundle_main(
     build_option: &option::BuildOption,
     main_fp: String,
-    arena: &'b Arena<module::Module<'b>>,
-) -> module::Module<'b> {
-    let mut main_mod = module::Module::new_primary(main_fp);
+    module_allocator: &mut module::ModuleAllocator,
+    const_pool: Arc<Mutex<res::ConstAllocator>>,
+) -> module::ModuleId {
+    // buffer_cacheを用いて，すでにアロケートしたPStringIdを使い回すようにする．
+    // ライフタイムはbundle_main内なので，そこまでメモリを圧迫することはないと思う
+    let mut module_resolver = resolver::Resolver::new(module_allocator);
+    let buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>> =
+        Arc::new(Mutex::new(BTreeMap::new()));
 
-    let main_tokens = main_mod.setup(build_option);
+    // mainモジュールのアロケート．
+    // 必ずソースファイルになっているはずなので，そのまま require を処理する
+    let main_id = module_resolver.alloc_main_module(main_fp);
+    module_resolver.tokenize_source_module(
+        build_option,
+        main_id,
+        const_pool.clone(),
+        buffer_cache.clone(),
+    );
 
-    if main_tokens.is_none() {
-        panic!(
-            "main module must be a peachili file, got directory -> {}",
-            main_mod.file_path
-        );
-    }
+    module_resolver.proc_requires(build_option, main_id, const_pool, buffer_cache);
 
-    main_mod.parse_requires(build_option, main_tokens.unwrap(), arena);
-
-    if build_option.debug {
-        eprintln!("++++++++ dump-modules ++++++++");
-        eprintln!("{}\n", main_mod);
-    }
-
-    main_mod
+    main_id
 }
 
-#[allow(clippy::unnecessary_unwrap)]
-fn resolve_dependency<'b>(
-    build_option: &option::BuildOption,
-    file_path: String,
-    arena: &'b Arena<module::Module<'b>>,
-) -> module::Module<'b> {
-    let mut this_mod = module::Module::new_external(file_path);
-
-    let tokens = this_mod.setup(build_option);
-
-    if tokens.is_none() {
-        // ディレクトリだった
-        this_mod.parse_directory(build_option, arena);
-    } else {
-        this_mod.parse_requires(build_option, tokens.unwrap(), arena);
-    }
-
-    this_mod
-}
-
-impl<'a> module::Module<'a> {
-    fn parse_directory(
+impl<'a> resolver::Resolver<'a> {
+    fn tokenize_source_module(
         &mut self,
         build_option: &option::BuildOption,
-        arena: &'a Arena<module::Module<'a>>,
+        mod_id: module::ModuleId,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
     ) {
-        for entry in fs::read_dir(&self.file_path).unwrap() {
-            let dir = entry.unwrap();
+        let mut_module_wrap = self.get_module_as_mut(mod_id);
 
-            let sub_module = arena.alloc(resolve_dependency(
+        if mut_module_wrap.is_none() {
+            panic!("not found such a module id -> {:?}", mod_id);
+        }
+
+        let mut_module = mut_module_wrap.unwrap();
+
+        // モジュール名をvalidなパスに変換し，格納
+        let file_path = construct_file_path(&mut_module.file_path);
+        mut_module.set_file_path(file_path);
+
+        let contents = operate::read_program_from_file(&mut_module.file_path);
+        let (tokens, const_arena) =
+            pass::tokenize_phase(build_option, mut_module, contents, const_pool, buffer_cache);
+
+        mut_module.set_tokens(tokens);
+        mut_module.set_const_arena(const_arena);
+    }
+
+    fn proc_requires(
+        &mut self,
+        build_option: &option::BuildOption,
+        source_id: module::ModuleId,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
+    ) {
+        let requires_names: Vec<res::PStringId>;
+        {
+            self.tokenize_source_module(
                 build_option,
-                dir.path().to_str().unwrap().to_string(),
-                arena,
-            ));
-            self.subs.borrow_mut().push(sub_module);
+                source_id,
+                const_pool.clone(),
+                buffer_cache.clone(),
+            );
+
+            let source_module = self.get_module_as_mut(source_id).unwrap();
+            let mut bundle_parser = bp::BundleParser::new(source_module.get_tokens_as_mut());
+
+            // `require` 無し -> 末端モジュールなのでパース終了
+            if !bundle_parser.require_found() {
+                return;
+            }
+
+            // require の中身をすべて収集する
+            requires_names = bundle_parser.parse_each_modules();
         }
+
+        // 各要求モジュールを再帰的に探索
+        for required_name_id in requires_names {
+            let required_name = {
+                let source_module = self.get_module_ref(source_id).unwrap();
+                source_module
+                    .get_const_pool_ref()
+                    .get(required_name_id)
+                    .unwrap()
+                    .copy_value()
+            };
+
+            let required_path = construct_file_path(&required_name);
+            let required_module_id = self.proc_external_module(
+                build_option,
+                required_path,
+                const_pool.clone(),
+                buffer_cache.clone(),
+            );
+
+            let source_module = self.get_module_as_mut(source_id).unwrap();
+            let mut required_modules = source_module.get_locked_requires();
+
+            required_modules.push(required_module_id);
+        }
+
+        self.set_visited_to_given_id(source_id, true);
     }
 
-    fn parse_requires(
+    fn proc_submodules(
         &mut self,
         build_option: &option::BuildOption,
-        tokens: Vec<res::Token>,
-        arena: &'a Arena<module::Module<'a>>,
+        parent_id: module::ModuleId,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
     ) {
-        let mut bundle_parser = bp::BundleParser::new(tokens);
+        let parent_module_path: String;
 
-        // `require` 無し -> パース終了
-        if !bundle_parser.require_found() {
-            return;
+        {
+            let parent_module = self.get_module_ref(parent_id).unwrap();
+            parent_module_path = parent_module.file_path.clone();
         }
 
-        let requires_names: Vec<String> = bundle_parser.parse_each_modules();
+        // ディレクトリ内の各ファイルを再帰的に探索
+        for entry in fs::read_dir(&parent_module_path).unwrap() {
+            let child_file = entry.unwrap();
+            let child_file_path_part = child_file.path().to_str().unwrap().to_string();
+            let child_file_path = construct_file_path(&child_file_path_part);
 
-        // moveしていい
-        for required_name in requires_names {
-            let required_module =
-                arena.alloc(resolve_dependency(build_option, required_name, arena));
-            self.requires.borrow_mut().push(required_module);
+            let sub_module_id = self.proc_external_module(
+                build_option,
+                child_file_path,
+                const_pool.clone(),
+                buffer_cache.clone(),
+            );
+
+            let parent_module = self.get_module_as_mut(parent_id).unwrap();
+            let mut sub_modules = parent_module.get_locked_submodules();
+            sub_modules.push(sub_module_id);
         }
-
-        self.visited = true;
     }
 
-    #[allow(clippy::unnecessary_unwrap)]
-    fn setup(&mut self, build_option: &option::BuildOption) -> Option<Vec<res::Token>> {
-        // 相対パス中からチェック
-        let metadata = fs::metadata(&self.file_path);
+    fn proc_external_module(
+        &mut self,
+        build_option: &option::BuildOption,
+        ext_path: String,
+        const_pool: Arc<Mutex<res::ConstAllocator>>,
+        buffer_cache: Arc<Mutex<BTreeMap<String, res::PStringId>>>,
+    ) -> module::ModuleId {
+        let ext_mod_id = self.alloc_external_module(ext_path.to_string());
 
-        if metadata.is_ok() {
-            return if metadata.unwrap().is_dir() {
-                None
-            } else {
-                let contents = operate::read_program_from_file(&self.file_path);
-                let tokens = pass::tokenize_phase(build_option, &self.file_path, contents);
-
-                Some(tokens)
-            };
+        if fs::metadata(&ext_path).unwrap().is_dir() {
+            self.proc_submodules(build_option, ext_mod_id, const_pool, buffer_cache);
         } else {
-            // .go をつけて再度検索
-            let extended = format!("{}.go", self.file_path);
-
-            let metadata = fs::metadata(&extended);
-            if metadata.is_ok() {
-                self.file_path = extended;
-                let contents = operate::read_program_from_file(&self.file_path);
-
-                let tokens = pass::tokenize_phase(build_option, &self.file_path, contents);
-
-                return Some(tokens);
-            }
+            self.proc_requires(build_option, ext_mod_id, const_pool, buffer_cache);
         }
 
-        // 環境変数からチェック
-        let combined_path = combined_libpath_and_file(&self.file_path);
-
-        let metadata = fs::metadata(&combined_path);
-
-        if metadata.is_ok() {
-            self.file_path = combined_path;
-            // .go をつけていないので，必ずディレクトリ
-            return None;
-        }
-
-        // .go をつけて再度チェック
-
-        let extended = format!("{}.go", combined_path);
-        let metadata = fs::metadata(&extended);
-
-        if metadata.is_err() {
-            // エラー
-            panic!("not found such a module -> {}", combined_path);
-        }
-
-        self.file_path = combined_path;
-
-        let contents = operate::read_program_from_file(&self.file_path);
-        let tokens = pass::tokenize_phase(build_option, &self.file_path, contents);
-
-        Some(tokens)
+        ext_mod_id
     }
+}
+
+fn construct_file_path(module_path: &str) -> String {
+    // 相対パス中からチェック
+    let metadata = fs::metadata(module_path);
+
+    if metadata.is_ok() {
+        // ファイルが見つかったので，普通に返す
+        return module_path.to_string();
+    } else {
+        // .go をつけて再度検索
+        let extended = format!("{}.go", module_path);
+
+        let metadata = fs::metadata(&extended);
+        if metadata.is_ok() {
+            return extended;
+        }
+    }
+
+    // 環境変数からチェック
+    let combined_path = combined_libpath_and_file(&module_path);
+
+    let metadata = fs::metadata(&combined_path);
+
+    if metadata.is_ok() {
+        return combined_path;
+    }
+
+    // .go をつけて再度チェック
+    let extended = format!("{}.go", combined_path);
+    let metadata = fs::metadata(&extended);
+
+    if metadata.is_err() {
+        // エラー
+        panic!("not found such a module -> {}", combined_path);
+    }
+
+    extended
 }
 
 fn get_lib_path() -> String {

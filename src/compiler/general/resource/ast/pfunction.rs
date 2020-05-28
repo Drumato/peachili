@@ -1,30 +1,32 @@
 use std::collections::BTreeMap;
 
-use crate::common::position as pos;
+use crate::common::{module, position as pos};
 use crate::compiler::general::resource as res;
 
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[allow(dead_code)]
 pub struct PFunction {
-    name: String,
+    name: res::PStringId,
     stack_offset: usize,
     position: pos::Position,
     stmts: Vec<res::StatementNode>,
-    pub locals: BTreeMap<String, res::PVariable>,
-    pub strings: BTreeMap<String, u64>,
+    pub locals: BTreeMap<Vec<res::PStringId>, res::PVariable>,
+    pub strings: BTreeMap<res::PStringId, u64>,
     return_type: res::PType,
-    args: Vec<String>,
+    args: Vec<res::PStringId>,
 
     module_path: String,
+    pub module_id: module::ModuleId,
 }
 
 impl PFunction {
     pub fn new(
-        func_name: String,
+        func_name: res::PStringId,
         ptype: res::PType,
-        arg_names: Vec<String>,
+        arg_names: Vec<res::PStringId>,
         def_pos: pos::Position,
         path: String,
+        mod_id: module::ModuleId,
     ) -> Self {
         Self {
             name: func_name,
@@ -36,6 +38,7 @@ impl PFunction {
             return_type: ptype,
             args: arg_names,
             module_path: path,
+            module_id: mod_id,
         }
     }
 
@@ -43,14 +46,17 @@ impl PFunction {
         self.args.is_empty()
     }
 
-    pub fn collect_arg_types(&self, type_map: &BTreeMap<String, res::PType>) -> Vec<res::PType> {
+    pub fn collect_arg_types(
+        &self,
+        type_map: &BTreeMap<res::PStringId, res::PType>,
+    ) -> Vec<res::PType> {
         let locals = self.get_locals();
         let args = self.get_args();
 
         let mut arg_types: Vec<res::PType> = Vec::new();
 
         for arg in args.iter() {
-            if let Some(pvar) = locals.get(arg) {
+            if let Some(pvar) = locals.get(vec![*arg].as_slice()) {
                 if let res::PTypeKind::UNRESOLVED(name) = &pvar.get_type().kind {
                     let type_last = res::IdentName::last_name(name);
                     arg_types.push(type_map.get(&type_last).unwrap().clone());
@@ -59,7 +65,7 @@ impl PFunction {
                 }
             }
 
-            let arg_type = locals.get(arg).unwrap().get_type();
+            let arg_type = locals.get(vec![*arg].as_slice()).unwrap().get_type();
             arg_types.push(arg_type.clone());
         }
 
@@ -73,12 +79,12 @@ impl PFunction {
         self.stmts = stmts;
     }
 
-    pub fn add_local(&mut self, name: String, pvar: res::PVariable) {
-        if let Some(_old_var) = self.locals.insert(name, pvar) {
-            panic!("detected duplicated variable declaration in {}", self.name);
+    pub fn add_local(&mut self, name_ids: Vec<res::PStringId>, pvar: res::PVariable) {
+        if let Some(_old_var) = self.locals.insert(name_ids, pvar) {
+            panic!("detected duplicated variable declaration");
         }
     }
-    pub fn add_string(&mut self, contents: String, hash: u64) {
+    pub fn add_string(&mut self, contents: res::PStringId, hash: u64) {
         self.strings.insert(contents, hash);
     }
 
@@ -88,17 +94,17 @@ impl PFunction {
     pub fn get_statements(&self) -> &Vec<res::StatementNode> {
         &self.stmts
     }
-    pub fn get_args(&self) -> &Vec<String> {
+    pub fn get_args(&self) -> &Vec<res::PStringId> {
         &self.args
     }
 
-    pub fn get_locals(&self) -> &BTreeMap<String, res::PVariable> {
+    pub fn get_locals(&self) -> &BTreeMap<Vec<res::PStringId>, res::PVariable> {
         &self.locals
     }
-    pub fn set_locals(&mut self, locals: BTreeMap<String, res::PVariable>) {
+    pub fn set_locals(&mut self, locals: BTreeMap<Vec<res::PStringId>, res::PVariable>) {
         self.locals = locals;
     }
-    pub fn get_strings(&self) -> &BTreeMap<String, u64> {
+    pub fn get_strings(&self) -> &BTreeMap<res::PStringId, u64> {
         &self.strings
     }
     pub fn get_stack_offset(&self) -> usize {
@@ -108,8 +114,8 @@ impl PFunction {
         self.stack_offset = offset;
     }
 
-    pub fn copy_func_name(&self) -> String {
-        self.name.clone()
+    pub fn get_func_name_id(&self) -> res::PStringId {
+        self.name
     }
 }
 
@@ -117,7 +123,7 @@ impl std::fmt::Display for PFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
             f,
-            "{} {}() {} {{",
+            "{} {:?}() {} {{",
             self.position, self.name, self.return_type
         )?;
 

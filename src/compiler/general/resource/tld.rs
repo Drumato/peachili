@@ -12,7 +12,7 @@ impl TopLevelDecl {
         Self { kind }
     }
 
-    pub fn new_fn(fn_ret: res::PType, fn_args: Vec<(String, res::PType)>) -> Self {
+    pub fn new_fn(fn_ret: res::PType, fn_args: Vec<(res::PStringId, res::PType)>) -> Self {
         Self::new(TLDKind::FN(fn_ret, fn_args))
     }
 
@@ -26,7 +26,7 @@ impl TopLevelDecl {
             _ => panic!("not a function"),
         }
     }
-    pub fn get_args(&self) -> &[(String, res::PType)] {
+    pub fn get_args(&self) -> &[(res::PStringId, res::PType)] {
         match &self.kind {
             TLDKind::FN(_return_type, arg_types) => arg_types,
             _ => panic!("not a function"),
@@ -44,13 +44,13 @@ impl TopLevelDecl {
 #[derive(PartialEq, Debug, Clone)]
 pub enum TLDKind {
     // CONST,
-    FN(res::PType, Vec<(String, res::PType)>),
+    FN(res::PType, Vec<(res::PStringId, res::PType)>),
     ALIAS(res::PType),
     // TYPE,
 }
 
 pub struct TLDResolver {
-    tld_map: BTreeMap<String, TopLevelDecl>,
+    tld_map: BTreeMap<res::PStringId, TopLevelDecl>,
 }
 
 impl Default for TLDResolver {
@@ -62,10 +62,10 @@ impl Default for TLDResolver {
 }
 
 impl TLDResolver {
-    pub fn insert_entry(&mut self, name: String, decl: TopLevelDecl) {
-        assert!(self.tld_map.insert(name, decl).is_none());
+    pub fn insert_entry(&mut self, name_id: res::PStringId, decl: TopLevelDecl) {
+        assert!(self.tld_map.insert(name_id, decl).is_none());
     }
-    pub fn give_map(self) -> BTreeMap<String, TopLevelDecl> {
+    pub fn give_map(self) -> BTreeMap<res::PStringId, TopLevelDecl> {
         self.tld_map
     }
 }
