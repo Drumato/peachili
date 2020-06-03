@@ -64,6 +64,9 @@ fn initialize(matches: clap::ArgMatches) -> (String, option::BuildOption) {
     if let Some(target_str) = matches.value_of("target") {
         build_option.target = option::Target::new(target_str);
     }
+    if let Some(arch_str) = matches.value_of("arch") {
+        build_option.arch = option::Architecture::new(arch_str);
+    }
 
     build_option.language = lang;
 

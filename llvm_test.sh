@@ -1,7 +1,8 @@
 #!/bin/bash
 build_peachili_executable() {
   input="$1"
-  ../target/debug/peachili "$input" -L
+  ../target/debug/peachili "$input" --target=llvm-ir
+  clang ir.ll
   rustc_actual="$?"
   if [ $rustc_actual -ne 0 ]; then
     echo -e "\e[31mbuilding an executable binary failed!\e[m"
@@ -50,7 +51,5 @@ try 30 "boolean_2.go"
 try 30 "type_alias.go"
 try 1 "unsigned_int.go"
 try 30 "varinit.go"
-try 4 "pointer.go"
-try 4 "pointer2.go"
 
 echo -e "\n\nOK"

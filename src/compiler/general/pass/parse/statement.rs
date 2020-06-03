@@ -45,7 +45,7 @@ impl<'a> res::Parser<'a> {
 
         let expr = self.expression(func_name_id);
 
-        self.expect_semicolon(&cur_pos);
+        self.expect_semicolon(cur_pos.clone());
 
         res::StatementNode::new_return(expr, cur_pos)
     }
@@ -55,7 +55,7 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let expr = self.expression(func_name_id);
-        self.expect_semicolon(&cur_pos);
+        self.expect_semicolon(cur_pos.clone());
 
         res::StatementNode::new_ifret(expr, cur_pos)
     }
@@ -65,12 +65,16 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let name_id = self.expect_name();
+        if name_id.is_none() {
+            return res::StatementNode::new_vardecl(cur_pos);
+        }
+
         let ptype = self.expect_ptype();
 
         let declared_var = res::PVariable::new_local(ptype, false);
-        self.add_local_var_to(func_name_id, vec![name_id], declared_var);
+        self.add_local_var_to(func_name_id, vec![name_id.unwrap()], declared_var);
 
-        self.expect_semicolon(&cur_pos);
+        self.expect_semicolon(cur_pos.clone());
 
         res::StatementNode::new_vardecl(cur_pos)
     }
@@ -93,7 +97,7 @@ impl<'a> res::Parser<'a> {
 
         let body = self.compound_statement(func_name_id);
 
-        self.expect_semicolon(&cur_pos);
+        self.expect_semicolon(cur_pos.clone());
 
         res::StatementNode::new_countup(ident, start_expr, end_expr, body, cur_pos)
     }
@@ -101,7 +105,7 @@ impl<'a> res::Parser<'a> {
     fn expression_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
         let cur_pos = self.current_position();
         let expr = self.expression(func_name_id);
-        self.expect_semicolon(&cur_pos);
+        self.expect_semicolon(cur_pos.clone());
 
         res::StatementNode::new_expr(expr, cur_pos)
     }
@@ -127,7 +131,7 @@ impl<'a> res::Parser<'a> {
             asms.push(asm_contents_node.get_str_id());
             self.eat_if_matched(&res::TokenKind::COMMA);
         }
-        self.expect_semicolon(&cur_pos);
+        self.expect_semicolon(cur_pos.clone());
 
         res::StatementNode::new_asm(asms, cur_pos)
     }
@@ -146,7 +150,7 @@ impl<'a> res::Parser<'a> {
 
         let init_expression = self.expression(func_name_id);
 
-        self.expect_semicolon(&st_pos);
+        self.expect_semicolon(st_pos.clone());
 
         res::StatementNode::new_varinit(ident, init_expression, st_pos)
     }
@@ -165,7 +169,7 @@ impl<'a> res::Parser<'a> {
 
         let init_expression = self.expression(func_name_id);
 
-        self.expect_semicolon(&st_pos);
+        self.expect_semicolon(st_pos.clone());
 
         res::StatementNode::new_varinit(ident, init_expression, st_pos)
     }

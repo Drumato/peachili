@@ -23,6 +23,8 @@ pub fn emit_all_errors_and_exit(
     module_path: &str,
     build_opt: &option::BuildOption,
 ) -> ! {
+    eprintln!("{} errors detected.", errors.len());
+
     for err in errors.iter() {
         err.emit_stderr(module_path, build_opt);
     }

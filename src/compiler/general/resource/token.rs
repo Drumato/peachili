@@ -92,6 +92,7 @@ pub enum TokenKind {
     NEWLINE,
     COMMA,
     EOF,
+    AMPERSAND,
 
     // 予約語
     TRUE,
@@ -139,6 +140,7 @@ impl std::fmt::Display for TokenKind {
             Self::DOUBLECOLON => write!(f, "::"),
             Self::SEMICOLON => write!(f, ";"),
             Self::ASSIGN => write!(f, "="),
+            Self::AMPERSAND => write!(f, "&"),
             Self::BLANK => write!(f, "BLANK"),
             Self::NEWLINE => write!(f, "NEWLINE"),
             Self::COMMA => write!(f, ","),
@@ -187,6 +189,7 @@ impl TokenKind {
             "=" => Self::ASSIGN,
             "," => Self::COMMA,
             ";" => Self::SEMICOLON,
+            "&" => Self::AMPERSAND,
             _ => panic!("invalid tokenkind from {}", s),
         }
     }
@@ -215,6 +218,7 @@ impl TokenKind {
             Self::NEWLINE => "newline",
             Self::COMMA => ",",
             Self::EOF => "eof",
+            Self::AMPERSAND => "&",
 
             // 予約語
             Self::BOOLEAN => "boolean",

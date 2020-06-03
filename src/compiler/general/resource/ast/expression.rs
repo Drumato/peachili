@@ -12,6 +12,7 @@ impl ExpressionNode {
     pub fn get_ident_ids(&self) -> Vec<res::PStringId> {
         match &self.kind {
             ExpressionNodeKind::IDENT(id_name) => IdentName::correct_name(id_name),
+            ExpressionNodeKind::DEREF(pointer_ex) => pointer_ex.get_ident_ids(),
             _ => panic!("unexpected call `get_ident_id` with {}", self.kind),
         }
     }
@@ -66,6 +67,12 @@ impl ExpressionNode {
     pub fn new_neg(value: ExpressionNode, ex_pos: pos::Position) -> Self {
         Self::new(ExpressionNodeKind::NEG(Box::new(value)), ex_pos)
     }
+    pub fn new_address(value: ExpressionNode, ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::ADDRESS(Box::new(value)), ex_pos)
+    }
+    pub fn new_deref(value: ExpressionNode, ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::DEREF(Box::new(value)), ex_pos)
+    }
 
     pub fn new_add(lop: ExpressionNode, rop: ExpressionNode, ex_pos: pos::Position) -> Self {
         Self::new(
@@ -73,6 +80,7 @@ impl ExpressionNode {
             ex_pos,
         )
     }
+
     pub fn new_sub(lop: ExpressionNode, rop: ExpressionNode, ex_pos: pos::Position) -> Self {
         Self::new(
             ExpressionNodeKind::SUB(Box::new(lop), Box::new(rop)),
@@ -145,6 +153,8 @@ pub enum ExpressionNodeKind {
     FALSE,
 
     // unary
+    ADDRESS(Box<ExpressionNode>),
+    DEREF(Box<ExpressionNode>),
     NEG(Box<ExpressionNode>),
 
     // binary
@@ -188,6 +198,8 @@ impl std::fmt::Display for ExpressionNodeKind {
 
             // unary
             Self::NEG(v) => write!(f, "-{}", v),
+            Self::ADDRESS(v) => write!(f, "&{}", v),
+            Self::DEREF(v) => write!(f, "*{}", v),
 
             // binary
             Self::ADD(lop, rop) => write!(f, "{} + {}", lop, rop),

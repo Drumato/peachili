@@ -85,14 +85,29 @@ impl<'a> res::Parser<'a> {
     }
 
     pub fn unary(&mut self, func_name_id: res::PStringId) -> res::ExpressionNode {
+        let cur_kind = self.current_token_kind();
         let cur_pos = self.current_position();
 
-        if self.eat_if_matched(&res::TokenKind::MINUS) {
-            return res::ExpressionNode::new_neg(self.primary(func_name_id), cur_pos);
-        }
-        self.eat_if_matched(&res::TokenKind::PLUS);
+        match cur_kind {
+            res::TokenKind::PLUS => {
+                self.progress();
+                self.primary(func_name_id)
+            }
+            res::TokenKind::MINUS => {
+                self.progress();
+                res::ExpressionNode::new_neg(self.primary(func_name_id), cur_pos)
+            }
+            res::TokenKind::ASTERISK => {
+                self.progress();
+                res::ExpressionNode::new_deref(self.primary(func_name_id), cur_pos)
+            }
+            res::TokenKind::AMPERSAND => {
+                self.progress();
+                res::ExpressionNode::new_address(self.primary(func_name_id), cur_pos)
+            }
 
-        self.primary(func_name_id)
+            _ => self.primary(func_name_id),
+        }
     }
 
     pub fn primary(&mut self, func_name_id: res::PStringId) -> res::ExpressionNode {

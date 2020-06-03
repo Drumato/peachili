@@ -30,6 +30,10 @@ impl PType {
         kind: PTypeKind::STR,
         size: 8,
     };
+    pub const GLOBAL_INVALID_TYPE: Self = Self {
+        kind: PTypeKind::INVALID,
+        size: 0,
+    };
 
     fn new(k: PTypeKind, s: usize) -> Self {
         Self { kind: k, size: s }
@@ -50,6 +54,12 @@ impl PType {
     pub fn new_unresolved(name: res::IdentName) -> Self {
         Self::new(PTypeKind::UNRESOLVED(name), 0)
     }
+    pub fn new_invalid() -> Self {
+        Self::new(PTypeKind::INVALID, 0)
+    }
+    pub fn new_pointer(inner: PType) -> Self {
+        Self::new(PTypeKind::POINTER(Box::new(inner)), 8)
+    }
 
     // TODO: サイズは1のほうが効率的
     pub fn new_boolean() -> Self {
@@ -62,6 +72,21 @@ impl PType {
             _ => false,
         }
     }
+
+    pub fn is_pointer(&self) -> bool {
+        match &self.kind {
+            PTypeKind::POINTER(_inner) => true,
+            _ => false,
+        }
+    }
+
+    pub fn dereference(&self) -> Self {
+        match &self.kind {
+            PTypeKind::POINTER(inner) => *inner.clone(),
+            _ => panic!("not a pointer"),
+        }
+    }
+
     pub fn type_size(&self) -> usize {
         self.size
     }
@@ -76,6 +101,10 @@ impl PType {
             PTypeKind::UNRESOLVED(_name) => {
                 panic!("unexpected calling get_global_type_from with unresolved type")
             }
+            PTypeKind::POINTER(_inner) => {
+                panic!("unexpected calling get_global_type_from with pointer type")
+            }
+            PTypeKind::INVALID => Self::GLOBAL_INVALID_TYPE,
         }
     }
 }
@@ -94,6 +123,8 @@ pub enum PTypeKind {
     NORETURN,
     BOOLEAN,
     UNRESOLVED(res::IdentName),
+    POINTER(Box<PType>),
+    INVALID,
 }
 
 impl PTypeKind {
@@ -105,6 +136,8 @@ impl PTypeKind {
             Self::NORETURN => "noreturn",
             Self::BOOLEAN => "boolean",
             Self::UNRESOLVED(_name) => "unresolved",
+            Self::POINTER(_inner) => "pointer",
+            Self::INVALID => "invalid",
         }
     }
 }

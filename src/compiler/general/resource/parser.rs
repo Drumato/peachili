@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::common::{option, position};
+use crate::common::{error, option, position};
 use crate::compiler::general::resource as res;
 
 #[allow(dead_code)]
@@ -12,6 +12,7 @@ pub struct Parser<'a> {
     row: usize,
     col: usize,
 
+    errors: Vec<error::CompileError>,
     tokens: Vec<res::Token>,
     root: res::ASTRoot,
 }
@@ -31,12 +32,24 @@ impl<'a> Parser<'a> {
             next_token: 1,
             row: 1,
             col: 1,
+            errors: Vec::new(),
             root: Default::default(),
         }
     }
 
-    pub fn give_root(self) -> res::ASTRoot {
-        self.root
+    pub fn give_root_and_errors(self) -> (res::ASTRoot, Vec<error::CompileError>) {
+        (self.root, self.errors)
+    }
+
+    pub fn detect_error(&mut self, e: error::CompileError) {
+        self.errors.push(e);
+
+        loop {
+            if self.eat_if_matched(&res::TokenKind::SEMICOLON) {
+                break;
+            }
+            self.progress();
+        }
     }
 
     pub fn get_typedefs(&self) -> &BTreeMap<res::PStringId, res::PType> {

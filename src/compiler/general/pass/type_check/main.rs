@@ -239,7 +239,6 @@ impl<'a> res::TypeChecker<'a> {
                     locals,
                     const_pool,
                 );
-                inner_type.as_ref()?;
 
                 let inner_type = inner_type.unwrap();
                 if inner_type.is_unsigned() {
@@ -250,6 +249,41 @@ impl<'a> res::TypeChecker<'a> {
                 }
 
                 Some(inner_type)
+            }
+
+            res::ExpressionNodeKind::ADDRESS(inner) => {
+                let inner_type = self.try_to_resolve_expression(
+                    func_name_id,
+                    inner,
+                    tld_map,
+                    locals,
+                    const_pool,
+                );
+
+                Some(res::PType::new_pointer(inner_type.unwrap()))
+            }
+
+            res::ExpressionNodeKind::DEREF(pointer) => {
+                let pointer_type = self.try_to_resolve_expression(
+                    func_name_id,
+                    pointer,
+                    tld_map,
+                    locals,
+                    const_pool,
+                );
+                let pointer_type = pointer_type.unwrap();
+
+                if !pointer_type.is_pointer() {
+                    let err_pos = ex.copy_pos();
+                    self.detect_error(er::CompileError::cannot_dereference_with_not_pointer(
+                        pointer_type,
+                        err_pos,
+                    ));
+
+                    return None;
+                }
+
+                Some(pointer_type.dereference())
             }
 
             res::ExpressionNodeKind::ADD(lop, rop)
