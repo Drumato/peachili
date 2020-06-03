@@ -166,6 +166,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae91b68aebc4ddb91978b11a1b02ddd8602a05ec19002801c5666000e05e0f83"
 
 [[package]]
+name = "llvm-scratch"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c304ae776bf7f90ced783709d4eedbcdba34bbb3918153ef5f31c0bb640a8187"
+dependencies = [
+ "id-arena",
+]
+
+[[package]]
 name = "number_prefix"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -181,6 +190,7 @@ dependencies = [
  "id-arena",
  "indexmap",
  "indicatif",
+ "llvm-scratch",
  "yaml-rust",
 ]
 

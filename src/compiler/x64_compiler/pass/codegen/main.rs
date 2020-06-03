@@ -282,6 +282,20 @@ impl Generator {
             res::ExpressionNodeKind::NEG(value) => {
                 self.gen_unary_expr("-", value, local_map, string_map, const_pool);
             }
+            res::ExpressionNodeKind::ADDRESS(value) => {
+                self.gen_left_value(value, local_map, string_map);
+            }
+            res::ExpressionNodeKind::DEREF(value) => {
+                self.gen_expr(value, local_map, string_map, const_pool);
+                self.add_inst_to_cursym(x64::Instruction::popreg64(Reg64::RAX));
+                // get value from address
+                self.add_inst_to_cursym(x64::Instruction::movmem_toreg64(
+                    Reg64::RAX,
+                    0,
+                    Reg64::RAX,
+                ));
+                self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
+            }
 
             // binary-expression
             res::ExpressionNodeKind::ADD(lop, rop) => {
@@ -492,6 +506,19 @@ impl Generator {
                 self.add_inst_to_cursym(x64::Instruction::movreg_toreg64(Reg64::RBP, Reg64::RAX));
                 self.add_inst_to_cursym(x64::Instruction::subreg_byuint64(
                     cur_pvar.unwrap().get_stack_offset() as u64,
+                    Reg64::RAX,
+                ));
+                self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
+            }
+
+            res::ExpressionNodeKind::DEREF(ident_ex) => {
+                self.gen_left_value(ident_ex, local_map, _string_map);
+
+                // get value from address
+                self.add_inst_to_cursym(x64::Instruction::popreg64(x64::Reg64::RAX));
+                self.add_inst_to_cursym(x64::Instruction::movmem_toreg64(
+                    Reg64::RAX,
+                    0,
                     Reg64::RAX,
                 ));
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));

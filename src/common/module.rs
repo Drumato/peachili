@@ -1,3 +1,5 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use id_arena::*;
@@ -65,11 +67,17 @@ pub struct Module {
     pub functions: Vec<res::PFunction>,
     pub tokens: Vec<res::Token>,
     pub const_arena: Arc<Mutex<res::ConstAllocator>>,
+    pub hash_value: u64,
 }
 
 #[allow(dead_code)]
 impl Module {
     fn new(kind: ModuleKind, file_path: String) -> Self {
+        let mut hasher = DefaultHasher::new();
+
+        // 前段のprimary() で文字列リテラルであることを検査しているのでunwrap()してよい．
+        file_path.hash(&mut hasher);
+
         Self {
             kind,
             visited: false,
@@ -79,6 +87,7 @@ impl Module {
             functions: Vec::new(),
             tokens: Vec::new(),
             const_arena: Arc::new(Mutex::new(Default::default())),
+            hash_value: hasher.finish(),
         }
     }
 

@@ -98,6 +98,14 @@ impl CompileError {
             CmpErrorKind::MAINMUSTHAVENOARGSANDNORETURN => {
                 "main function's signature must be `main() noreturn`".to_string()
             }
+            CmpErrorKind::STATEMENTMUSTBEENDEDWITHSEMICOLON => {
+                "statement must be ended with `;`".to_string()
+            }
+            CmpErrorKind::EXPECTEDIDENTIFIER => "expected identifier".to_string(),
+            CmpErrorKind::GOTINVALIDPTYPE => "got invalid type".to_string(),
+            CmpErrorKind::CANNOTDEREFERENCENOTPOINTER(inner) => {
+                format!("cannot dereference `{}`; its not a pointer", inner)
+            }
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -163,6 +171,15 @@ impl CompileError {
             CmpErrorKind::MAINMUSTHAVENOARGSANDNORETURN => {
                 "main関数の型シグネチャは必ず `main() noreturn` でなければなりません".to_string()
             }
+            CmpErrorKind::STATEMENTMUSTBEENDEDWITHSEMICOLON => {
+                "文は必ず `;` で終わる必要があります".to_string()
+            }
+            CmpErrorKind::EXPECTEDIDENTIFIER => "識別子以外を検知しました".to_string(),
+            CmpErrorKind::GOTINVALIDPTYPE => "INVALID 型を検知しました".to_string(),
+            CmpErrorKind::CANNOTDEREFERENCENOTPOINTER(inner) => format!(
+                "非ポインタ型である `{}` に対してデリファレンスは無効です",
+                inner
+            ),
         }
     }
 
@@ -227,6 +244,10 @@ impl CompileError {
         )
     }
 
+    pub fn cannot_dereference_with_not_pointer(pt: res::PType, err_pos: pos::Position) -> Self {
+        Self::new(CmpErrorKind::CANNOTDEREFERENCENOTPOINTER(pt), err_pos)
+    }
+
     pub fn both_blocks_must_be_same_type(err_pos: pos::Position) -> Self {
         Self::new(CmpErrorKind::BOTHBLOCKSMUSTBESAMETYPE, err_pos)
     }
@@ -286,10 +307,33 @@ impl CompileError {
             Default::default(),
         )
     }
+
+    pub fn statement_must_be_ended_with_semicolon(err_pos: pos::Position) -> Self {
+        Self::new(CmpErrorKind::STATEMENTMUSTBEENDEDWITHSEMICOLON, err_pos)
+    }
+
+    pub fn expected_identifier(err_pos: pos::Position) -> Self {
+        Self::new(CmpErrorKind::EXPECTEDIDENTIFIER, err_pos)
+    }
+
+    pub fn got_invalid_ptype(err_pos: pos::Position) -> Self {
+        Self::new(CmpErrorKind::GOTINVALIDPTYPE, err_pos)
+    }
 }
 
 #[derive(Clone)]
 pub enum CmpErrorKind {
+    // Parse Errors
+    /// 文は必ずセミコロンで終わる必要がある．
+    STATEMENTMUSTBEENDEDWITHSEMICOLON,
+
+    /// 識別子が必要な場面
+    EXPECTEDIDENTIFIER,
+
+    /// invalid型の受け取り
+    GOTINVALIDPTYPE,
+
+    // Semantic Errors
     /// 64bitより大きかった数字
     /// kind.0 -> 数値化できなかった数字列
     OUTOF64BITSINTRANGE(String),
@@ -358,4 +402,8 @@ pub enum CmpErrorKind {
 
     /// main関数の型シグネチャは固定
     MAINMUSTHAVENOARGSANDNORETURN,
+
+    /// 非ポインタ型に対するデリファレンス
+    /// kind.0 -> 非ポインタ型
+    CANNOTDEREFERENCENOTPOINTER(res::PType),
 }

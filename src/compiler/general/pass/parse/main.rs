@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
-use std::time;
 
-use colored::*;
-
-use crate::common::{module, option, position};
+use crate::common::{error, module, operate, option, position};
 use crate::compiler::general::resource as res;
+
+type CompileErrors = Vec<error::CompileError>;
 
 pub fn parse_phase(
     build_option: &option::BuildOption,
@@ -12,36 +11,24 @@ pub fn parse_phase(
     module_id: module::ModuleId,
     tokens: Vec<res::Token>,
 ) -> res::ASTRoot {
-    let start = time::Instant::now();
-
-    // TODO: パースエラー
-    let root = parse(build_option, module_path, module_id, tokens);
-
-    let end = time::Instant::now();
-
-    if build_option.verbose {
-        eprintln!(
-            "    {}: parse {} done in {:?}",
-            "STEP2".bold().green(),
-            module_path,
-            end - start
-        );
+    let (root, parse_errors) = parse(build_option, module_path, module_id, tokens);
+    if !parse_errors.is_empty() {
+        operate::emit_all_errors_and_exit(&parse_errors, module_path, build_option);
     }
+
     root
 }
 
-// TODO: 文字列リテラル群を返すように調整する．
-// パーサに文字列リテラルを格納するメンバを作って，Vec<PFunction>と一緒に返す
 fn parse(
     opt: &option::BuildOption,
     module_path: &str,
     module_id: module::ModuleId,
     tokens: Vec<res::Token>,
-) -> res::ASTRoot {
+) -> (res::ASTRoot, CompileErrors) {
     let mut parser: res::Parser = res::Parser::new(opt, tokens);
     parser.toplevel(module_path, module_id);
 
-    parser.give_root()
+    parser.give_root_and_errors()
 }
 
 impl<'a> res::Parser<'a> {
@@ -64,13 +51,16 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let type_name_id = self.expect_name();
+        if type_name_id.is_none() {
+            return;
+        }
 
         self.expect(res::TokenKind::ASSIGN);
 
         let src_type = self.expect_ptype();
-        self.expect_semicolon(&def_func_pos);
+        self.expect_semicolon(def_func_pos);
 
-        self.add_typedef(type_name_id, src_type);
+        self.add_typedef(type_name_id.unwrap(), src_type);
     }
 
     fn function(&mut self, module_path: String, module_id: module::ModuleId) {
@@ -78,6 +68,9 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         let name_id = self.expect_name();
+        if name_id.is_none() {
+            return;
+        }
 
         // 引数
         let mut args: Vec<res::PStringId> = Vec::new();
@@ -90,21 +83,26 @@ impl<'a> res::Parser<'a> {
                 break;
             }
             let arg_name_id = self.expect_name();
+            if arg_name_id.is_none() {
+                return;
+            }
 
             let arg_type = self.expect_ptype();
 
             let arg_var = res::PVariable::new_local(arg_type, false);
 
-            assert!(arg_map.insert(vec![arg_name_id], arg_var).is_none());
+            assert!(arg_map
+                .insert(vec![arg_name_id.unwrap()], arg_var)
+                .is_none());
 
             self.eat_if_matched(&res::TokenKind::COMMA);
-            args.push(arg_name_id);
+            args.push(arg_name_id.unwrap());
         }
 
         let return_type = self.expect_ptype();
 
         let mut defined_func = res::PFunction::new(
-            name_id,
+            name_id.unwrap(),
             return_type,
             args,
             def_func_pos,
@@ -113,14 +111,15 @@ impl<'a> res::Parser<'a> {
         );
         defined_func.set_locals(arg_map);
 
-        self.add_pfunction(name_id, defined_func);
+        self.add_pfunction(name_id.unwrap(), defined_func);
 
-        let statements = self.compound_statement(name_id);
+        let statements = self.compound_statement(name_id.unwrap());
 
-        self.replace_statements(name_id, statements);
+        self.replace_statements(name_id.unwrap(), statements);
     }
 
     pub fn expect_ptype(&mut self) -> res::PType {
+        let cur_pos = self.current_position();
         let ptype_kind = self.current_token_kind().clone();
 
         if let res::TokenKind::IDENTIFIER(_name) = ptype_kind {
@@ -137,26 +136,38 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::NORETURN => res::PType::new_noreturn(),
             res::TokenKind::STR => res::PType::new_str(),
             res::TokenKind::BOOLEAN => res::PType::new_boolean(),
-            _ => panic!("got invalid ptype -> {:?}", ptype_kind),
+            res::TokenKind::ASTERISK => {
+                let inner_type = self.expect_ptype();
+                res::PType::new_pointer(inner_type)
+            }
+            _ => {
+                self.detect_error(error::CompileError::got_invalid_ptype(cur_pos));
+                res::PType::new_invalid()
+            }
         }
     }
 
-    pub fn expect_name(&mut self) -> res::PStringId {
+    pub fn expect_name(&mut self) -> Option<res::PStringId> {
         let cur_pos = self.current_position();
 
         let cur_ident = self.current_token().get_ident_id();
         self.progress();
 
         if cur_ident.is_none() {
-            panic!("{} name must be an identifier.", cur_pos);
+            self.detect_error(error::CompileError::statement_must_be_ended_with_semicolon(
+                cur_pos,
+            ));
+            return None;
         }
 
-        cur_ident.unwrap()
+        Some(cur_ident.unwrap())
     }
 
-    pub fn expect_semicolon(&mut self, stmt_pos: &position::Position) {
+    pub fn expect_semicolon(&mut self, stmt_pos: position::Position) {
         if !self.eat_if_matched(&res::TokenKind::SEMICOLON) {
-            panic!("{} statement must be end with ';'", stmt_pos);
+            self.detect_error(error::CompileError::statement_must_be_ended_with_semicolon(
+                stmt_pos,
+            ));
         }
     }
 
@@ -164,7 +175,8 @@ impl<'a> res::Parser<'a> {
         let cur_pos = self.current_position();
         let cur_ident = self.current_token().get_ident_id();
         if cur_ident.is_none() {
-            panic!("{} expected identifier.", cur_pos);
+            self.detect_error(error::CompileError::expected_identifier(cur_pos));
+            panic!();
         }
 
         self.progress();

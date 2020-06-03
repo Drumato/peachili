@@ -6,6 +6,7 @@ pub struct BuildOption {
     pub stop_link: bool,
     pub language: Language,
     pub target: Target,
+    pub arch: Architecture,
 }
 
 impl Default for BuildOption {
@@ -17,6 +18,7 @@ impl Default for BuildOption {
             stop_link: false,
             language: Language::ENGLISH,
             target: Target::X86_64,
+            arch: Architecture::X86_64,
         }
     }
 }
@@ -53,6 +55,21 @@ impl Target {
             "x86_64" => Self::X86_64,
             "llvm-ir" => Self::LLVMIR,
             _ => panic!("unsupported target -> {}", target_str),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Architecture {
+    X86_64,
+    // ARMV8,
+}
+
+impl Architecture {
+    pub fn new(arch_str: &str) -> Self {
+        match arch_str {
+            "x86_64" => Self::X86_64,
+            _ => panic!("unsupported architecture -> {}", arch_str),
         }
     }
 }
