@@ -97,11 +97,19 @@ impl<'a> res::TypeChecker<'a> {
         const_pool: &res::ConstAllocator,
     ) -> Option<res::PType> {
         match &st.kind {
-            res::StatementNodeKind::RETURN(_return_expr) => {
+            res::StatementNodeKind::RETURN(return_expr) => {
                 let this_func = tld_map.get(&func_name_id).unwrap();
 
                 if this_func.get_return_type().kind == res::PTypeKind::NORETURN {
                     self.detect_error(er::CompileError::return_in_noreturn_function(st.copy_pos()));
+                }
+
+                let return_type = self
+                    .check_expression(func_name_id, return_expr, tld_map, locals, const_pool)
+                    .unwrap();
+
+                if return_type.is_pointer() && return_type.ref_local() {
+                    self.detect_error(er::CompileError::return_local_address(st.copy_pos()));
                 }
 
                 None
@@ -260,7 +268,7 @@ impl<'a> res::TypeChecker<'a> {
                     const_pool,
                 );
 
-                Some(res::PType::new_pointer(inner_type.unwrap()))
+                Some(res::PType::new_pointer(inner_type.unwrap(), true))
             }
 
             res::ExpressionNodeKind::DEREF(pointer) => {

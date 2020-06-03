@@ -30,9 +30,15 @@ struct Generator {
     label: usize,
 }
 
+#[allow(dead_code)]
 impl Generator {
     fn give_module(self) -> LLVMModule {
         self.m
+    }
+    fn consume_label(&mut self) -> usize {
+        let l = self.label;
+        self.label += 1;
+        l
     }
 }
 

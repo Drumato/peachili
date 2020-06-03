@@ -31,5 +31,6 @@ build_and_test_peachili_executable "minus_to_unsigned.go"
 build_and_test_peachili_executable "return_in_noreturn_func.go"
 build_and_test_peachili_executable "not_found_main.go"
 build_and_test_peachili_executable "invalid_type_main.go"
+build_and_test_peachili_executable "return_local_pointer.go"
 
 echo -e "\n\nOK"

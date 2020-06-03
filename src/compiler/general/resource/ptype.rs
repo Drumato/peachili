@@ -57,8 +57,8 @@ impl PType {
     pub fn new_invalid() -> Self {
         Self::new(PTypeKind::INVALID, 0)
     }
-    pub fn new_pointer(inner: PType) -> Self {
-        Self::new(PTypeKind::POINTER(Box::new(inner)), 8)
+    pub fn new_pointer(inner: PType, ref_local: bool) -> Self {
+        Self::new(PTypeKind::POINTER(Box::new(inner), ref_local), 8)
     }
 
     // TODO: サイズは1のほうが効率的
@@ -75,14 +75,20 @@ impl PType {
 
     pub fn is_pointer(&self) -> bool {
         match &self.kind {
-            PTypeKind::POINTER(_inner) => true,
+            PTypeKind::POINTER(_inner, _ref_local) => true,
             _ => false,
         }
     }
 
     pub fn dereference(&self) -> Self {
         match &self.kind {
-            PTypeKind::POINTER(inner) => *inner.clone(),
+            PTypeKind::POINTER(inner, _ref_local) => *inner.clone(),
+            _ => panic!("not a pointer"),
+        }
+    }
+    pub fn ref_local(&self) -> bool {
+        match &self.kind {
+            PTypeKind::POINTER(_inner, ref_local) => *ref_local,
             _ => panic!("not a pointer"),
         }
     }
@@ -101,7 +107,7 @@ impl PType {
             PTypeKind::UNRESOLVED(_name) => {
                 panic!("unexpected calling get_global_type_from with unresolved type")
             }
-            PTypeKind::POINTER(_inner) => {
+            PTypeKind::POINTER(_inner, _ref_local) => {
                 panic!("unexpected calling get_global_type_from with pointer type")
             }
             PTypeKind::INVALID => Self::GLOBAL_INVALID_TYPE,
@@ -123,7 +129,7 @@ pub enum PTypeKind {
     NORETURN,
     BOOLEAN,
     UNRESOLVED(res::IdentName),
-    POINTER(Box<PType>),
+    POINTER(Box<PType>, bool), // is_local
     INVALID,
 }
 
@@ -136,7 +142,7 @@ impl PTypeKind {
             Self::NORETURN => "noreturn",
             Self::BOOLEAN => "boolean",
             Self::UNRESOLVED(_name) => "unresolved",
-            Self::POINTER(_inner) => "pointer",
+            Self::POINTER(_inner, _ref_local) => "pointer",
             Self::INVALID => "invalid",
         }
     }

@@ -138,7 +138,7 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::BOOLEAN => res::PType::new_boolean(),
             res::TokenKind::ASTERISK => {
                 let inner_type = self.expect_ptype();
-                res::PType::new_pointer(inner_type)
+                res::PType::new_pointer(inner_type, true)
             }
             _ => {
                 self.detect_error(error::CompileError::got_invalid_ptype(cur_pos));

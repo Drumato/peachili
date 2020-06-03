@@ -106,6 +106,9 @@ impl CompileError {
             CmpErrorKind::CANNOTDEREFERENCENOTPOINTER(inner) => {
                 format!("cannot dereference `{}`; its not a pointer", inner)
             }
+            CmpErrorKind::RETURNLOCALADDRESS => {
+                "unable to return an address of stack area".to_string()
+            }
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -180,6 +183,10 @@ impl CompileError {
                 "非ポインタ型である `{}` に対してデリファレンスは無効です",
                 inner
             ),
+            CmpErrorKind::RETURNLOCALADDRESS => {
+                "関数フレームが開放される危険があるため，ローカル変数のアドレスを返すのは禁止です"
+                    .to_string()
+            }
         }
     }
 
@@ -319,6 +326,10 @@ impl CompileError {
     pub fn got_invalid_ptype(err_pos: pos::Position) -> Self {
         Self::new(CmpErrorKind::GOTINVALIDPTYPE, err_pos)
     }
+
+    pub fn return_local_address(err_pos: pos::Position) -> Self {
+        Self::new(CmpErrorKind::RETURNLOCALADDRESS, err_pos)
+    }
 }
 
 #[derive(Clone)]
@@ -406,4 +417,7 @@ pub enum CmpErrorKind {
     /// 非ポインタ型に対するデリファレンス
     /// kind.0 -> 非ポインタ型
     CANNOTDEREFERENCENOTPOINTER(res::PType),
+
+    /// ローカル変数のポインタを返している
+    RETURNLOCALADDRESS,
 }
