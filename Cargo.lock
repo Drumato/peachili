@@ -167,9 +167,9 @@ checksum = "ae91b68aebc4ddb91978b11a1b02ddd8602a05ec19002801c5666000e05e0f83"
 
 [[package]]
 name = "llvm-scratch"
-version = "0.1.10"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a2b8add101abac8f6e1bce6f7dad806e663a16df61bd9293685799001f602ee"
+checksum = "9030712d3395257756217dbce45334ca68ef60961c770cd117659c84151e4778"
 dependencies = [
  "id-arena",
 ]

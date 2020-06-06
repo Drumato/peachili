@@ -5,6 +5,7 @@ use llvm_scratch::core::{
     basic_block::BasicBlockId,
     function::{FunctionId, Parameter, ReturnType},
     instruction::{InstKind as LLVMInstKind, Instruction as LLVMInst},
+    intrinsics::Intrinsic,
     llvm_string::LLVMString,
     llvm_type::LLVMType,
     llvm_value::{LLVMValue, LLVMValueKind},
@@ -25,6 +26,8 @@ pub fn codegen(
         label: 0,
         insert_bb: None,
     };
+
+    generator.m.add_intrinsic(Intrinsic::DONOTHING);
 
     let functions = ast_root.get_functions();
 
@@ -50,8 +53,8 @@ struct Generator {
 #[allow(dead_code)]
 impl Generator {
     fn gen_fn(
-        &mut self, 
-        func: &res::PFunction, 
+        &mut self,
+        func: &res::PFunction,
         const_pool: &res::ConstAllocator,
         func_map: &BTreeMap<res::PStringId, res::PFunction>,
     ) {
@@ -60,6 +63,21 @@ impl Generator {
 
         for st in func.get_statements() {
             self.gen_statement(llvm_func_id, st, func, func_map, const_pool);
+        }
+
+        if self.entry_bb_is_empty(llvm_func_id) {
+            let donothing = Intrinsic::DONOTHING;
+            let donothing_call = LLVMInst::new(
+                LLVMInstKind::CALL(
+                    None,
+                    None,
+                    Ok(ReturnType::new(donothing.return_type(), None)),
+                    LLVMString::from("llvm.donothing"),
+                    ParameterSet::new(Vec::new()),
+                ),
+                None,
+            );
+            self.insert_inst(llvm_func_id, donothing_call);
         }
     }
 
@@ -103,35 +121,46 @@ impl Generator {
 
             res::ExpressionNodeKind::CALL(callee_name, args) => {
                 let callee_name_id = res::IdentName::last_name(&callee_name);
-                let callee_function_type = func_map.get(&callee_name_id).unwrap().get_return_type();
+                let called_func = func_map.get(&callee_name_id).unwrap();
+                let callee_function_type = called_func.get_return_type();
                 let callee_function_type = self.get_llvm_type_from_ptype(callee_function_type);
+                let callee_func_args = called_func.get_args();
 
                 let func_args = func.get_args();
                 let mut params = Vec::new();
 
                 for (idx, arg) in args.iter().enumerate() {
-                    let arg_name_id = func_args[idx];
+                    let arg_name_id = callee_func_args[idx];
                     let arg_name = const_pool.get(arg_name_id).unwrap();
 
-                    let (param_value, param_ty) = self.gen_expression(llvm_func_id, arg, func, func_map, const_pool);
+                    let (param_value, param_ty) =
+                        self.gen_expression(llvm_func_id, arg, func, func_map, const_pool);
 
                     params.push(Parameter::new(
-                        LLVMString::from(arg_name.copy_value()),None, param_ty));
+                        LLVMString::from(arg_name.copy_value()),
+                        None,
+                        param_ty,
+                    ));
                 }
 
                 let param_set = ParameterSet::new(params);
                 let call_result = self.consume_cur_register();
+
+                let callee_name = const_pool.get(callee_name_id).unwrap();
+
                 let call_inst = LLVMInst::new(
                     LLVMInstKind::CALL(
                         None,
                         None,
-                        Ok(callee_function_type),
-                        LLVMString::new(callee_name),
-                        param_set
+                        Ok(ReturnType::new(callee_function_type.clone(), None)),
+                        LLVMString::from(callee_name.copy_value()),
+                        param_set,
                     ),
-                    Some(call_result),
+                    Some(call_result.clone()),
                 );
                 self.insert_inst(llvm_func_id, call_inst);
+
+                (call_result, callee_function_type)
             }
             _ => panic!("unimplemented gen_expression -> {}", ex),
         }
@@ -224,6 +253,11 @@ impl Generator {
     }
     fn set_label(&mut self, l: usize) {
         self.label = l;
+    }
+
+    fn entry_bb_is_empty(&mut self, llvm_func_id: FunctionId) -> bool {
+        let func = self.m.get_function_ref_as_mut(llvm_func_id);
+        func.entry_bb_is_empty()
     }
 }
 
