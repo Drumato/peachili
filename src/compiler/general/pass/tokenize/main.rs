@@ -7,8 +7,8 @@ use crate::common::{error, module, operate, option};
 use crate::compiler::general::resource as res;
 
 type Tokens = Vec<res::Token>;
-type GuardedCache = Arc<Mutex<res::ConstAllocator>>;
-type TokenizeReturn = (Tokens, GuardedCache);
+type GuardedAllocator = Arc<Mutex<res::ConstAllocator>>;
+type TokenizeReturn = (Tokens, GuardedAllocator);
 type CompileErrors = Vec<error::CompileError>;
 
 pub fn tokenize_phase(

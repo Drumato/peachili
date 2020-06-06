@@ -8,7 +8,7 @@ use llvm_scratch::core::{
     intrinsics::Intrinsic,
     llvm_string::LLVMString,
     llvm_type::LLVMType,
-    llvm_value::{LLVMValue, LLVMValueKind},
+    llvm_value::LLVMValue,
     module::Module as LLVMModule,
     target_datalayout, target_triple,
 };
@@ -78,6 +78,7 @@ impl Generator {
                 None,
             );
             self.insert_inst(llvm_func_id, donothing_call);
+            self.insert_inst(llvm_func_id, LLVMInst::new(LLVMInstKind::RETVOID, None));
         }
     }
 
@@ -90,15 +91,15 @@ impl Generator {
         const_pool: &res::ConstAllocator,
     ) {
         match &st.kind {
-            res::StatementNodeKind::RETURN(return_expr) => {}
-            res::StatementNodeKind::IFRET(return_expr) => {}
+            res::StatementNodeKind::RETURN(_return_expr) => {}
+            res::StatementNodeKind::IFRET(_return_expr) => {}
             res::StatementNodeKind::EXPR(expr) => {
                 self.gen_expression(llvm_func_id, expr, func, func_map, const_pool);
             }
             res::StatementNodeKind::VARDECL => {}
             res::StatementNodeKind::COUNTUP(_ident, _start_expr, _end_expr, _body) => {}
             res::StatementNodeKind::ASM(_asm_literals) => {}
-            res::StatementNodeKind::VARINIT(ident, expr) => {}
+            res::StatementNodeKind::VARINIT(_ident, _expr) => {}
         }
     }
 
@@ -126,14 +127,14 @@ impl Generator {
                 let callee_function_type = self.get_llvm_type_from_ptype(callee_function_type);
                 let callee_func_args = called_func.get_args();
 
-                let func_args = func.get_args();
+                let _func_args = func.get_args();
                 let mut params = Vec::new();
 
                 for (idx, arg) in args.iter().enumerate() {
                     let arg_name_id = callee_func_args[idx];
                     let arg_name = const_pool.get(arg_name_id).unwrap();
 
-                    let (param_value, param_ty) =
+                    let (_param_value, param_ty) =
                         self.gen_expression(llvm_func_id, arg, func, func_map, const_pool);
 
                     params.push(Parameter::new(
@@ -215,7 +216,7 @@ impl Generator {
         match &ty.kind {
             res::PTypeKind::INT64 => LLVMType::new_int(64),
             res::PTypeKind::UINT64 => LLVMType::new_uint(64),
-            res::PTypeKind::STR => panic!("unimplemented getting llvm-type from str"),
+            res::PTypeKind::STR => LLVMType::new_pointer(LLVMType::new_int(8)),
             res::PTypeKind::NORETURN => LLVMType::new_void(),
             res::PTypeKind::BOOLEAN => LLVMType::new_int(1),
             res::PTypeKind::UNRESOLVED(_) => {
