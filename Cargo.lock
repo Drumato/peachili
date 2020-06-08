@@ -92,9 +92,9 @@ dependencies = [
 
 [[package]]
 name = "elf-utilities"
-version = "0.1.29"
+version = "0.1.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05fd94fd696af19d9688b32d77e0d386d9c1ea52a4e60058815946f52d1b45ea"
+checksum = "028badc33ba72ed4b2fd636fede84f577c1ed16420b347a48a6e978b8b621a03"
 
 [[package]]
 name = "encode_unicode"
@@ -167,9 +167,9 @@ checksum = "ae91b68aebc4ddb91978b11a1b02ddd8602a05ec19002801c5666000e05e0f83"
 
 [[package]]
 name = "llvm-scratch"
-version = "0.1.13"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1e06916b3b2758b39aba97dc34c2f737044718fd6daf7ecdc4716a9093f6f88"
+checksum = "40e9cf9e80e517436c43c7a462035fea8577198d2e429a699513e3cfeed59a7b"
 dependencies = [
  "id-arena",
 ]

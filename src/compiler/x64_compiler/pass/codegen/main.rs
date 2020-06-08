@@ -549,21 +549,41 @@ impl Generator {
                     _ => panic!("unable to generate from {}", inst_name),
                 }
             }
+            2 => {
+                let inst_name = asm_splitted[0];
+                match inst_name {
+                    "call" => x64::Instruction::call(asm_splitted[1].to_string()),
+                    _ => panic!("unable to generate from {}", inst_name),
+                }
+            }
             3 => {
                 let inst_name = asm_splitted[0];
                 match inst_name {
                     "movq" => {
-                        // 今は movq $1, %rax のような形式しかパースしない
-                        let imm_str = if asm_splitted[1].contains(',') {
+                        let src_str = if asm_splitted[1].contains(',') {
                             let operand_length = asm_splitted[1].len();
                             &asm_splitted[1][..(operand_length - 1)]
                         } else {
                             asm_splitted[1]
                         };
-                        let immediate = imm_str[1..].parse::<i64>().unwrap();
-                        let reg = x64::Reg64::from_at_str(asm_splitted[2]);
 
-                        x64::Instruction::movimm_toreg64(immediate, reg)
+                        // 数値としてパースできる -> movq $1, %rax 的なの
+                        // そうではない           -> movq %rax, %rbx
+                        let inst = match src_str[1..].parse::<i64>() {
+                            Ok(value) => {
+                                let reg = x64::Reg64::from_at_str(asm_splitted[2]);
+
+                                x64::Instruction::movimm_toreg64(value, reg)
+                            }
+                            Err(_e) => {
+                                let src_reg = x64::Reg64::from_at_str(src_str);
+                                let dst_reg = x64::Reg64::from_at_str(asm_splitted[2]);
+
+                                x64::Instruction::movreg_toreg64(src_reg, dst_reg)
+                            }
+                        };
+
+                        inst
                     }
                     _ => panic!("unable to generate from {}", inst_name),
                 }

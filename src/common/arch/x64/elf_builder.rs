@@ -19,18 +19,22 @@ impl ELFBuilder {
         self.obj_file.add_section(section);
     }
 
+    pub fn give_file(self) -> elf_utilities::file::ELF64 {
+        self.obj_file
+    }
+
     pub fn condition_elf_header(&mut self) {
         self.obj_file.condition();
     }
 
-    pub fn generate_elf_file(&self, file_path: &str) {
+    pub fn generate_elf_file(&self, file_path: &str, mode: u32) {
         let bytes = self.obj_file.to_le_bytes();
 
         let file = std::fs::OpenOptions::new()
             .create(true)
             .read(true)
             .write(true)
-            .mode(0o755)
+            .mode(mode)
             .open(file_path)
             .unwrap();
         let mut writer = BufWriter::new(file);
@@ -63,7 +67,7 @@ impl ELFBuilder {
             self.init_text_section_header(all_machine_codes.len() as elf_utilities::Elf64Xword);
         let mut text_section =
             elf_utilities::section::Section64::new(".text".to_string(), text_shdr);
-        text_section.bytes = all_machine_codes;
+        text_section.bytes = Some(all_machine_codes);
 
         self.add_section(text_section);
     }
@@ -87,11 +91,12 @@ impl ELFBuilder {
             let symbol_code_length = symbol_info.code_length();
             let symbol_name_length = symbol_name.len();
 
-            let global_symbol = self.create_global_symbol(
+            let mut global_symbol = self.create_global_symbol(
                 symbol_name_index,
                 symbol_code_length as u64,
                 symbol_offset,
             );
+            global_symbol.set_symbol_name(symbol_name.to_string());
             elf_symbols.push(global_symbol);
 
             // シンボル名を指すインデックスの更新( null byte を見越して+1する)
@@ -102,19 +107,13 @@ impl ELFBuilder {
             symbol_offset += symbol_code_length as elf_utilities::Elf64Addr;
         }
 
-        // elf_utilities::Symbol64 をバイナリ列に変換
-        let mut symbol_table_binary: Vec<u8> = Vec::new();
-        for sym in elf_symbols.iter() {
-            let mut symbol_entry_binary = sym.to_le_bytes();
-            symbol_table_binary.append(&mut symbol_entry_binary);
-        }
-
+        let symbol_table_size = elf_symbols.len() * elf_utilities::symbol::Symbol64::size() as usize;
         // セクションの追加
         let symtab_section_header =
-            self.init_symbol_table_section_header(symbol_table_binary.len() as u64);
+            self.init_symbol_table_section_header(symbol_table_size as u64);
         let mut symtab_section =
             elf_utilities::section::Section64::new(".symtab".to_string(), symtab_section_header);
-        symtab_section.bytes = symbol_table_binary;
+        symtab_section.symbols = Some(elf_symbols);
         self.add_section(symtab_section);
     }
 
@@ -131,19 +130,19 @@ impl ELFBuilder {
             self.init_string_table_header(symbol_string_table.len() as elf_utilities::Elf64Xword);
         let mut strtab_section =
             elf_utilities::section::Section64::new(".strtab".to_string(), strtab_header);
-        strtab_section.bytes = symbol_string_table;
+        strtab_section.bytes = Some(symbol_string_table);
         self.add_section(strtab_section);
     }
 
     pub fn add_relatext_section(&mut self, generator: &x64::Assembler) {
         // BTreeMap<String, Rela64> -> Vec<&Rela64>
         let relocation_map = generator.get_relocation_map();
-        let mut rela_vector: Vec<&elf_utilities::relocation::Rela64> = Vec::new();
+        let mut rela_vector: Vec<elf_utilities::relocation::Rela64> = Vec::new();
 
         for (_caller_name, each_sym_rel_map) in relocation_map.iter() {
             for (_callee_name, callee_symbols) in each_sym_rel_map.iter() {
                 for callee_symbol in callee_symbols.iter() {
-                    rela_vector.push(callee_symbol);
+                    rela_vector.push(callee_symbol.clone());
                 }
             }
         }
@@ -157,8 +156,8 @@ impl ELFBuilder {
 
         let relatext_hdr = self.init_relatext_header(rela_table_binary.len() as u64);
         let mut relatext_section =
-            elf_utilities::section::Section64::new(".relatext".to_string(), relatext_hdr);
-        relatext_section.bytes = rela_table_binary;
+            elf_utilities::section::Section64::new(".rela.text".to_string(), relatext_hdr);
+        relatext_section.rela_symbols = Some(rela_vector);
         self.add_section(relatext_section);
     }
 
@@ -187,7 +186,7 @@ impl ELFBuilder {
         let rodata_header = self.init_rodata_header(strtab.len() as u64, strings_number);
         let mut rodata_section =
             elf_utilities::section::Section64::new(".rodata".to_string(), rodata_header);
-        rodata_section.bytes = strtab;
+        rodata_section.bytes = Some(strtab);
         self.add_section(rodata_section);
     }
 
@@ -207,7 +206,7 @@ impl ELFBuilder {
             self.init_string_table_header(section_string_table.len() as elf_utilities::Elf64Xword);
         let mut shstrtab_section =
             elf_utilities::section::Section64::new(".shstrtab".to_string(), shstrtab_header);
-        shstrtab_section.bytes = section_string_table;
+        shstrtab_section.bytes = Some(section_string_table);
         self.add_section(shstrtab_section);
     }
 

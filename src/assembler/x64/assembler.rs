@@ -9,7 +9,7 @@ pub struct Assembler {
     symbol_map: indexmap::IndexMap<String, arch::x64::BinSymbol>,
     // caller_name -> callee_symbol
     relocation_map:
-        indexmap::IndexMap<String, BTreeMap<String, Vec<elf_utilities::relocation::Rela64>>>,
+    indexmap::IndexMap<String, BTreeMap<String, Vec<elf_utilities::relocation::Rela64>>>,
     all_bytes: u64,
 }
 

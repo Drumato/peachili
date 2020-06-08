@@ -30,6 +30,17 @@ pub fn bundle_main(
         buffer_cache.clone(),
     );
 
+    // スタートアップルーチンの追加
+    let lib_path = std::env::var("PEACHILI_LIB_PATH").unwrap();
+    let builtin_module_path = match build_option.target{
+        option::Target::X86_64 => format!("{}/startup_x64.go", lib_path),
+        _ => panic!("umimplemented start-up routine on this arch"),
+    };
+    let builtin_id = module_resolver.proc_external_module(build_option, builtin_module_path, const_pool.clone(), buffer_cache.clone());
+    if let Some(main_mod) = module_resolver.get_module_as_mut(main_id) {
+        main_mod.requires.add_module(builtin_id);
+    }
+
     module_resolver.proc_requires(build_option, main_id, const_pool, buffer_cache);
 
     main_id

@@ -11,7 +11,7 @@ type Offset = usize;
 pub fn x64_assemble(
     build_option: &option::BuildOption,
     asm_file: arch::x64::AssemblyFile,
-) -> x64::ELFBuilder {
+) -> arch::x64::ELFBuilder {
     if build_option.verbose {
         eprintln!("start assembling...");
     }
@@ -25,7 +25,7 @@ pub fn x64_assemble(
 
     // オブジェクトファイル生成
     let object_file = new_object_file();
-    let mut object_file_builder = x64::ELFBuilder::new(object_file);
+    let mut object_file_builder = arch::x64::ELFBuilder::new(object_file);
 
     // (NULL) セクション
     object_file_builder.add_section(elf_utilities::section::Section64::new_null_section());
@@ -65,7 +65,7 @@ impl x64::Assembler {
         &mut self,
         sym: &arch::x64::Symbol,
     ) -> (arch::x64::BinSymbol, HashMap<String, (CodeIndex, Offset)>) {
-        let mut bin_symbol = arch::x64::BinSymbol::new_global();
+        let mut bin_symbol = arch::x64::BinSymbol::new_global(Some(sym.copy_name()));
         let instructions = sym.get_insts();
 
         // シンボルごとに初期化

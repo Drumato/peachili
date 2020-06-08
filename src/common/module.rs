@@ -16,6 +16,9 @@ impl ModuleVec {
     pub fn get_locked_modules(&self) -> MutexGuard<Vec<ModuleId>> {
         self.modules.lock().unwrap()
     }
+    pub fn add_module(&mut self, mod_id: ModuleId) {
+        self.modules.lock().unwrap().push(mod_id);
+    }
 }
 
 impl Default for ModuleVec {

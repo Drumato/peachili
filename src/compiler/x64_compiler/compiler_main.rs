@@ -9,6 +9,7 @@ pub fn compile_main(
     main_mod_id: module::ModuleId,
     module_allocator: &module::ModuleAllocator,
 ) -> arch::x64::AssemblyFile {
+
     let mut ast_root =
         general::frontend::proc_frontend(build_option, main_mod_id, module_allocator);
 
