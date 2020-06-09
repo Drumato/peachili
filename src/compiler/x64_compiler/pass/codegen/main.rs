@@ -28,6 +28,7 @@ struct Generator {
     asm: x64::AssemblyFile,
     sym_idx: usize,
     label: usize,
+    total_string_length: u64,
 }
 
 impl Generator {
@@ -75,6 +76,7 @@ impl Generator {
 
         for (contents_id, hash) in string_map.iter() {
             let contents = const_pool.get(*contents_id).unwrap().copy_value();
+
             self.add_string_to_cursym(contents, *hash);
         }
     }
@@ -364,12 +366,19 @@ impl Generator {
 
                 self.gen_comment("end if-else expression");
             }
-            res::ExpressionNodeKind::STRLIT(_contents, hash) => {
-                // leaq .LS(%rip), %rax
-                self.add_inst_to_cursym(x64::Instruction::lea_string_addr_to_reg_with_rip(
+            res::ExpressionNodeKind::STRLIT(contents_id, hash) => {
+                // leaq .LS, %rax
+                self.add_inst_to_cursym(x64::Instruction::lea_string_addr_to_reg(
                     format!(".LS{}", hash),
                     Reg64::RAX,
+                    self.total_string_length,
                 ));
+
+                let contents = const_pool.get(*contents_id).unwrap();
+
+                // +1 は ヌルバイトを意味する
+                self.total_string_length += contents.len() as u64 + 1;
+
                 self.add_inst_to_cursym(x64::Instruction::pushreg64(Reg64::RAX));
             }
         }
@@ -597,6 +606,7 @@ impl Generator {
             sym_idx: 0,
             asm: x64::AssemblyFile::new(file_path),
             label: 1,
+            total_string_length: 0,
         }
     }
     fn set_label(&mut self, lnum: usize) {

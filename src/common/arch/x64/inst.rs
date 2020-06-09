@@ -47,8 +47,8 @@ impl Instruction {
             InstKind::NEGREG64(value) => format!("negq {}", value.to_at()),
 
             // etc
-            InstKind::LEASTRINGTOREGWITHRIP(label, reg) => {
-                format!("leaq {}(%rip), {}", label, reg.to_at())
+            InstKind::LEASTRINGADDRESSTOTREG64(label, reg, _addend) => {
+                format!("leaq {}, {}", label, reg.to_at())
             }
             InstKind::LABEL(label) => format!("{}:", label),
             InstKind::JUMP(label) => format!("jmp {}", label),
@@ -117,8 +117,8 @@ impl Instruction {
     }
 
     // etc
-    pub fn lea_string_addr_to_reg_with_rip(label: String, reg: Reg64) -> Self {
-        Self::new(InstKind::LEASTRINGTOREGWITHRIP(label, reg))
+    pub fn lea_string_addr_to_reg(label: String, reg: Reg64, addend: u64) -> Self {
+        Self::new(InstKind::LEASTRINGADDRESSTOTREG64(label, reg, addend))
     }
     pub fn jump_label(label: String) -> Self {
         Self::new(InstKind::JUMP(label))
@@ -187,7 +187,7 @@ pub enum InstKind {
     INCREG64(Reg64),
 
     // etc
-    LEASTRINGTOREGWITHRIP(String, Reg64),
+    LEASTRINGADDRESSTOTREG64(String, Reg64, u64),
     LABEL(String),
     JUMP(String),
     JUMPEQUAL(String),

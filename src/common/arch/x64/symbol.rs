@@ -4,11 +4,15 @@ use std::collections::BTreeMap;
 
 use crate::common::arch::x64::*;
 
+type Hash = u64;
+
 #[allow(dead_code)]
 pub struct Symbol {
     name: String,
     insts: Vec<Instruction>,
-    strings: BTreeMap<String, u64>,
+
+    // Addend -> 文字列のオフセット
+    strings: BTreeMap<String, Hash>,
 }
 
 impl Symbol {
@@ -43,14 +47,14 @@ impl Symbol {
     pub fn add_inst(&mut self, inst: Instruction) {
         self.insts.push(inst);
     }
-    pub fn add_string(&mut self, contents: String, hash: u64) {
+    pub fn add_string(&mut self, contents: String, hash: Hash) {
         self.strings.insert(contents, hash);
     }
 
     pub fn get_insts(&self) -> &Vec<Instruction> {
         &self.insts
     }
-    pub fn get_strings(&self) -> &BTreeMap<String, u64> {
+    pub fn get_strings(&self) -> &BTreeMap<String, Hash> {
         &self.strings
     }
 }

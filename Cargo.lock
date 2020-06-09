@@ -92,9 +92,9 @@ dependencies = [
 
 [[package]]
 name = "elf-utilities"
-version = "0.1.41"
+version = "0.1.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "028badc33ba72ed4b2fd636fede84f577c1ed16420b347a48a6e978b8b621a03"
+checksum = "361906e247be81f1b7c1ad154b9aa572a61f9099ea25a807705ec8de7bf95ee8"
 
 [[package]]
 name = "encode_unicode"

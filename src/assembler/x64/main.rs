@@ -1,6 +1,6 @@
 extern crate elf_utilities;
 
-use std::collections::HashMap;
+use std::collections::{HashMap};
 
 use crate::assembler::x64;
 use crate::common::{arch, option};
@@ -72,6 +72,9 @@ impl x64::Assembler {
         self.set_byte_length(0);
         let mut jump_map: HashMap<String, (CodeIndex, Offset)> = HashMap::new();
 
+        // 文字列群のコピー
+        let strings = sym.get_strings();
+
         let sym_name = sym.copy_name();
         for inst in instructions.iter() {
             let codes = self.generate_from_inst(inst, &sym_name, &mut jump_map);
@@ -90,9 +93,6 @@ impl x64::Assembler {
             extra_bytes.push(0x00);
         }
         bin_symbol.add_codes(extra_bytes);
-
-        // 文字列群のコピー
-        let strings = sym.get_strings();
 
         for (contents, _hash) in strings.iter() {
             bin_symbol.add_string_literal(contents.to_string());
@@ -128,21 +128,22 @@ impl x64::Assembler {
             }
 
             // lea
-            arch::x64::InstKind::LEASTRINGTOREGWITHRIP(label, dst) => {
+            arch::x64::InstKind::LEASTRINGADDRESSTOTREG64(label, dst, addend) => {
+
                 // 再配置用にシンボルを定義
                 let mut rela: elf_utilities::relocation::Rela64 = Default::default();
-                rela.set_addend(-4);
+                rela.set_addend(*addend as i64);
                 let offset_before_lea = self.get_all_byte_length();
 
                 // 3 -> immediateまでスキップ generate_lea64を見るとわかる
-                rela.set_offset(offset_before_lea + 3);
+                rela.set_offset(offset_before_lea + 4);
 
                 // 2 -> .rodataのsymtabインデックス決め打ち
-                rela.set_info((2 << 32) + elf_utilities::relocation::R_X86_64_PC32);
+                rela.set_info((2 << 32) + elf_utilities::relocation::R_X86_64_32);
 
                 self.add_relocation_symbol(sym_name.to_string(), label.to_string(), rela);
 
-                self.generate_learegtoregwithrip64(&arch::x64::Immediate::new_int64(0), dst)
+                self.generate_leareg64(&arch::x64::Immediate::new_int64(0), dst)
             }
 
             // jump
