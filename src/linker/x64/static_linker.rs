@@ -1,4 +1,4 @@
-use elf_utilities::{segment, header, symbol};
+use elf_utilities::{header, segment, symbol};
 
 const PAGE_SIZE: u64 = 0x1000;
 const BASE_CODE_ADDRESS: u64 = 0x400000;
@@ -10,9 +10,7 @@ pub struct StaticLinker {
 
 impl StaticLinker {
     pub fn new(f: elf_utilities::file::ELF64) -> Self {
-        Self {
-            elf_file: f,
-        }
+        Self { elf_file: f }
     }
 
     pub fn init_phdrs(&mut self) {
@@ -39,16 +37,29 @@ impl StaticLinker {
 
     pub fn adding_null_byte_to_relatext(&mut self) {
         // 0x00 をセクションに書き込む
-        let relatext_size = self.elf_file.get_section(".rela.text".to_string()).unwrap().header.get_size();
-        let relatext_offset = self.elf_file.get_section(".rela.text".to_string()).unwrap().header.get_offset();
+        let relatext_size = self
+            .elf_file
+            .get_section(".rela.text".to_string())
+            .unwrap()
+            .header
+            .get_size();
+        let relatext_offset = self
+            .elf_file
+            .get_section(".rela.text".to_string())
+            .unwrap()
+            .header
+            .get_offset();
 
-        self.elf_file.add_null_bytes_to(4, PAGE_SIZE as usize * 2 - relatext_offset as usize - relatext_size as usize);
+        self.elf_file.add_null_bytes_to(
+            4,
+            PAGE_SIZE as usize * 2 - relatext_offset as usize - relatext_size as usize,
+        );
 
         if let Some(relatext_sct) = self.elf_file.get_section_as_mut(".rela.text".to_string()) {
-            relatext_sct.header.set_size(PAGE_SIZE * 2 - relatext_offset);
+            relatext_sct
+                .header
+                .set_size(PAGE_SIZE * 2 - relatext_offset);
         }
-
-
     }
 
     pub fn adding_null_byte_to(&mut self, sct_idx: usize) {
@@ -56,7 +67,10 @@ impl StaticLinker {
         // section-header の値は変えないので,どのセクションにも属さないバイナリを書き込む
         let pht_size = segment::Phdr64::size() * self.elf_file.segment_number() as u16;
 
-        self.elf_file.add_null_bytes_to(sct_idx, PAGE_SIZE as usize - header::Ehdr64::size() as usize - pht_size as usize);
+        self.elf_file.add_null_bytes_to(
+            sct_idx,
+            PAGE_SIZE as usize - header::Ehdr64::size() as usize - pht_size as usize,
+        );
     }
 
     pub fn allocate_address_to_symbols(&mut self) -> elf_utilities::Elf64Addr {
@@ -86,7 +100,8 @@ impl StaticLinker {
                     symbol::STT_SECTION => {
                         // ロード先のアドレスを格納しておく
                         let related_section_index = sym.get_shndx() as usize;
-                        let related_section_address = sections[related_section_index].header.get_addr();
+                        let related_section_address =
+                            sections[related_section_index].header.get_addr();
 
                         sym.set_value(related_section_address);
                     }
@@ -102,8 +117,22 @@ impl StaticLinker {
     }
 
     pub fn resolve_relocation_symbols(&mut self) {
-        let symbols = self.elf_file.get_section(".symtab".to_string()).unwrap().symbols.as_ref().unwrap().clone();
-        let rela_symbols = self.elf_file.get_section(".rela.text".to_string()).unwrap().rela_symbols.as_ref().unwrap().clone();
+        let symbols = self
+            .elf_file
+            .get_section(".symtab".to_string())
+            .unwrap()
+            .symbols
+            .as_ref()
+            .unwrap()
+            .clone();
+        let rela_symbols = self
+            .elf_file
+            .get_section(".rela.text".to_string())
+            .unwrap()
+            .rela_symbols
+            .as_ref()
+            .unwrap()
+            .clone();
 
         // 各再配置シンボルにアドレスを割り当て
         for rela_sym in rela_symbols.iter() {
@@ -117,11 +146,13 @@ impl StaticLinker {
                     // セクションシンボルには allocate_address_to_symbols で予めセクションオフセットが入っている
                     let related_symbol_index = rela_sym.get_sym() as usize;
                     let rodata_offset = symbols[related_symbol_index].get_value() as i32;
-                    let string_offset = rodata_offset - rela_sym.get_addend() as i32;
+                    let string_offset = rodata_offset + rela_sym.get_addend() as i32;
 
                     // アドレスをバイト列に変換,機械語に書き込むことでアドレス解決
                     for (idx, b) in string_offset.to_le_bytes().to_vec().iter().enumerate() {
-                        if let Some(text_sct) = self.elf_file.get_section_as_mut(".text".to_string()) {
+                        if let Some(text_sct) =
+                            self.elf_file.get_section_as_mut(".text".to_string())
+                        {
                             text_sct.write_byte_to_index(*b, rela_sym.get_offset() as usize + idx);
                         }
                     }
@@ -131,11 +162,15 @@ impl StaticLinker {
                     // Relaオブジェクトに対応するシンボルテーブルエントリからアドレスを取り出す
                     let related_symbol_index = rela_sym.get_sym() as usize;
                     let sym_address = symbols[related_symbol_index].get_value() as i32;
-                    let relative_offset = sym_address - BASE_CODE_ADDRESS as i32 - rela_sym.get_offset() as i32 + rela_sym.get_addend() as i32;
+                    let relative_offset =
+                        sym_address - BASE_CODE_ADDRESS as i32 - rela_sym.get_offset() as i32
+                            + rela_sym.get_addend() as i32;
 
                     // アドレスをバイト列に変換,機械語に書き込むことでアドレス解決
                     for (idx, b) in relative_offset.to_le_bytes().to_vec().iter().enumerate() {
-                        if let Some(text_sct) = self.elf_file.get_section_as_mut(".text".to_string()) {
+                        if let Some(text_sct) =
+                            self.elf_file.get_section_as_mut(".text".to_string())
+                        {
                             text_sct.write_byte_to_index(*b, rela_sym.get_offset() as usize + idx);
                         }
                     }
@@ -152,7 +187,6 @@ impl StaticLinker {
             let is_text_sct = sct.name == ".text".to_string();
             let is_rodata_sct = sct.name == ".rodata".to_string();
 
-
             let update_offset = if i < 5 {
                 PAGE_SIZE - header::Ehdr64::size() as u64 + sct.header.get_offset()
             } else {
@@ -161,7 +195,6 @@ impl StaticLinker {
                 extra_bytes += sct.header.get_size();
 
                 updated
-
             };
 
             sct.header.set_offset(update_offset);

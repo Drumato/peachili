@@ -1,6 +1,5 @@
 extern crate elf_utilities;
-
-use std::collections::BTreeMap;
+extern crate indexmap;
 
 use crate::common::arch::x64::*;
 
@@ -12,7 +11,7 @@ pub struct Symbol {
     insts: Vec<Instruction>,
 
     // Addend -> 文字列のオフセット
-    strings: BTreeMap<String, Hash>,
+    strings: indexmap::IndexMap<String, Hash>,
 }
 
 impl Symbol {
@@ -20,7 +19,7 @@ impl Symbol {
         Self {
             name: func_name,
             insts: Vec::new(),
-            strings: BTreeMap::new(),
+            strings: indexmap::IndexMap::new(),
         }
     }
 
@@ -54,7 +53,7 @@ impl Symbol {
     pub fn get_insts(&self) -> &Vec<Instruction> {
         &self.insts
     }
-    pub fn get_strings(&self) -> &BTreeMap<String, Hash> {
+    pub fn get_strings(&self) -> &indexmap::IndexMap<String, Hash> {
         &self.strings
     }
 }
