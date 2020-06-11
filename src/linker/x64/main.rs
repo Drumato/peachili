@@ -24,8 +24,7 @@ pub fn x64_static_link(_build_opt: &option::BuildOption, builder: arch::x64::ELF
 
     // 次に文字列データ用に，0x00 パディングを行う．
     // 二段階に分けるのは,パディングサイズを正しく計算するため．
-    static_linker.adding_null_byte_to_relatext();
-
+    static_linker.adding_null_byte_to_nodata();
 
     static_linker.update_ehdr();
 

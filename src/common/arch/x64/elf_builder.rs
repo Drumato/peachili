@@ -77,7 +77,7 @@ impl ELFBuilder {
         let mut elf_symbols = vec![
             elf_utilities::symbol::Symbol64::new_null_symbol(),
             self.create_section_symbol(1),
-            self.create_section_symbol(5),
+            self.create_section_symbol(6),
         ];
 
         // シンボルを走査する
@@ -161,6 +161,14 @@ impl ELFBuilder {
         self.add_section(relatext_section);
     }
 
+    pub fn add_nodata_section(&mut self) {
+        let nodata_header = self.init_nodata_header();
+        let mut nodata_section =
+            elf_utilities::section::Section64::new(".nodata".to_string(), nodata_header);
+        nodata_section.bytes = Some(Vec::new());
+        self.add_section(nodata_section);
+    }
+
     pub fn add_rodata_section(&mut self, generator: &x64::Assembler) {
         let symbol_map = generator.get_symbol_map();
 
@@ -197,6 +205,7 @@ impl ELFBuilder {
             ".symtab",
             ".strtab",
             ".rela.text",
+            ".nodata",
             ".rodata",
             ".shstrtab",
         ];
@@ -273,6 +282,14 @@ impl ELFBuilder {
 
         // TODO: .textセクションが一番目にあることを決め打ち
         shdr.set_info(1);
+
+        shdr
+    }
+
+    fn init_nodata_header(&self) -> elf_utilities::section::Shdr64 {
+        let mut shdr: elf_utilities::section::Shdr64 = Default::default();
+
+        shdr.set_type(elf_utilities::section::TYPE::NULL);
 
         shdr
     }

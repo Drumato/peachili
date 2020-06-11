@@ -37,6 +37,8 @@ pub fn x64_assemble(
     object_file_builder.add_symtab_string_section(&generator);
     // .rela.text セクション
     object_file_builder.add_relatext_section(&generator);
+    // .nodata セクション
+    object_file_builder.add_nodata_section();
     // .rodata セクション
     object_file_builder.add_rodata_section(&generator);
     // .shstrtab セクション

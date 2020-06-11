@@ -35,30 +35,24 @@ impl StaticLinker {
         ehdr.set_shoff(PAGE_SIZE + all_section_size);
     }
 
-    pub fn adding_null_byte_to_relatext(&mut self) {
+    pub fn adding_null_byte_to_nodata(&mut self) {
         // 0x00 をセクションに書き込む
-        let relatext_size = self
+        let nodata_offset = self
             .elf_file
-            .get_section(".rela.text".to_string())
-            .unwrap()
-            .header
-            .get_size();
-        let relatext_offset = self
-            .elf_file
-            .get_section(".rela.text".to_string())
+            .get_section(".nodata".to_string())
             .unwrap()
             .header
             .get_offset();
 
         self.elf_file.add_null_bytes_to(
-            4,
-            PAGE_SIZE as usize * 2 - relatext_offset as usize - relatext_size as usize,
+            5,
+            PAGE_SIZE as usize * 2 - nodata_offset as usize,
         );
 
-        if let Some(relatext_sct) = self.elf_file.get_section_as_mut(".rela.text".to_string()) {
-            relatext_sct
+        if let Some(nodata_sct) = self.elf_file.get_section_as_mut(".nodata".to_string()) {
+            nodata_sct
                 .header
-                .set_size(PAGE_SIZE * 2 - relatext_offset);
+                .set_size(PAGE_SIZE * 2 - nodata_offset);
         }
     }
 
@@ -187,7 +181,7 @@ impl StaticLinker {
             let is_text_sct = sct.name == ".text".to_string();
             let is_rodata_sct = sct.name == ".rodata".to_string();
 
-            let update_offset = if i < 5 {
+            let update_offset = if i < 6 {
                 PAGE_SIZE - header::Ehdr64::size() as u64 + sct.header.get_offset()
             } else {
                 // .rodataの後ろならさらにパディングされている
