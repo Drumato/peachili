@@ -578,7 +578,7 @@ impl Generator {
 
                         // 数値としてパースできる -> movq $1, %rax 的なの
                         // そうではない           -> movq %rax, %rbx
-                        let inst = match src_str[1..].parse::<i64>() {
+                        match src_str[1..].parse::<i64>() {
                             Ok(value) => {
                                 let reg = x64::Reg64::from_at_str(asm_splitted[2]);
 
@@ -590,9 +590,7 @@ impl Generator {
 
                                 x64::Instruction::movreg_toreg64(src_reg, dst_reg)
                             }
-                        };
-
-                        inst
+                        }
                     }
                     _ => panic!("unable to generate from {}", inst_name),
                 }

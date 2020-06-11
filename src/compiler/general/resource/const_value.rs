@@ -53,8 +53,11 @@ impl PString {
     pub fn copy_value(&self) -> String {
         self.value.to_string()
     }
-    pub fn len(&self) -> usize{
+    pub fn len(&self) -> usize {
         self.value.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
     }
 
     pub fn compare_str(&self, s: String) -> bool {

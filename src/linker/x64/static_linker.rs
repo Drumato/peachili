@@ -44,15 +44,11 @@ impl StaticLinker {
             .header
             .get_offset();
 
-        self.elf_file.add_null_bytes_to(
-            5,
-            PAGE_SIZE as usize * 2 - nodata_offset as usize,
-        );
+        self.elf_file
+            .add_null_bytes_to(5, PAGE_SIZE as usize * 2 - nodata_offset as usize);
 
         if let Some(nodata_sct) = self.elf_file.get_section_as_mut(".nodata".to_string()) {
-            nodata_sct
-                .header
-                .set_size(PAGE_SIZE * 2 - nodata_offset);
+            nodata_sct.header.set_size(PAGE_SIZE * 2 - nodata_offset);
         }
     }
 
@@ -178,8 +174,8 @@ impl StaticLinker {
         let mut extra_bytes = 0x00;
 
         for (i, sct) in self.elf_file.iter_sections_as_mut().enumerate() {
-            let is_text_sct = sct.name == ".text".to_string();
-            let is_rodata_sct = sct.name == ".rodata".to_string();
+            let is_text_sct = sct.name == ".text";
+            let is_rodata_sct = sct.name == ".rodata";
 
             let update_offset = if i < 6 {
                 PAGE_SIZE - header::Ehdr64::size() as u64 + sct.header.get_offset()
