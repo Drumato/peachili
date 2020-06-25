@@ -5,6 +5,8 @@ use std::collections::{HashMap};
 use crate::assembler::x64;
 use crate::common::{arch, option};
 
+use x64_asm::*;
+
 type CodeIndex = usize;
 type Offset = usize;
 
@@ -68,24 +70,21 @@ impl x64::Assembler {
         sym: &arch::x64::Symbol,
     ) -> (arch::x64::BinSymbol, HashMap<String, (CodeIndex, Offset)>) {
         let mut bin_symbol = arch::x64::BinSymbol::new_global(Some(sym.copy_name()));
-        let instructions = sym.get_insts();
-
         // シンボルごとに初期化
         self.set_byte_length(0);
         let mut jump_map: HashMap<String, (CodeIndex, Offset)> = HashMap::new();
 
         // 文字列群のコピー
         let strings = sym.get_strings();
+        for (contents, _hash) in strings.iter() {
+            bin_symbol.add_string_literal(contents.to_string());
+        }
 
         let sym_name = sym.copy_name();
-        for inst in instructions.iter() {
-            let codes = self.generate_from_inst(inst, &sym_name, &mut jump_map);
 
-            // call命令のオフセットを計算するため，
-            // コード長は命令ごとに更新しておく．
-            self.add_byte_length(codes.len() as u64);
-
-            bin_symbol.add_codes(codes);
+        let groups = sym.get_groups();
+        for group in groups.iter() {
+            bin_symbol.add_codes(self.generate_from_group(group, &sym_name, &mut jump_map));
         }
 
         // アラインメント調整
@@ -96,22 +95,59 @@ impl x64::Assembler {
         }
         bin_symbol.add_codes(extra_bytes);
 
-        for (contents, _hash) in strings.iter() {
-            bin_symbol.add_string_literal(contents.to_string());
+        (bin_symbol, jump_map)
+    }
+
+    fn generate_from_group(
+        &mut self,
+        group: &x64_asm::Group,
+        sym_name: &str,
+        mut jump_map: &mut HashMap<String, (CodeIndex, Offset)>,
+    ) -> Vec<u8> {
+        let mut all_codes = Vec::new();
+
+        for i in group.insts.iter() {
+            let mut codes = self.generate_from_inst(i, sym_name, jump_map);
+
+            // call命令のオフセットを計算するため，
+            // コード長は命令ごとに更新しておく．
+            self.add_byte_length(codes.len() as u64);
+
+            all_codes.append(&mut codes);
         }
 
-        (bin_symbol, jump_map)
+        all_codes
     }
 
     fn generate_from_inst(
         &mut self,
-        inst: &arch::x64::Instruction,
+        inst: &x64_asm::Instruction,
         sym_name: &str,
         jump_map: &mut HashMap<String, (CodeIndex, Offset)>,
     ) -> Vec<u8> {
-        let inst_kind = inst.get_kind();
+        match &inst.opcode {
+            Opcode::CALLFUNC(func) => {
+                let callee_name = func.copy_label();
 
-        match inst_kind {
+                // 再配置用にシンボルを定義
+                let mut rela: elf_utilities::relocation::Rela64 = Default::default();
+                rela.set_addend(-4);
+
+                // 1 -> オペコード分スキップ generate_callrm64を見るとわかる
+                let offset_before_call = self.get_all_byte_length();
+                rela.set_offset(offset_before_call + 1);
+
+                self.add_relocation_symbol(sym_name.to_string(), callee_name, rela);
+
+                // 適当なアドレスをおいておく
+                vec![0xe8, 0x00, 0x00, 0x00, 0x00]
+            }
+            Opcode::COMMENT(_contents) => Vec::new(),
+            _ => inst.to_bytes()
+        }
+
+        /*
+        match inst.opcode {
             // ラベル
             arch::x64::InstKind::LABEL(name) => {
                 let length = self.get_all_byte_length() as usize;
@@ -196,65 +232,8 @@ impl x64::Assembler {
 
                 codes
             }
-
-            // add
-            arch::x64::InstKind::ADDREGTOREG64(src, dst) => self.generate_addregtoreg64(src, dst),
-
-            // cmp
-            arch::x64::InstKind::CMPREGANDINT64(value, dst) => {
-                self.generate_cmpregandint64(value, dst)
-            }
-            arch::x64::InstKind::CMPREGANDREG64(src, dst) => self.generate_cmpregandreg64(src, dst),
-
-            // imul
-            arch::x64::InstKind::IMULREGTOREG64(src, dst) => self.generate_imulregtoreg64(src, dst),
-
-            // mov
-            arch::x64::InstKind::MOVREGTOREG64(src, dst) => self.generate_movregtoreg64(src, dst),
-            arch::x64::InstKind::MOVREGTOMEM64(src, base_reg, offset) => {
-                self.generate_movregtomem64(src, base_reg, *offset)
-            }
-            arch::x64::InstKind::MOVMEMTOREG64(base_reg, offset, src) => {
-                self.generate_movmemtoreg64(base_reg, *offset, src)
-            }
-            arch::x64::InstKind::MOVIMMTOREG64(imm, dst) => self.generate_movimmtoreg64(imm, dst),
-
-            // inc
-            arch::x64::InstKind::INCREG64(value) => self.generate_increg64(value),
-
-            // neg
-            arch::x64::InstKind::NEGREG64(value) => self.generate_negreg64(value),
-
-            // pop
-            arch::x64::InstKind::POPREG64(value) => self.generate_popreg64(value),
-
-            // push
-            arch::x64::InstKind::PUSHINT64(immediate) => self.generate_pushint64(immediate),
-            arch::x64::InstKind::PUSHUINT64(immediate) => self.generate_pushint64(immediate),
-            arch::x64::InstKind::PUSHREG64(value) => self.generate_pushreg64(value),
-
-            // sub
-            arch::x64::InstKind::SUBREGTOREG64(src, dst) => self.generate_subregtoreg64(src, dst),
-            arch::x64::InstKind::SUBREGBYUINT64(imm, dst) => self.generate_subregbyuint64(imm, dst),
-
-            // ret
-            arch::x64::InstKind::RET => self.generate_ret(),
-
-            // syscall
-            arch::x64::InstKind::SYSCALL => self.generate_syscall(),
-
-            // etc.
-            arch::x64::InstKind::COMMENT(_contents) => Vec::new(),
             arch::x64::InstKind::CALL(callee_name) => {
-                // 再配置用にシンボルを定義
-                let mut rela: elf_utilities::relocation::Rela64 = Default::default();
-                rela.set_addend(-4);
 
-                // 1 -> オペコード分スキップ generate_callrm64を見るとわかる
-                let offset_before_call = self.get_all_byte_length();
-                rela.set_offset(offset_before_call + 1);
-
-                self.add_relocation_symbol(sym_name.to_string(), callee_name.to_string(), rela);
 
                 self.generate_callrm64()
             }
@@ -263,6 +242,8 @@ impl x64::Assembler {
                 inst.to_at_code()
             ),
         }
+
+         */
     }
 
     fn resolve_jump_instructions(

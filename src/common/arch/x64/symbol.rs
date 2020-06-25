@@ -1,14 +1,13 @@
 extern crate elf_utilities;
 extern crate indexmap;
 
-use crate::common::arch::x64::*;
 
 type Hash = u64;
 
 #[allow(dead_code)]
 pub struct Symbol {
     name: String,
-    insts: Vec<Instruction>,
+    groups: Vec<x64_asm::Group>,
 
     // Addend -> 文字列のオフセット
     strings: indexmap::IndexMap<String, Hash>,
@@ -18,7 +17,7 @@ impl Symbol {
     pub fn new(func_name: String) -> Self {
         Self {
             name: func_name,
-            insts: Vec::new(),
+            groups: Vec::new(),
             strings: indexmap::IndexMap::new(),
         }
     }
@@ -31,8 +30,8 @@ impl Symbol {
         let mut code = format!(".global {}\n", self.name);
         code += &(format!("{}:\n", self.name));
 
-        for ins in self.insts.iter() {
-            code += &(format!("  {}\n", ins.to_at_code()));
+        for group in self.groups.iter() {
+            code += &group.to_at_string();
         }
 
         code += ".section .rodata\n";
@@ -43,15 +42,23 @@ impl Symbol {
 
         code
     }
-    pub fn add_inst(&mut self, inst: Instruction) {
-        self.insts.push(inst);
+
+    pub fn add_inst(&mut self, inst: x64_asm::Instruction) {
+        if self.groups.is_empty() {
+            let mut g: x64_asm::Group = Default::default();
+            g.label = "entry".to_string();
+
+            self.groups.push(g);
+        }
+        let idx = self.groups.len() - 1;
+        self.groups[idx].insts.push(inst);
     }
     pub fn add_string(&mut self, contents: String, hash: Hash) {
         self.strings.insert(contents, hash);
     }
 
-    pub fn get_insts(&self) -> &Vec<Instruction> {
-        &self.insts
+    pub fn get_groups(&self) -> &Vec<x64_asm::Group> {
+        &self.groups
     }
     pub fn get_strings(&self) -> &indexmap::IndexMap<String, Hash> {
         &self.strings

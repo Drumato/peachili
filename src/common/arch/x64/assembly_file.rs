@@ -27,7 +27,7 @@ impl AssemblyFile {
     pub fn add_symbol(&mut self, sym: Symbol) {
         self.symbols.push(sym);
     }
-    pub fn add_inst_to_sym(&mut self, idx: usize, inst: Instruction) {
+    pub fn add_inst_to_sym(&mut self, idx: usize, inst: x64_asm::Instruction) {
         self.symbols[idx].add_inst(inst);
     }
     pub fn add_string_to_sym(&mut self, idx: usize, contents: String, hash: u64) {

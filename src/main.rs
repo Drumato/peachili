@@ -2,6 +2,7 @@
 extern crate clap;
 extern crate id_arena;
 extern crate yaml_rust;
+extern crate x64_asm;
 
 use std::sync::{Arc, Mutex};
 
