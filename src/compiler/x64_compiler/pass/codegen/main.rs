@@ -69,7 +69,7 @@ impl Generator {
                     rm64: Operand::ADDRESSING {
                         base_reg: GPR::RBP,
                         index_reg: None,
-                        displacement: Some(Displacement::DISP8(arg_var.unwrap().get_stack_offset() as i8)),
+                        displacement: Some(Displacement::DISP8(-(arg_var.unwrap().get_stack_offset() as i8))),
                         scale: None,
                     },
                     r64: arg_reg,
@@ -215,6 +215,39 @@ impl Generator {
     ) {
         match &ex.kind {
             // primary
+            res::ExpressionNodeKind::STRLIT(contents_id, hash) => {
+                // leaq .LS, %rax
+                self.add_inst_to_cursym(
+                    Inst {
+                        opcode: Opcode::LEAR64FROMSTRADDR {
+                            r64: GPR::RAX,
+                            str_sym: format!(".LS{}", hash),
+                            addend: self.total_string_length as usize,
+                        }
+                    }
+                );
+
+                let contents = const_pool.get(*contents_id).unwrap();
+
+                // +1 は ヌルバイトを意味する
+                self.total_string_length += contents.len() as u64 + 1;
+
+                self.gen_pushreg64(GPR::RAX);
+            }
+            res::ExpressionNodeKind::TRUE => {
+                self.add_inst_to_cursym(Inst {
+                    opcode: Opcode::PUSHIMM32 {
+                        imm: Immediate::I32(1),
+                    }
+                });
+            }
+            res::ExpressionNodeKind::FALSE => {
+                self.add_inst_to_cursym(Inst {
+                    opcode: Opcode::PUSHIMM32 {
+                        imm: Immediate::I32(0),
+                    }
+                });
+            }
             res::ExpressionNodeKind::INTEGER(v) => {
                 self.add_inst_to_cursym(
                     Inst {
@@ -232,6 +265,31 @@ impl Generator {
                         }
                     }
                 );
+            }
+            res::ExpressionNodeKind::IDENT(name) => {
+                self.gen_comment("start ident-expression");
+
+                // 変数のアドレスをRAXに
+                self.gen_left_value(ex, local_map, string_map);
+                self.gen_popreg64(GPR::RAX);
+
+                // RAXをデリファレンス
+                self.add_inst_to_cursym(
+                    Inst {
+                        opcode: Opcode::MOVR64RM64 {
+                            r64: GPR::RAX,
+                            rm64: Operand::ADDRESSING {
+                                base_reg: GPR::RAX,
+                                index_reg: None,
+                                scale: None,
+                                displacement: None,
+                            },
+                        },
+                    }
+                );
+                self.gen_pushreg64(GPR::RAX);
+
+                self.gen_comment("end ident-expression");
             }
             res::ExpressionNodeKind::CALL(ident, args) => {
                 self.gen_comment("start call expression");
@@ -263,7 +321,11 @@ impl Generator {
                 self.gen_comment("end call expression");
             }
 
-            // binary
+            // unary-expression
+            res::ExpressionNodeKind::NEG(value) => {
+                self.gen_unary_expr("-", value, local_map, string_map, const_pool);
+            }
+
             // binary-expression
             res::ExpressionNodeKind::ADD(lop, rop) => {
                 self.gen_binary_expr("+", lop, rop, local_map, string_map, const_pool)

@@ -142,6 +142,26 @@ impl x64::Assembler {
                 // 適当なアドレスをおいておく
                 vec![0xe8, 0x00, 0x00, 0x00, 0x00]
             }
+            // lea
+            Opcode::LEAR64FROMSTRADDR { r64: _, str_sym, addend } => {
+                // 再配置用にシンボルを定義
+                let mut rela: elf_utilities::relocation::Rela64 = Default::default();
+                rela.set_addend(*addend as i64);
+                let offset_before_lea = self.get_all_byte_length();
+
+                // 3 -> immediateまでスキップ generate_lea64を見るとわかる
+                rela.set_offset(offset_before_lea + 4);
+
+                // 2 -> .rodataのsymtabインデックス決め打ち
+                rela.set_info((2 << 32) + elf_utilities::relocation::R_X86_64_32);
+
+                self.add_relocation_symbol(sym_name.to_string(), str_sym.to_string(), rela);
+
+                let mut base_bytes = inst.to_bytes();
+                base_bytes.append(&mut vec![0x25, 0x00, 0x00, 0x00, 0x00]);
+
+                base_bytes
+            }
             Opcode::COMMENT(_contents) => Vec::new(),
             _ => inst.to_bytes()
         }
@@ -163,25 +183,6 @@ impl x64::Assembler {
                 jump_map.insert(name.to_string(), (0, length));
 
                 Vec::new()
-            }
-
-            // lea
-            arch::x64::InstKind::LEASTRINGADDRESSTOTREG64(label, dst, addend) => {
-
-                // 再配置用にシンボルを定義
-                let mut rela: elf_utilities::relocation::Rela64 = Default::default();
-                rela.set_addend(*addend as i64);
-                let offset_before_lea = self.get_all_byte_length();
-
-                // 3 -> immediateまでスキップ generate_lea64を見るとわかる
-                rela.set_offset(offset_before_lea + 4);
-
-                // 2 -> .rodataのsymtabインデックス決め打ち
-                rela.set_info((2 << 32) + elf_utilities::relocation::R_X86_64_32);
-
-                self.add_relocation_symbol(sym_name.to_string(), label.to_string(), rela);
-
-                self.generate_leareg64(&arch::x64::Immediate::new_int64(0), dst)
             }
 
             // jump
