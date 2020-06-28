@@ -1,16 +1,11 @@
 use std::collections::BTreeMap;
 
 use x64_asm::{
-    GeneralPurposeRegister as GPR,
-    Instruction as Inst,
-    Operand,
-    Opcode,
-    Immediate,
-    Displacement,
+    Displacement, GeneralPurposeRegister as GPR, Immediate, Instruction as Inst, Opcode, Operand,
 };
 
-use crate::common::{module, option};
 use crate::common::arch::x64;
+use crate::common::{module, option};
 use crate::compiler::general::resource as res;
 
 // x64用コード生成
@@ -64,17 +59,14 @@ impl Generator {
             if arg_var.is_none() {
                 panic!("{:?} is not defined", name_id);
             }
-            self.add_inst_to_cursym(Inst {
-                opcode: Opcode::MOVRM64R64 {
-                    rm64: Operand::ADDRESSING {
-                        base_reg: GPR::RBP,
-                        index_reg: None,
-                        displacement: Some(Displacement::DISP8(-(arg_var.unwrap().get_stack_offset() as i8))),
-                        scale: None,
-                    },
-                    r64: arg_reg,
-                }
-            });
+
+            let disp = Displacement::DISP8(-(arg_var.unwrap().get_stack_offset() as i8));
+
+            self.add_i(self.new_i(x64_asm::new_rm64r64!(
+                MOVRM64R64,
+                self.new_addressing(GPR::RBP, None, Some(disp)),
+                arg_reg
+            )));
         }
 
         for st in func.get_statements() {
@@ -83,12 +75,11 @@ impl Generator {
 
         // 暗黙的に return 0; を挿入する．
         if is_main_symbol {
-            self.add_inst_to_cursym(Inst {
-                opcode: Opcode::MOVRM64IMM32 {
-                    rm64: Operand::GENERALREGISTER(GPR::RAX),
-                    imm: Immediate::I32(0),
-                }
-            });
+            self.add_i(self.new_i(x64_asm::new_rm64imm32!(
+                MOVRM64IMM32,
+                self.new_gpr_op(GPR::RAX),
+                Immediate::I32(0)
+            )));
         }
 
         self.gen_function_epilogue();
@@ -124,8 +115,7 @@ impl Generator {
             res::StatementNodeKind::ASM(args) => {
                 for arg_id in args.iter() {
                     let inst = self.gen_inst_from_asm(*arg_id, const_pool);
-                    self.add_inst_to_cursym(inst);
-                    // self.add_inst_to_cursym(x64::Instruction::inline_asm(arg.clone()));
+                    self.add_i(inst);
                 }
             }
             res::StatementNodeKind::VARINIT(ident, expr) => {
@@ -195,13 +185,13 @@ impl Generator {
     #[allow(clippy::too_many_arguments)]
     fn gen_countup_statement(
         &mut self,
-        id: &res::ExpressionNode,
-        start: &res::ExpressionNode,
-        end: &res::ExpressionNode,
-        body: &[res::StatementNode],
-        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
-        string_map: &BTreeMap<res::PStringId, u64>,
-        const_pool: &res::ConstAllocator,
+        _id: &res::ExpressionNode,
+        _start: &res::ExpressionNode,
+        _end: &res::ExpressionNode,
+        _body: &[res::StatementNode],
+        _local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        _string_map: &BTreeMap<res::PStringId, u64>,
+        _const_pool: &res::ConstAllocator,
     ) {
         unimplemented!()
     }
@@ -217,15 +207,11 @@ impl Generator {
             // primary
             res::ExpressionNodeKind::STRLIT(contents_id, hash) => {
                 // leaq .LS, %rax
-                self.add_inst_to_cursym(
-                    Inst {
-                        opcode: Opcode::LEAR64FROMSTRADDR {
-                            r64: GPR::RAX,
-                            str_sym: format!(".LS{}", hash),
-                            addend: self.total_string_length as usize,
-                        }
-                    }
-                );
+                self.add_i(self.new_i(Opcode::LEAR64FROMSTRADDR {
+                    r64: GPR::RAX,
+                    str_sym: format!(".LS{}", hash),
+                    addend: self.total_string_length as usize,
+                }));
 
                 let contents = const_pool.get(*contents_id).unwrap();
 
@@ -235,38 +221,18 @@ impl Generator {
                 self.gen_pushreg64(GPR::RAX);
             }
             res::ExpressionNodeKind::TRUE => {
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::PUSHIMM32 {
-                        imm: Immediate::I32(1),
-                    }
-                });
+                self.add_i(self.new_i(x64_asm::new_imm32!(PUSHIMM32, Immediate::I32(1))));
             }
             res::ExpressionNodeKind::FALSE => {
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::PUSHIMM32 {
-                        imm: Immediate::I32(0),
-                    }
-                });
+                self.add_i(self.new_i(x64_asm::new_imm32!(PUSHIMM32, Immediate::I32(0))));
             }
             res::ExpressionNodeKind::INTEGER(v) => {
-                self.add_inst_to_cursym(
-                    Inst {
-                        opcode: Opcode::PUSHIMM32 {
-                            imm: Immediate::I32(*v as i32),
-                        }
-                    }
-                );
+                self.add_i(self.new_i(x64_asm::new_imm32!(PUSHIMM32, Immediate::I32(*v as i32))));
             }
             res::ExpressionNodeKind::UNSIGNEDINTEGER(v) => {
-                self.add_inst_to_cursym(
-                    Inst {
-                        opcode: Opcode::PUSHIMM32 {
-                            imm: Immediate::I32(*v as i32),
-                        }
-                    }
-                );
+                self.add_i(self.new_i(x64_asm::new_imm32!(PUSHIMM32, Immediate::I32(*v as i32))));
             }
-            res::ExpressionNodeKind::IDENT(name) => {
+            res::ExpressionNodeKind::IDENT(_name) => {
                 self.gen_comment("start ident-expression");
 
                 // 変数のアドレスをRAXに
@@ -274,19 +240,11 @@ impl Generator {
                 self.gen_popreg64(GPR::RAX);
 
                 // RAXをデリファレンス
-                self.add_inst_to_cursym(
-                    Inst {
-                        opcode: Opcode::MOVR64RM64 {
-                            r64: GPR::RAX,
-                            rm64: Operand::ADDRESSING {
-                                base_reg: GPR::RAX,
-                                index_reg: None,
-                                scale: None,
-                                displacement: None,
-                            },
-                        },
-                    }
-                );
+                self.add_i(self.new_i(x64_asm::new_r64rm64!(
+                    MOVR64RM64,
+                    GPR::RAX,
+                    self.new_mem(GPR::RAX)
+                )));
                 self.gen_pushreg64(GPR::RAX);
 
                 self.gen_comment("end ident-expression");
@@ -308,13 +266,11 @@ impl Generator {
                 }
 
                 let last_name_id = res::IdentName::last_name(ident);
-                self.add_inst_to_cursym(
-                    Inst {
-                        opcode: Opcode::CALLFUNC(
-                            Operand::LABEL(const_pool.get(last_name_id).unwrap().copy_value())
-                        )
-                    }
-                );
+                self.add_i(Inst {
+                    opcode: Opcode::CALLFUNC(Operand::LABEL(
+                        const_pool.get(last_name_id).unwrap().copy_value(),
+                    )),
+                });
 
                 self.gen_pushreg64(GPR::RAX);
 
@@ -346,6 +302,63 @@ impl Generator {
 
                 self.gen_comment("end assign expression");
             }
+            res::ExpressionNodeKind::IF(condition, body) => {
+                self.gen_comment("start if expression");
+
+                self.gen_expr(condition, local_map, string_map, const_pool);
+                let fin_label = format!(".Lend{}", self.consume_label());
+
+                // condition
+                self.gen_popreg64(GPR::RAX);
+                self.add_i(self.new_i(Opcode::CMPRAXIMM32 {
+                    imm: Immediate::I32(0),
+                }));
+                self.add_i(self.new_i(Opcode::JELABEL {
+                    label: fin_label.clone(),
+                }));
+
+                for st in body.iter() {
+                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
+                }
+
+                self.add_group_to_cursym(fin_label);
+
+                self.gen_comment("end if expression");
+            }
+            res::ExpressionNodeKind::IFELSE(condition, body, alter) => {
+                self.gen_comment("start if-else expression");
+
+                self.gen_expr(condition, local_map, string_map, const_pool);
+                let label_num = self.consume_label();
+                let else_label = format!(".Lelse{}", label_num);
+                let fin_label = format!(".Lend{}", label_num);
+
+                // condition
+                self.gen_popreg64(GPR::RAX);
+                self.add_i(self.new_i(Opcode::CMPRAXIMM32 {
+                    imm: Immediate::I32(0),
+                }));
+                self.add_i(self.new_i(Opcode::JELABEL {
+                    label: fin_label.clone(),
+                }));
+
+                for st in body.iter() {
+                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
+                }
+
+                self.add_i(self.new_i(Opcode::JMPLABEL {
+                    label: fin_label.clone(),
+                }));
+                self.add_group_to_cursym(else_label);
+
+                for st in alter.iter() {
+                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
+                }
+
+                self.add_group_to_cursym(fin_label);
+
+                self.gen_comment("end if-else expression");
+            }
             _ => unimplemented!(),
         }
     }
@@ -366,13 +379,7 @@ impl Generator {
 
         // 3．各演算に対応する命令を生成する
         match operator {
-            "-" => {
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::NEGRM64 {
-                        rm64: Operand::GENERALREGISTER(GPR::RAX),
-                    }
-                })
-            }
+            "-" => self.add_i(self.new_i(x64_asm::new_rm64!(NEGRM64, self.new_gpr_op(GPR::RAX)))),
             _ => panic!("unsupported operator -> {}", operator),
         }
 
@@ -398,45 +405,27 @@ impl Generator {
         self.gen_popreg64(GPR::RAX);
 
         // 3．各演算に対応する命令を生成する
-        match operator {
-            "+" => {
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::ADDR64RM64 {
-                        r64: GPR::RAX,
-                        rm64: Operand::GENERALREGISTER(GPR::RDI),
-                    }
-                })
-            }
-            "-" => {
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::SUBR64RM64 {
-                        r64: GPR::RAX,
-                        rm64: Operand::GENERALREGISTER(GPR::RDI),
-                    }
-                })
-            }
-            "*" => {
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::IMULR64RM64 {
-                        r64: GPR::RAX,
-                        rm64: Operand::GENERALREGISTER(GPR::RDI),
-                    }
-                })
-            }
-            "/" => {
-                self.add_inst_to_cursym(
-                    Inst {
+        let inst = Inst {
+            opcode: match operator {
+                "+" => {
+                    x64_asm::new_r64rm64!(ADDR64RM64, GPR::RAX, Operand::GENERALREGISTER(GPR::RDI))
+                }
+                "-" => {
+                    x64_asm::new_r64rm64!(SUBR64RM64, GPR::RAX, Operand::GENERALREGISTER(GPR::RDI))
+                }
+                "*" => {
+                    x64_asm::new_r64rm64!(IMULR64RM64, GPR::RAX, Operand::GENERALREGISTER(GPR::RDI))
+                }
+                "/" => {
+                    self.add_i(Inst {
                         opcode: Opcode::CDQ,
-                    }
-                );
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::IDIVRM64 {
-                        rm64: Operand::GENERALREGISTER(GPR::RDI),
-                    }
-                });
-            }
-            _ => panic!("unsupported operator -> {}", operator),
-        }
+                    });
+                    x64_asm::new_rm64!(IDIVRM64, Operand::GENERALREGISTER(GPR::RDI))
+                }
+                _ => panic!("unsupported operator -> {}", operator),
+            },
+        };
+        self.add_i(inst);
 
         // 4．演算結果をスタックに格納
         self.gen_pushreg64(GPR::RAX);
@@ -445,43 +434,29 @@ impl Generator {
     fn gen_function_prologue(&mut self, offset: usize) {
         // save rbp
         self.gen_pushreg64(GPR::RBP);
-        self.add_inst_to_cursym(
-            Inst {
-                opcode: Opcode::MOVR64RM64 {
-                    r64: GPR::RBP,
-                    rm64: Operand::GENERALREGISTER(GPR::RSP),
-                }
-            }
-        );
+        self.add_i(Inst {
+            opcode: x64_asm::new_r64rm64!(MOVR64RM64, GPR::RBP, Operand::GENERALREGISTER(GPR::RSP)),
+        });
 
         // allocating memory area for auto-var
         if offset != 0 {
-            self.add_inst_to_cursym(
-                Inst {
-                    opcode: Opcode::SUBRM64IMM32 {
-                        rm64: Operand::GENERALREGISTER(GPR::RSP),
-                        imm: Immediate::I32(!7 & (offset + 7) as i32),
-                    }
-                }
-            );
+            let offset = Immediate::I32(!7 & (offset + 7) as i32);
+            self.add_i(self.new_i(x64_asm::new_rm64imm32!(
+                SUBRM64IMM32,
+                self.new_gpr_op(GPR::RSP),
+                offset
+            )));
         }
     }
 
     fn gen_function_epilogue(&mut self) {
-        self.add_inst_to_cursym(
-            Inst {
-                opcode: Opcode::MOVRM64R64 {
-                    rm64: Operand::GENERALREGISTER(GPR::RSP),
-                    r64: GPR::RBP,
-                }
-            }
-        );
+        self.add_i(self.new_i(x64_asm::new_rm64r64!(
+            MOVRM64R64,
+            self.new_gpr_op(GPR::RSP),
+            GPR::RBP
+        )));
         self.gen_popreg64(GPR::RBP);
-        self.add_inst_to_cursym(
-            Inst {
-                opcode: Opcode::RET,
-            }
-        );
+        self.add_i(self.new_i(Opcode::RET));
     }
 
     fn gen_assignment_left_value(
@@ -502,20 +477,11 @@ impl Generator {
         self.gen_popreg64(GPR::RAX);
 
         // 3．代入 == メモリに格納
-        self.add_inst_to_cursym(
-            Inst {
-                opcode: Opcode::MOVRM64R64 {
-                    rm64: Operand::ADDRESSING {
-                        base_reg: GPR::RAX,
-                        index_reg: None,
-                        displacement: None,
-                        scale: None,
-                    },
-                    r64: GPR::RDI,
-                }
-            }
-        );
-
+        self.add_i(self.new_i(x64_asm::new_rm64r64!(
+            MOVRM64R64,
+            self.new_mem(GPR::RAX),
+            GPR::RDI
+        )));
 
         // 4. 代入式のため，スタックにRDIの値を積んでおく
         self.gen_pushreg64(GPR::RDI);
@@ -536,20 +502,17 @@ impl Generator {
                     panic!("{:?} is not defined", name_id);
                 }
 
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::MOVRM64R64 {
-                        rm64: Operand::GENERALREGISTER(GPR::RAX),
-                        r64: GPR::RBP,
-                    }
-                });
-                self.add_inst_to_cursym(
-                    Inst {
-                        opcode: Opcode::SUBRM64IMM32 {
-                            rm64: Operand::GENERALREGISTER(GPR::RAX),
-                            imm: Immediate::I32(cur_pvar.unwrap().get_stack_offset() as i32),
-                        }
-                    }
-                );
+                self.add_i(self.new_i(x64_asm::new_rm64r64!(
+                    MOVRM64R64,
+                    self.new_gpr_op(GPR::RAX),
+                    GPR::RBP
+                )));
+                let offset = Immediate::I32(cur_pvar.unwrap().get_stack_offset() as i32);
+                self.add_i(self.new_i(x64_asm::new_rm64imm32!(
+                    SUBRM64IMM32,
+                    self.new_gpr_op(GPR::RAX),
+                    offset
+                )));
                 self.gen_pushreg64(GPR::RAX);
             }
 
@@ -559,17 +522,11 @@ impl Generator {
                 // get value from address
                 self.gen_popreg64(GPR::RAX);
 
-                self.add_inst_to_cursym(Inst {
-                    opcode: Opcode::MOVR64RM64 {
-                        r64: GPR::RAX,
-                        rm64: Operand::ADDRESSING {
-                            base_reg: GPR::RAX,
-                            index_reg: None,
-                            displacement: None,
-                            scale: None,
-                        },
-                    }
-                });
+                self.add_i(self.new_i(x64_asm::new_r64rm64!(
+                    MOVR64RM64,
+                    GPR::RAX,
+                    self.new_mem(GPR::RAX)
+                )));
                 self.gen_pushreg64(GPR::RAX);
             }
             _ => panic!("can't generate {} as lvalue", lval.kind),
@@ -577,9 +534,7 @@ impl Generator {
     }
 
     fn gen_comment(&mut self, contents: &str) {
-        self.add_inst_to_cursym(Inst {
-            opcode: Opcode::COMMENT(contents.to_string())
-        });
+        self.add_i(self.new_i(Opcode::COMMENT(contents.to_string())));
     }
 
     fn gen_inst_from_asm(
@@ -596,18 +551,16 @@ impl Generator {
             1 => {
                 let inst_name = asm_splitted[0];
                 match inst_name {
-                    "syscall" => Inst {
-                        opcode: Opcode::SYSCALL,
-                    },
+                    "syscall" => self.new_i(Opcode::SYSCALL),
                     _ => panic!("unable to generate from {}", inst_name),
                 }
             }
             2 => {
                 let inst_name = asm_splitted[0];
                 match inst_name {
-                    "call" => Inst {
-                        opcode: Opcode::CALLFUNC(Operand::LABEL(asm_splitted[1].to_string())),
-                    },
+                    "call" => self.new_i(Opcode::CALLFUNC(Operand::LABEL(
+                        asm_splitted[1].to_string(),
+                    ))),
                     _ => panic!("unable to generate from {}", inst_name),
                 }
             }
@@ -628,25 +581,23 @@ impl Generator {
                             Ok(value) => {
                                 let reg = GPR::from_at_string(asm_splitted[2]);
 
-                                Inst {
-                                    opcode: Opcode::MOVRM64IMM32 {
-                                        rm64: Operand::GENERALREGISTER(reg),
-                                        imm: Immediate::I32(value),
-                                    }
-                                }
+                                let imm = Immediate::I32(value);
+                                self.new_i(x64_asm::new_rm64imm32!(
+                                    MOVRM64IMM32,
+                                    self.new_gpr_op(reg),
+                                    imm
+                                ))
                             }
                             Err(_e) => {
                                 let src_reg = GPR::from_at_string(src_str);
                                 let dst_reg = GPR::from_at_string(asm_splitted[2]);
 
-                                Inst {
-                                    opcode: Opcode::MOVRM64R64 {
-                                        rm64: Operand::GENERALREGISTER(src_reg),
-                                        r64: dst_reg,
-                                    }
-                                }
+                                self.new_i(x64_asm::new_rm64r64!(
+                                    MOVRM64R64,
+                                    self.new_gpr_op(src_reg),
+                                    dst_reg
+                                ))
                             }
-                            _ => unimplemented!()
                         }
                     }
                     _ => panic!("unable to generate from {}", inst_name),
@@ -657,22 +608,10 @@ impl Generator {
     }
 
     fn gen_pushreg64(&mut self, r: GPR) {
-        self.add_inst_to_cursym(
-            Inst {
-                opcode: Opcode::PUSHR64 {
-                    r64: r,
-                }
-            }
-        )
+        self.add_i(self.new_i(x64_asm::new_r64!(PUSHR64, r)))
     }
     fn gen_popreg64(&mut self, r: GPR) {
-        self.add_inst_to_cursym(
-            Inst {
-                opcode: Opcode::POPR64 {
-                    r64: r,
-                }
-            }
-        )
+        self.add_i(self.new_i(x64_asm::new_r64!(POPR64, r)))
     }
 
     fn new(file_path: String) -> Self {
@@ -707,7 +646,11 @@ impl Generator {
         self.condition_symidx();
     }
 
-    fn add_inst_to_cursym(&mut self, inst: Inst) {
+    fn add_group_to_cursym(&mut self, label: String) {
+        self.asm.add_group_to_sym(self.sym_idx, label);
+    }
+
+    fn add_i(&mut self, inst: Inst) {
         self.asm.add_inst_to_sym(self.sym_idx, inst);
     }
 
@@ -716,14 +659,25 @@ impl Generator {
     }
 
     fn caller_reg64(idx: usize) -> GPR {
-        let regs = vec![
-            GPR::RDI,
-            GPR::RSI,
-            GPR::RDX,
-            GPR::RCX,
-            GPR::R8,
-            GPR::R9,
-        ];
+        let regs = vec![GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
         regs[idx].clone()
+    }
+
+    fn new_i(&self, opcode: Opcode) -> Inst {
+        Inst { opcode }
+    }
+    fn new_addressing(&self, base: GPR, index: Option<GPR>, disp: Option<Displacement>) -> Operand {
+        Operand::ADDRESSING {
+            base_reg: base,
+            index_reg: index,
+            displacement: disp,
+            scale: None,
+        }
+    }
+    fn new_mem(&self, base: GPR) -> Operand {
+        self.new_addressing(base, None, None)
+    }
+    fn new_gpr_op(&self, r: GPR) -> Operand {
+        Operand::GENERALREGISTER(r)
     }
 }

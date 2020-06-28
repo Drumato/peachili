@@ -7,8 +7,8 @@ use crate::common::{arch, option};
 
 use x64_asm::*;
 
-type CodeIndex = usize;
-type Offset = usize;
+type CodeIndex = isize;
+type Offset = isize;
 
 pub fn x64_assemble(
     build_option: &option::BuildOption,
@@ -85,6 +85,8 @@ impl x64::Assembler {
         let groups = sym.get_groups();
         for group in groups.iter() {
             bin_symbol.add_codes(self.generate_from_group(group, &sym_name, &mut jump_map));
+
+            eprintln!("generating {} finisied -> 0x{:x}", group.label, self.get_all_byte_length());
         }
 
         // アラインメント調整
@@ -102,9 +104,24 @@ impl x64::Assembler {
         &mut self,
         group: &x64_asm::Group,
         sym_name: &str,
-        mut jump_map: &mut HashMap<String, (CodeIndex, Offset)>,
+        jump_map: &mut HashMap<String, (CodeIndex, Offset)>,
     ) -> Vec<u8> {
         let mut all_codes = Vec::new();
+
+        let length = self.get_all_byte_length() as usize;
+
+        // jump系命令がラベルの前に存在した場合
+        if let Some(tup) = jump_map.get_mut(&group.label) {
+            // ラベルまでのバイト数 - ジャンプの位置 - 1 => 相対オフセット
+            tup.1 = length as isize - tup.1 - 1;
+
+        } else {
+            // ラベルがjump系命令の前に存在した場合
+            if !group.label.starts_with("entry_") {
+                jump_map.insert(group.label.to_string(), (0, length as isize));
+            }
+        }
+
 
         for i in group.insts.iter() {
             let mut codes = self.generate_from_inst(i, sym_name, jump_map);
@@ -162,89 +179,44 @@ impl x64::Assembler {
 
                 base_bytes
             }
+            // jump
+            Opcode::JELABEL { label } => {
+                let length = (self.get_all_byte_length() + 1) as usize;
+
+                if let Some(tup) = jump_map.get_mut(label) {
+                    // ラベルがjump系命令の前に存在した場合
+                    tup.0 = length as isize;
+                    tup.1 = !(length as isize + 4 - tup.1) + 1;
+                } else {
+                    // jump系命令がラベルの前に存在した場合
+                    jump_map.insert(label.to_string(), (length as isize, length as isize + 3));
+                }
+
+                let mut base_bytes = inst.to_bytes();
+                base_bytes.append(&mut vec![0x00; 4]);
+
+                base_bytes
+            }
+            Opcode::JMPLABEL { label } => {
+                let length = (self.get_all_byte_length() + 1) as usize;
+
+                if let Some(tup) = jump_map.get_mut(label) {
+                    // ラベルがjump系命令の前に存在した場合
+                    tup.0 = length as isize;
+                    tup.1 = !(length as isize + 4 - tup.1) + 1;
+                } else {
+                    // jump系命令がラベルの前に存在した場合
+                    jump_map.insert(label.to_string(), (length as isize, length  as isize + 3));
+                }
+
+                let mut base_bytes = inst.to_bytes();
+                base_bytes.append(&mut vec![0x00; 4]);
+
+                base_bytes
+            }
             Opcode::COMMENT(_contents) => Vec::new(),
             _ => inst.to_bytes()
         }
-
-        /*
-        match inst.opcode {
-            // ラベル
-            arch::x64::InstKind::LABEL(name) => {
-                let length = self.get_all_byte_length() as usize;
-
-                // jump系命令がラベルの前に存在した場合
-                if let Some(tup) = jump_map.get_mut(name) {
-                    // ラベルまでのバイト数 - ジャンプの位置 - 1 => 相対オフセット
-                    tup.1 = length - tup.1 - 1;
-                    return Vec::new();
-                }
-
-                // ラベルがjump系命令の前に存在した場合
-                jump_map.insert(name.to_string(), (0, length));
-
-                Vec::new()
-            }
-
-            // jump
-            arch::x64::InstKind::JUMPEQUAL(name) => {
-                let length = (self.get_all_byte_length() + 2) as usize;
-
-                if let Some(tup) = jump_map.get_mut(name) {
-                    // ラベルがjump系命令の前に存在した場合
-                    tup.0 = length;
-                    tup.1 = !(length + 4 - tup.1) + 1;
-                } else {
-                    // jump系命令がラベルの前に存在した場合
-                    jump_map.insert(name.to_string(), (length, length + 3));
-                }
-
-                // opcode
-                let opcode1 = 0x0f;
-                let opcode2 = 0x84;
-
-                let mut codes = vec![opcode1, opcode2];
-                // immediate-value
-                for b in (0x00 as u32).to_le_bytes().to_vec().iter() {
-                    codes.push(*b);
-                }
-
-                codes
-            }
-            arch::x64::InstKind::JUMP(name) => {
-                let length = (self.get_all_byte_length() + 1) as usize;
-
-                if let Some(tup) = jump_map.get_mut(name) {
-                    // ラベルがjump系命令の前に存在した場合
-                    tup.0 = length;
-                    tup.1 = !(length + 4 - tup.1) + 1;
-                } else {
-                    // jump系命令がラベルの前に存在した場合
-                    jump_map.insert(name.to_string(), (length, length + 3));
-                }
-
-                // opcode
-                let opcode = 0xe9;
-
-                let mut codes = vec![opcode];
-                // immediate-value
-                for b in (0x00 as u32).to_le_bytes().to_vec().iter() {
-                    codes.push(*b);
-                }
-
-                codes
-            }
-            arch::x64::InstKind::CALL(callee_name) => {
-
-
-                self.generate_callrm64()
-            }
-            _ => panic!(
-                "not implemented generating '{}' in x64_asm",
-                inst.to_at_code()
-            ),
-        }
-
-         */
     }
 
     fn resolve_jump_instructions(
@@ -254,7 +226,7 @@ impl x64::Assembler {
     ) {
         for (_name, (dst, offset)) in jump_map.iter() {
             for (idx, byte) in (*offset as u32).to_le_bytes().iter().enumerate() {
-                bin_sym.set_code(idx + dst, *byte);
+                bin_sym.set_code(idx + *dst as usize, *byte);
             }
         }
     }

@@ -30,6 +30,9 @@ impl AssemblyFile {
     pub fn add_inst_to_sym(&mut self, idx: usize, inst: x64_asm::Instruction) {
         self.symbols[idx].add_inst(inst);
     }
+    pub fn add_group_to_sym(&mut self, idx: usize, label: String) {
+        self.symbols[idx].add_group(label);
+    }
     pub fn add_string_to_sym(&mut self, idx: usize, contents: String, hash: u64) {
         self.symbols[idx].add_string(contents, hash);
     }

@@ -373,9 +373,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "x64_asm"
-version = "0.1.18"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d880477078683f23d0a8268df835582e662562c31c5eadff26e63d80aa32193e"
+checksum = "d923dbd3834deea9a6a6081772dcf06ad8c53b190fd35d9824c158e9c226af36"
 
 [[package]]
 name = "yaml-rust"

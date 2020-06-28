@@ -43,6 +43,12 @@ impl Symbol {
         code
     }
 
+    pub fn add_group(&mut self, label: String) {
+        let mut g: x64_asm::Group = Default::default();
+        g.label = label;
+
+        self.groups.push(g);
+    }
     pub fn add_inst(&mut self, inst: x64_asm::Instruction) {
         if self.groups.is_empty() {
             let mut g: x64_asm::Group = Default::default();

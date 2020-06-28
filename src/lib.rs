@@ -5,3 +5,5 @@ pub mod compiler;
 pub mod llvm_main;
 pub mod x64_main;
 pub mod linker;
+
+extern crate x64_asm;
