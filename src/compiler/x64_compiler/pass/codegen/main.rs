@@ -69,9 +69,7 @@ impl Generator {
             )));
         }
 
-        for st in func.get_statements() {
-            self.gen_insts_from_statement(st, local_map, string_map, const_pool);
-        }
+        self.gen_block_statement(func.get_statements(),local_map, string_map, const_pool );
 
         // 暗黙的に return 0; を挿入する．
         if is_main_symbol {
@@ -324,22 +322,15 @@ impl Generator {
             res::ExpressionNodeKind::IF(condition, body) => {
                 self.gen_comment("start if expression");
 
-                self.gen_expr(condition, local_map, string_map, const_pool);
-                let fin_label = format!(".Lend{}", self.consume_label());
+                let label_num = self.gen_condition_expr(condition, local_map, string_map, const_pool);
 
-                // condition
-                self.gen_popreg64(GPR::RAX);
-                self.add_i(self.new_i(Opcode::CMPRAXIMM32 {
-                    imm: Immediate::I32(0),
-                }));
+                let fin_label = format!(".Lend{}", label_num);
+
                 self.add_i(self.new_i(Opcode::JELABEL {
                     label: fin_label.clone(),
                 }));
 
-                for st in body.iter() {
-                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
-                }
-
+                self.gen_block_statement(body,local_map, string_map, const_pool );
                 self.add_group_to_cursym(fin_label);
 
                 self.gen_comment("end if expression");
@@ -347,23 +338,15 @@ impl Generator {
             res::ExpressionNodeKind::IFELSE(condition, body, alter) => {
                 self.gen_comment("start if-else expression");
 
-                self.gen_expr(condition, local_map, string_map, const_pool);
-                let label_num = self.consume_label();
+                let label_num = self.gen_condition_expr(condition, local_map, string_map, const_pool);
                 let else_label = format!(".Lelse{}", label_num);
                 let fin_label = format!(".Lend{}", label_num);
 
-                // condition
-                self.gen_popreg64(GPR::RAX);
-                self.add_i(self.new_i(Opcode::CMPRAXIMM32 {
-                    imm: Immediate::I32(0),
-                }));
                 self.add_i(self.new_i(Opcode::JELABEL {
                     label: else_label.clone(),
                 }));
 
-                for st in body.iter() {
-                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
-                }
+                self.gen_block_statement(body,local_map, string_map, const_pool );
 
                 self.add_i(self.new_i(Opcode::JMPLABEL {
                     label: fin_label.clone(),
@@ -371,9 +354,7 @@ impl Generator {
 
                 self.add_group_to_cursym(else_label);
 
-                for st in alter.iter() {
-                    self.gen_insts_from_statement(st, local_map, string_map, const_pool);
-                }
+                self.gen_block_statement(alter,local_map, string_map, const_pool );
 
                 self.add_group_to_cursym(fin_label);
 
@@ -382,7 +363,38 @@ impl Generator {
         }
     }
 
-    pub fn gen_unary_expr(
+    fn gen_condition_expr(
+        &mut self,
+        cond_ex: &res::ExpressionNode,
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
+    ) -> usize {
+        self.gen_expr(cond_ex, local_map, string_map, const_pool);
+        let label_num = self.consume_label();
+
+        // condition
+        self.gen_popreg64(GPR::RAX);
+        self.add_i(self.new_i(Opcode::CMPRAXIMM32 {
+            imm: Immediate::I32(0),
+        }));
+
+        label_num
+    }
+
+    fn gen_block_statement(
+        &mut self,
+        stmts: &[res::StatementNode],
+        local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
+        string_map: &BTreeMap<res::PStringId, u64>,
+        const_pool: &res::ConstAllocator,
+    ) {
+        for st in stmts.iter() {
+            self.gen_insts_from_statement(st, local_map, string_map, const_pool);
+        }
+    }
+
+    fn gen_unary_expr(
         &mut self,
         operator: &str,
         value: &res::ExpressionNode,

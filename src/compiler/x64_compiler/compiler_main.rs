@@ -1,5 +1,4 @@
 extern crate colored;
-extern crate indicatif;
 
 use crate::common::{arch, module, option};
 use crate::compiler::{general, x64_compiler};

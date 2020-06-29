@@ -1,5 +1,4 @@
 extern crate colored;
-extern crate indicatif;
 
 use crate::common::{module, option};
 use crate::compiler::{general, llvm_compiler};

@@ -12,15 +12,6 @@ pub fn type_check_phase(
     tld_map: &BTreeMap<res::PStringId, res::TopLevelDecl>,
     module_allocator: &module::ModuleAllocator,
 ) {
-    // プログレスバーの初期化
-    let function_number = root.get_functions().len() as u64;
-    let type_check_pb = indicatif::ProgressBar::new(function_number);
-    type_check_pb.set_style(
-        indicatif::ProgressStyle::default_bar()
-            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-            .progress_chars("#>-"),
-    );
-
     let start = time::Instant::now();
 
     let func_map = root.get_functions();
@@ -32,8 +23,6 @@ pub fn type_check_phase(
             .unwrap()
             .get_const_pool_ref();
         let func_name = const_pool.get(*func_name_id).unwrap();
-
-        type_check_pb.set_message(&format!("type check in {}", func_name));
 
         // mainシンボルの存在をチェック
         if func_name.compare_str("main".to_string()) {
@@ -54,8 +43,6 @@ pub fn type_check_phase(
             let module_path = func.copy_module_path();
             operate::emit_all_errors_and_exit(&errors, &module_path, build_option);
         }
-
-        type_check_pb.inc(1);
     }
 
     let end = time::Instant::now();
@@ -66,7 +53,9 @@ pub fn type_check_phase(
         std::process::exit(1);
     }
 
-    type_check_pb.finish_with_message(&format!("type check done!(in {:?})", end - start));
+    if build_option.verbose {
+        eprintln!("type check done!( in {:?})", end - start);
+    }
 }
 
 fn type_check_fn(
