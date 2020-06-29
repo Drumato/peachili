@@ -2,7 +2,7 @@ require (
     "std"
 )
 
-func main() noreturn {
+func main() Noreturn {
     if (true) {
         std::os::exit_with(15);
     } else {

@@ -2,10 +2,10 @@ require (
     "std"
 )
 
-pubtype PointerToI64 = *int64;
+pubtype PointerToI64 = *Int64;
 
-func main() noreturn {
-    varinit x int64 = 0;
+func main() Noreturn {
+    varinit x Int64 = 0;
     varinit y PointerToI64 = &x;
     *y = 4;
 

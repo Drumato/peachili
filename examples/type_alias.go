@@ -2,9 +2,9 @@ require (
     "std"
 )
 
-pubtype Another = int64;
+pubtype Another = Int64;
 
-func main() noreturn {
+func main() Noreturn {
     declare x Another;
     x = 30;
     std::os::exit_with(x);

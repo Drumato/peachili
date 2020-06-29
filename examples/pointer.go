@@ -1,8 +1,8 @@
 require (
     "std"
 )
-func main() noreturn {
-    varinit x int64 = 4;
-    varinit y *int64 = &x;
+func main() Noreturn {
+    varinit x Int64 = 4;
+    varinit y *Int64 = &x;
     std::os::exit_with(*y);
 }

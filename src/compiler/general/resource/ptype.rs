@@ -26,8 +26,8 @@ impl PType {
         kind: PTypeKind::NORETURN,
         size: 0,
     };
-    pub const GLOBAL_STR_TYPE: Self = Self {
-        kind: PTypeKind::STR,
+    pub const GLOBAL_CONSTSTR_TYPE: Self = Self {
+        kind: PTypeKind::CONSTSTR,
         size: 8,
     };
     pub const GLOBAL_INVALID_TYPE: Self = Self {
@@ -48,8 +48,8 @@ impl PType {
     pub fn new_noreturn() -> Self {
         Self::new(PTypeKind::NORETURN, 0)
     }
-    pub fn new_str() -> Self {
-        Self::new(PTypeKind::STR, 8)
+    pub fn new_conststr() -> Self {
+        Self::new(PTypeKind::CONSTSTR, 8)
     }
     pub fn new_unresolved(name: res::IdentName) -> Self {
         Self::new(PTypeKind::UNRESOLVED(name), 0)
@@ -102,7 +102,7 @@ impl PType {
             PTypeKind::BOOLEAN => Self::GLOBAL_BOOLEAN_TYPE,
             PTypeKind::INT64 => Self::GLOBAL_INT_TYPE,
             PTypeKind::UINT64 => Self::GLOBAL_UINT_TYPE,
-            PTypeKind::STR => Self::GLOBAL_STR_TYPE,
+            PTypeKind::CONSTSTR => Self::GLOBAL_CONSTSTR_TYPE,
             PTypeKind::NORETURN => Self::GLOBAL_NORETURN_TYPE,
             PTypeKind::UNRESOLVED(_name) => {
                 panic!("unexpected calling get_global_type_from with unresolved type")
@@ -125,7 +125,7 @@ impl std::fmt::Display for PType {
 pub enum PTypeKind {
     INT64,
     UINT64,
-    STR,
+    CONSTSTR,
     NORETURN,
     BOOLEAN,
     UNRESOLVED(res::IdentName),
@@ -136,14 +136,14 @@ pub enum PTypeKind {
 impl PTypeKind {
     fn to_str(&self) -> &'static str {
         match self {
-            Self::INT64 => "int64",
-            Self::UINT64 => "uint64",
-            Self::STR => "str",
-            Self::NORETURN => "noreturn",
-            Self::BOOLEAN => "boolean",
-            Self::UNRESOLVED(_name) => "unresolved",
-            Self::POINTER(_inner, _ref_local) => "pointer",
-            Self::INVALID => "invalid",
+            Self::INT64 => "Int64",
+            Self::UINT64 => "Uint64",
+            Self::CONSTSTR => "ConstStr",
+            Self::NORETURN => "Noreturn",
+            Self::BOOLEAN => "Boolean",
+            Self::UNRESOLVED(_name) => "Unresolved",
+            Self::POINTER(_inner, _ref_local) => "Pointer",
+            Self::INVALID => "Invalid",
         }
     }
 }

@@ -1,2 +1,2 @@
-func main() noreturn {
+func main() Noreturn {
 }

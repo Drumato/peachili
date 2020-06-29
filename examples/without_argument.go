@@ -1,9 +1,9 @@
 require (
     "std"
 )
-func foo() int64 {
+func foo() Int64 {
 	return 30; 
 }
-func main() noreturn {
+func main() Noreturn {
 	std::os::exit_with(foo());
 }

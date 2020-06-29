@@ -134,7 +134,7 @@ impl<'a> res::Parser<'a> {
             res::TokenKind::INT64 => res::PType::new_int64(),
             res::TokenKind::UINT64 => res::PType::new_uint64(),
             res::TokenKind::NORETURN => res::PType::new_noreturn(),
-            res::TokenKind::STR => res::PType::new_str(),
+            res::TokenKind::CONSTSTR => res::PType::new_conststr(),
             res::TokenKind::BOOLEAN => res::PType::new_boolean(),
             res::TokenKind::ASTERISK => {
                 let inner_type = self.expect_ptype();

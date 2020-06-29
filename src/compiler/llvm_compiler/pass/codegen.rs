@@ -216,7 +216,7 @@ impl Generator {
         match &ty.kind {
             res::PTypeKind::INT64 => LLVMType::new_int(64),
             res::PTypeKind::UINT64 => LLVMType::new_uint(64),
-            res::PTypeKind::STR => LLVMType::new_pointer(LLVMType::new_int(8)),
+            res::PTypeKind::CONSTSTR => LLVMType::new_pointer(LLVMType::new_int(8)),
             res::PTypeKind::NORETURN => LLVMType::new_void(),
             res::PTypeKind::BOOLEAN => LLVMType::new_int(1),
             res::PTypeKind::UNRESOLVED(_) => {
