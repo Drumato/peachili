@@ -85,8 +85,6 @@ impl x64::Assembler {
         let groups = sym.get_groups();
         for group in groups.iter() {
             bin_symbol.add_codes(self.generate_from_group(group, &sym_name, &mut jump_map));
-
-            eprintln!("generating {} finisied -> 0x{:x}", group.label, self.get_all_byte_length());
         }
 
         // アラインメント調整
@@ -181,7 +179,7 @@ impl x64::Assembler {
             }
             // jump
             Opcode::JELABEL { label } => {
-                let length = (self.get_all_byte_length() + 1) as usize;
+                let length = (self.get_all_byte_length() + 2) as usize;
 
                 if let Some(tup) = jump_map.get_mut(label) {
                     // ラベルがjump系命令の前に存在した場合
@@ -193,7 +191,7 @@ impl x64::Assembler {
                 }
 
                 let mut base_bytes = inst.to_bytes();
-                base_bytes.append(&mut vec![0x00; 4]);
+                base_bytes.append(&mut vec![0x00, 0x00, 0x00, 0x00]);
 
                 base_bytes
             }
@@ -210,7 +208,7 @@ impl x64::Assembler {
                 }
 
                 let mut base_bytes = inst.to_bytes();
-                base_bytes.append(&mut vec![0x00; 4]);
+                base_bytes.append(&mut vec![0x00, 0x00, 0x00, 0x00]);
 
                 base_bytes
             }

@@ -281,6 +281,25 @@ impl Generator {
             res::ExpressionNodeKind::NEG(value) => {
                 self.gen_unary_expr("-", value, local_map, string_map, const_pool);
             }
+            res::ExpressionNodeKind::ADDRESS(value) => {
+                self.gen_left_value(value, local_map, string_map);
+            }
+            res::ExpressionNodeKind::DEREF(value) => {
+                self.gen_expr(value, local_map, string_map, const_pool);
+
+                // get value from address
+                self.gen_popreg64(GPR::RAX);
+                self.add_i(
+                    self.new_i(
+                        x64_asm::new_r64rm64!(
+                            MOVR64RM64,
+                            GPR::RAX,
+                            self.new_mem(GPR::RAX)
+                        )
+                    )
+                );
+                self.gen_pushreg64(GPR::RAX);
+            }
 
             // binary-expression
             res::ExpressionNodeKind::ADD(lop, rop) => {
@@ -339,7 +358,7 @@ impl Generator {
                     imm: Immediate::I32(0),
                 }));
                 self.add_i(self.new_i(Opcode::JELABEL {
-                    label: fin_label.clone(),
+                    label: else_label.clone(),
                 }));
 
                 for st in body.iter() {
@@ -349,6 +368,7 @@ impl Generator {
                 self.add_i(self.new_i(Opcode::JMPLABEL {
                     label: fin_label.clone(),
                 }));
+
                 self.add_group_to_cursym(else_label);
 
                 for st in alter.iter() {
@@ -359,7 +379,6 @@ impl Generator {
 
                 self.gen_comment("end if-else expression");
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -660,7 +679,7 @@ impl Generator {
 
     fn caller_reg64(idx: usize) -> GPR {
         let regs = vec![GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
-        regs[idx].clone()
+        regs[idx]
     }
 
     fn new_i(&self, opcode: Opcode) -> Inst {
