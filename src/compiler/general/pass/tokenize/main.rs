@@ -239,6 +239,7 @@ impl<'a> res::Lexer<'a> {
 
     fn check_reserved(s: &str) -> Option<res::TokenKind> {
         match s {
+            "struct" => Some(res::TokenKind::STRUCT),
             "true" => Some(res::TokenKind::TRUE),
             "false" => Some(res::TokenKind::FALSE),
             "Boolean" => Some(res::TokenKind::BOOLEAN),
@@ -271,6 +272,7 @@ mod tokenize_main_tests {
 
     #[test]
     fn test_check_reserved() {
+        assert!(res::Lexer::check_reserved("struct").is_some());
         assert!(res::Lexer::check_reserved("true").is_some());
         assert!(res::Lexer::check_reserved("false").is_some());
         assert!(res::Lexer::check_reserved("boolean").is_some());

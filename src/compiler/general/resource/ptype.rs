@@ -1,4 +1,5 @@
 use crate::compiler::general::resource as res;
+use std::collections::BTreeMap;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -60,6 +61,11 @@ impl PType {
     pub fn new_pointer(inner: PType, ref_local: bool) -> Self {
         Self::new(PTypeKind::POINTER(Box::new(inner), ref_local), 8)
     }
+    pub fn new_struct(members: BTreeMap<res::PStringId, PType>) -> Self {
+        // メンバのサイズを合計
+        let total_size: usize = members.iter().map(|(_name, t)| t.type_size()).sum();
+        Self::new(PTypeKind::STRUCT { members }, total_size)
+    }
 
     // TODO: サイズは1のほうが効率的
     pub fn new_boolean() -> Self {
@@ -104,6 +110,9 @@ impl PType {
             PTypeKind::UINT64 => Self::GLOBAL_UINT_TYPE,
             PTypeKind::CONSTSTR => Self::GLOBAL_CONSTSTR_TYPE,
             PTypeKind::NORETURN => Self::GLOBAL_NORETURN_TYPE,
+            PTypeKind::STRUCT { members: _ } => {
+                panic!("unexpected calling get_global_type_from with struct type")
+            }
             PTypeKind::UNRESOLVED(_name) => {
                 panic!("unexpected calling get_global_type_from with unresolved type")
             }
@@ -129,7 +138,12 @@ pub enum PTypeKind {
     NORETURN,
     BOOLEAN,
     UNRESOLVED(res::IdentName),
-    POINTER(Box<PType>, bool), // is_local
+
+    /// inner_type, is_local
+    POINTER(Box<PType>, bool),
+    STRUCT {
+        members: BTreeMap<res::PStringId, PType>,
+    },
     INVALID,
 }
 
@@ -143,6 +157,7 @@ impl PTypeKind {
             Self::BOOLEAN => "Boolean",
             Self::UNRESOLVED(_name) => "Unresolved",
             Self::POINTER(_inner, _ref_local) => "Pointer",
+            Self::STRUCT { members: _ } => "struct",
             Self::INVALID => "Invalid",
         }
     }

@@ -61,22 +61,16 @@ impl<'a> res::Parser<'a> {
     }
 
     fn vardecl_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {
-        let cur_pos = self.current_position();
-        self.progress();
-
-        let name_id = self.expect_name();
-        if name_id.is_none() {
-            return res::StatementNode::new_vardecl(cur_pos);
-        }
+        let (vardecl_pos, var_name_id) = self.skip_keyword_and_ident();
 
         let ptype = self.expect_ptype();
 
         let declared_var = res::PVariable::new_local(ptype, false);
-        self.add_local_var_to(func_name_id, vec![name_id.unwrap()], declared_var);
+        self.add_local_var_to(func_name_id, vec![var_name_id], declared_var);
 
-        self.expect_semicolon(cur_pos.clone());
+        self.expect_semicolon(vardecl_pos.clone());
 
-        res::StatementNode::new_vardecl(cur_pos)
+        res::StatementNode::new_vardecl(vardecl_pos)
     }
 
     fn countup_statement(&mut self, func_name_id: res::PStringId) -> res::StatementNode {

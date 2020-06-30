@@ -12,7 +12,7 @@ pub struct CompileError {
 }
 
 impl CompileError {
-    fn new(err_kind: CmpErrorKind, err_pos: pos::Position) -> Self {
+    pub fn new(err_kind: CmpErrorKind, err_pos: pos::Position) -> Self {
         Self {
             kind: err_kind,
             position: err_pos,
@@ -109,6 +109,9 @@ impl CompileError {
             CmpErrorKind::RETURNLOCALADDRESS => {
                 "unable to return an address of stack area".to_string()
             }
+            CmpErrorKind::DEFINITIONMUSTHAVENAME => {
+                "definition identifier must have one name".to_string()
+            }
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -187,6 +190,9 @@ impl CompileError {
                 "関数フレームが開放される危険があるため，ローカル変数のアドレスを返すのは禁止です"
                     .to_string()
             }
+            CmpErrorKind::DEFINITIONMUSTHAVENAME => {
+                "識別子を定義する際には名前が必要です".to_string()
+            }
         }
     }
 
@@ -194,142 +200,6 @@ impl CompileError {
         Self::new(CmpErrorKind::OUTOF64BITSINTRANGE(number_str), err_pos)
     }
 
-    pub fn used_undefined_auto_var(ident_name: String, err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::USEDUNDEFINEDAUTOVAR(ident_name), err_pos)
-    }
-
-    pub fn called_undefined_function(called_name: String, err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::CALLEDUNDEFINEDFUNCTION(called_name), err_pos)
-    }
-
-    pub fn unable_to_resolve_expression_type(
-        expr: res::ExpressionNode,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(CmpErrorKind::UNABLETORESOLVEEXPRESSIONTYPE(expr), err_pos)
-    }
-
-    pub fn condition_expression_must_be_an_boolean_in_if(
-        expr_type: res::PType,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(
-            CmpErrorKind::CONDITIONEXPRESSIONMUSTBEANBOOLEANINIF(expr_type),
-            err_pos,
-        )
-    }
-
-    pub fn cannot_assignment_unresolved_right_value(
-        lvalue_type: res::ExpressionNode,
-        rvalue: res::ExpressionNode,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(
-            CmpErrorKind::CANNOTASSIGNMENTUNRESOLVEDRIGHTVALUE(lvalue_type, rvalue),
-            err_pos,
-        )
-    }
-
-    pub fn both_values_must_be_same_type_in_assignment(
-        lvalue_type: res::PType,
-        rvalue_type: res::PType,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(
-            CmpErrorKind::BOTHVALUESMUSTBESAMETYPEINASSIGNMENT(lvalue_type, rvalue_type),
-            err_pos,
-        )
-    }
-
-    pub fn cannot_assignment_to_constant_after_initialization(
-        lvalue: res::ExpressionNode,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(
-            CmpErrorKind::CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(lvalue),
-            err_pos,
-        )
-    }
-
-    pub fn cannot_dereference_with_not_pointer(pt: res::PType, err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::CANNOTDEREFERENCENOTPOINTER(pt), err_pos)
-    }
-
-    pub fn both_blocks_must_be_same_type(err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::BOTHBLOCKSMUSTBESAMETYPE, err_pos)
-    }
-
-    pub fn binary_operation_must_have_two_same_type_operands(
-        operator: String,
-        lop_type: res::PType,
-        rop_type: res::PType,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(
-            CmpErrorKind::BINARYOPERATIONMUSTHAVETOSAMETYPEOPERANDS(operator, lop_type, rop_type),
-            err_pos,
-        )
-    }
-
-    pub fn arg_type_incorrect(
-        fn_name: String,
-        arg_idx: usize,
-        expected_type: res::PType,
-        actual_type: res::PType,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(
-            CmpErrorKind::ARGTYPEINCORRECT(fn_name, arg_idx, expected_type, actual_type),
-            err_pos,
-        )
-    }
-
-    pub fn arg_number_incorrect(
-        fn_name: String,
-        expect: usize,
-        actual: usize,
-        err_pos: pos::Position,
-    ) -> Self {
-        Self::new(
-            CmpErrorKind::ARGNUMBERINCORRECT(fn_name, expect, actual),
-            err_pos,
-        )
-    }
-
-    pub fn cannotapplyminusto(value_type: res::PType, err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::CANNOTAPPLYMINUSTO(value_type), err_pos)
-    }
-
-    pub fn return_in_noreturn_function(err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::RETURNINNORETURNFUNC, err_pos)
-    }
-
-    pub fn main_must_exist() -> Self {
-        Self::new(CmpErrorKind::MAINMUSTEXIST, Default::default())
-    }
-
-    pub fn main_must_have_no_args_and_noreturn() -> Self {
-        Self::new(
-            CmpErrorKind::MAINMUSTHAVENOARGSANDNORETURN,
-            Default::default(),
-        )
-    }
-
-    pub fn statement_must_be_ended_with_semicolon(err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::STATEMENTMUSTBEENDEDWITHSEMICOLON, err_pos)
-    }
-
-    pub fn expected_identifier(err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::EXPECTEDIDENTIFIER, err_pos)
-    }
-
-    pub fn got_invalid_ptype(err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::GOTINVALIDPTYPE, err_pos)
-    }
-
-    pub fn return_local_address(err_pos: pos::Position) -> Self {
-        Self::new(CmpErrorKind::RETURNLOCALADDRESS, err_pos)
-    }
 }
 
 #[derive(Clone)]
@@ -420,4 +290,7 @@ pub enum CmpErrorKind {
 
     /// ローカル変数のポインタを返している
     RETURNLOCALADDRESS,
+
+    /// 定義時に識別子名を記述していない
+    DEFINITIONMUSTHAVENAME,
 }

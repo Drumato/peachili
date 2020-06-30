@@ -1,9 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::common::{error, module, operate, option, position};
+use crate::common::{
+    error::{
+        CompileError as CE,
+        CmpErrorKind as CEK,
+    }, module, operate, option, position};
 use crate::compiler::general::resource as res;
 
-type CompileErrors = Vec<error::CompileError>;
+type CompileErrors = Vec<CE>;
 
 pub fn parse_phase(
     build_option: &option::BuildOption,
@@ -39,6 +43,7 @@ impl<'a> res::Parser<'a> {
         loop {
             let cur_token = self.current_token();
             match &cur_token.kind {
+                res::TokenKind::STRUCT => self.define_struct(module_path.to_string(), module_id),
                 res::TokenKind::FUNC => self.function(module_path.to_string(), module_id),
                 res::TokenKind::PUBTYPE => self.type_alias(),
                 _ => break,
@@ -46,33 +51,68 @@ impl<'a> res::Parser<'a> {
         }
     }
 
-    fn type_alias(&mut self) {
-        let def_func_pos = self.current_position();
-        self.progress();
+    /// struct_definition -> ("struct" | "pubstruct") identifier members_definition
+    fn define_struct(&mut self, _module_path: String, _module_id: module::ModuleId) {
+        let (_def_struct_pos, struct_name_id) = self.skip_keyword_and_ident();
 
-        let type_name_id = self.expect_name();
-        if type_name_id.is_none() {
-            return;
+        let members = self.members_definition();
+        self.add_typedef(struct_name_id, res::PType::new_struct(members));
+
+    }
+
+    /// members_definition -> `{` (identifier type_name )* `}`
+    fn members_definition(&mut self) -> BTreeMap<res::PStringId, res::PType> {
+        let mut members = BTreeMap::new();
+
+        self.expect(res::TokenKind::LBRACE);
+
+        loop {
+            if self.eat_if_matched(&res::TokenKind::RBRACE) {
+                break;
+            }
+
+            let (member_name_id, member_type) = self.ident_and_type();
+            members.insert(member_name_id, member_type);
         }
+
+        members
+    }
+
+    fn type_alias(&mut self) {
+        let (def_type_pos, type_name_id) = self.skip_keyword_and_ident();
 
         self.expect(res::TokenKind::ASSIGN);
 
         let src_type = self.expect_ptype();
-        self.expect_semicolon(def_func_pos);
+        self.expect_semicolon(def_type_pos);
 
-        self.add_typedef(type_name_id.unwrap(), src_type);
+        self.add_typedef(type_name_id, src_type);
     }
 
     fn function(&mut self, module_path: String, module_id: module::ModuleId) {
-        let def_func_pos = self.current_position();
-        self.progress();
+        let (def_func_pos, func_name_id) = self.skip_keyword_and_ident();
+        let (args, arg_map) = self.arguments_definition();
 
-        let name_id = self.expect_name();
-        if name_id.is_none() {
-            return;
-        }
+        let return_type = self.expect_ptype();
 
-        // 引数
+        let mut defined_func = res::PFunction::new(
+            func_name_id,
+            return_type,
+            args,
+            def_func_pos,
+            module_path,
+            module_id,
+        );
+        defined_func.set_locals(arg_map);
+
+        self.add_pfunction(func_name_id, defined_func);
+
+        let statements = self.compound_statement(func_name_id);
+
+        self.replace_statements(func_name_id, statements);
+    }
+
+    fn arguments_definition(&mut self) -> (Vec<res::PStringId>, BTreeMap<Vec<res::PStringId>, res::PVariable>) {
         let mut args: Vec<res::PStringId> = Vec::new();
         let mut arg_map: BTreeMap<Vec<res::PStringId>, res::PVariable> = BTreeMap::new();
 
@@ -82,40 +122,20 @@ impl<'a> res::Parser<'a> {
             if self.eat_if_matched(&res::TokenKind::RPAREN) {
                 break;
             }
-            let arg_name_id = self.expect_name();
-            if arg_name_id.is_none() {
-                return;
-            }
 
-            let arg_type = self.expect_ptype();
+            let (arg_name_id, arg_type) = self.ident_and_type();
 
             let arg_var = res::PVariable::new_local(arg_type, false);
 
             assert!(arg_map
-                .insert(vec![arg_name_id.unwrap()], arg_var)
+                .insert(vec![arg_name_id], arg_var)
                 .is_none());
 
             self.eat_if_matched(&res::TokenKind::COMMA);
-            args.push(arg_name_id.unwrap());
+            args.push(arg_name_id);
         }
 
-        let return_type = self.expect_ptype();
-
-        let mut defined_func = res::PFunction::new(
-            name_id.unwrap(),
-            return_type,
-            args,
-            def_func_pos,
-            module_path,
-            module_id,
-        );
-        defined_func.set_locals(arg_map);
-
-        self.add_pfunction(name_id.unwrap(), defined_func);
-
-        let statements = self.compound_statement(name_id.unwrap());
-
-        self.replace_statements(name_id.unwrap(), statements);
+        (args, arg_map)
     }
 
     pub fn expect_ptype(&mut self) -> res::PType {
@@ -141,7 +161,12 @@ impl<'a> res::Parser<'a> {
                 res::PType::new_pointer(inner_type, true)
             }
             _ => {
-                self.detect_error(error::CompileError::got_invalid_ptype(cur_pos));
+                self.detect_error(
+                    CE::new(
+                        CEK::GOTINVALIDPTYPE,
+                        cur_pos,
+                    )
+                );
                 res::PType::new_invalid()
             }
         }
@@ -154,9 +179,12 @@ impl<'a> res::Parser<'a> {
         self.progress();
 
         if cur_ident.is_none() {
-            self.detect_error(error::CompileError::statement_must_be_ended_with_semicolon(
-                cur_pos,
-            ));
+            self.detect_error(
+                CE::new(
+                    CEK::EXPECTEDIDENTIFIER,
+                    cur_pos
+                )
+            );
             return None;
         }
 
@@ -165,9 +193,12 @@ impl<'a> res::Parser<'a> {
 
     pub fn expect_semicolon(&mut self, stmt_pos: position::Position) {
         if !self.eat_if_matched(&res::TokenKind::SEMICOLON) {
-            self.detect_error(error::CompileError::statement_must_be_ended_with_semicolon(
-                stmt_pos,
-            ));
+            self.detect_error(
+                CE::new(
+                    CEK::STATEMENTMUSTBEENDEDWITHSEMICOLON,
+                    stmt_pos
+                )
+            );
         }
     }
 
@@ -175,7 +206,12 @@ impl<'a> res::Parser<'a> {
         let cur_pos = self.current_position();
         let cur_ident = self.current_token().get_ident_id();
         if cur_ident.is_none() {
-            self.detect_error(error::CompileError::expected_identifier(cur_pos));
+            self.detect_error(
+                CE::new(
+                    CEK::EXPECTEDIDENTIFIER,
+                    cur_pos
+                )
+            );
             panic!();
         }
 
@@ -205,5 +241,36 @@ impl<'a> res::Parser<'a> {
                 self.progress();
             }
         }
+    }
+
+    pub fn skip_keyword_and_ident(&mut self) -> (position::Position, res::PStringId) {
+        let def_ident_pos = self.current_position();
+        self.progress();
+
+        let ident_name_id = self.expect_name();
+        if ident_name_id.is_none() {
+            self.detect_error(CE::new(
+                CEK::DEFINITIONMUSTHAVENAME,
+                def_ident_pos,
+            ));
+            unimplemented!();
+        }
+
+        (def_ident_pos, ident_name_id.unwrap())
+    }
+
+    pub fn ident_and_type(&mut self) -> (res::PStringId, res::PType) {
+        let def_id_type_pos = self.current_position();
+
+        let ident_name_id = self.expect_name();
+        if ident_name_id.is_none() {
+            self.detect_error(CE::new(
+                CEK::DEFINITIONMUSTHAVENAME,
+                def_id_type_pos,
+            ));
+            unimplemented!()
+        }
+
+        (ident_name_id.unwrap(), self.expect_ptype())
     }
 }

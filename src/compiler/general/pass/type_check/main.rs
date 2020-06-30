@@ -1,7 +1,11 @@
 use std::collections::BTreeMap;
 use std::time;
 
-use crate::common::{error as er, module, operate, option, position as pos};
+use crate::common::{
+    error::{
+        CompileError as CE,
+        CmpErrorKind as CEK,
+    }, module, operate, option, position as pos};
 use crate::compiler::general::resource as res;
 
 // 型チェック時に毎回タイプを生成するとコストがかかる
@@ -30,7 +34,8 @@ pub fn type_check_phase(
 
             // mainシンボルの型シグネチャが不正である
             if !func.arg_empty() || func.get_return_type().kind != res::PTypeKind::NORETURN {
-                er::CompileError::main_must_have_no_args_and_noreturn()
+
+                CE::new(CEK::MAINMUSTHAVENOARGSANDNORETURN, Default::default())
                     .emit_stderr("", build_option);
                 std::process::exit(1);
             }
@@ -49,7 +54,7 @@ pub fn type_check_phase(
 
     // mainシンボルが存在しなかったとき
     if !main_exists {
-        er::CompileError::main_must_exist().emit_stderr("", build_option);
+        CE::new(CEK::MAINMUSTEXIST, Default::default()).emit_stderr("", build_option);
         std::process::exit(1);
     }
 
@@ -64,7 +69,7 @@ fn type_check_fn(
     func_name_id: res::PStringId,
     this_func: &res::PFunction,
     const_pool: &res::ConstAllocator,
-) -> Vec<er::CompileError> {
+) -> Vec<CE> {
     let stmts = this_func.get_statements();
     let locals = this_func.get_locals();
 
@@ -90,7 +95,12 @@ impl<'a> res::TypeChecker<'a> {
                 let this_func = tld_map.get(&func_name_id).unwrap();
 
                 if this_func.get_return_type().kind == res::PTypeKind::NORETURN {
-                    self.detect_error(er::CompileError::return_in_noreturn_function(st.copy_pos()));
+                    self.detect_error(
+                        CE::new(
+                            CEK::RETURNINNORETURNFUNC,
+                            st.copy_pos(),
+                        )
+                    );
                 }
 
                 let return_type = self
@@ -98,7 +108,12 @@ impl<'a> res::TypeChecker<'a> {
                     .unwrap();
 
                 if return_type.is_pointer() && return_type.ref_local() {
-                    self.detect_error(er::CompileError::return_local_address(st.copy_pos()));
+                    self.detect_error(
+                        CE::new(
+                            CEK::RETURNLOCALADDRESS,
+                            st.copy_pos(),
+                        )
+                    );
                 }
 
                 None
@@ -140,14 +155,16 @@ impl<'a> res::TypeChecker<'a> {
             }
             res::ExpressionNodeKind::IDENT(name) => {
                 let defined_name_id = res::IdentName::last_name(name);
+                let defined_name = const_pool.get(defined_name_id).unwrap().copy_value();
 
                 if locals.get(vec![defined_name_id].as_slice()).is_none() {
                     let ident_pos = ex.copy_pos();
-                    self.detect_error(er::CompileError::used_undefined_auto_var(
-                        const_pool.get(defined_name_id).unwrap().copy_value(),
-                        ident_pos,
-                    ));
-
+                    self.detect_error(
+                        CE::new(
+                            CEK::USEDUNDEFINEDAUTOVAR(defined_name),
+                            ident_pos,
+                        )
+                    );
                     return None;
                 }
                 let local_var = locals.get(vec![defined_name_id].as_slice()).unwrap();
@@ -168,15 +185,18 @@ impl<'a> res::TypeChecker<'a> {
             res::ExpressionNodeKind::CALL(name, args) => {
                 // 呼び出されている関数がTLDに存在するかチェック
                 let called_name_id = res::IdentName::last_name(name);
+                let called_name = const_pool.get(called_name_id).unwrap().copy_value();
                 let called_decl_opt = tld_map.get(&called_name_id);
 
                 // TLDに存在しない -> 未定義関数の呼び出し
                 if called_decl_opt.is_none() {
                     let call_pos = ex.copy_pos();
-                    self.detect_error(er::CompileError::called_undefined_function(
-                        const_pool.get(called_name_id).unwrap().copy_value(),
-                        call_pos,
-                    ));
+                    self.detect_error(
+                        CE::new(
+                            CEK::CALLEDUNDEFINEDFUNCTION(called_name),
+                            call_pos,
+                        )
+                    );
 
                     return None;
                 }
@@ -188,12 +208,16 @@ impl<'a> res::TypeChecker<'a> {
                 // 引数の数チェック
                 if called_fn_args.len() != args.len() {
                     let err_pos = ex.copy_pos();
-                    self.detect_error(er::CompileError::arg_number_incorrect(
-                        const_pool.get(called_name_id).unwrap().copy_value(),
-                        called_fn_args.len(),
-                        args.len(),
-                        err_pos,
-                    ));
+                    self.detect_error(
+                        CE::new(
+                            CEK::ARGNUMBERINCORRECT(
+                                const_pool.get(called_name_id).unwrap().copy_value(),
+                                called_fn_args.len(),
+                                args.len(),
+                            ),
+                            err_pos,
+                        )
+                    );
 
                     return None;
                 }
@@ -214,13 +238,17 @@ impl<'a> res::TypeChecker<'a> {
 
                     if defined_arg_type != &caller_arg_type {
                         let err_pos = ex.copy_pos();
-                        self.detect_error(er::CompileError::arg_type_incorrect(
-                            const_pool.get(called_name_id).unwrap().copy_value(),
-                            i,
-                            defined_arg_type.clone(),
-                            caller_arg_type,
-                            err_pos,
-                        ));
+                        self.detect_error(
+                            CE::new(
+                                CEK::ARGTYPEINCORRECT(
+                                    const_pool.get(called_name_id).unwrap().copy_value(),
+                                    i,
+                                    defined_arg_type.clone(),
+                                    caller_arg_type,
+                                ),
+                                err_pos,
+                            )
+                        );
                         return None;
                     }
                 }
@@ -240,7 +268,12 @@ impl<'a> res::TypeChecker<'a> {
                 let inner_type = inner_type.unwrap();
                 if inner_type.is_unsigned() {
                     let err_pos = ex.copy_pos();
-                    self.detect_error(er::CompileError::cannotapplyminusto(inner_type, err_pos));
+                    self.detect_error(
+                        CE::new(
+                            CEK::CANNOTAPPLYMINUSTO(inner_type),
+                            err_pos,
+                        )
+                    );
 
                     return None;
                 }
@@ -272,10 +305,14 @@ impl<'a> res::TypeChecker<'a> {
 
                 if !pointer_type.is_pointer() {
                     let err_pos = ex.copy_pos();
-                    self.detect_error(er::CompileError::cannot_dereference_with_not_pointer(
-                        pointer_type,
-                        err_pos,
-                    ));
+                    self.detect_error(
+                        CE::new(
+                            CEK::CANNOTDEREFERENCENOTPOINTER(
+                                pointer_type
+                            ),
+                            err_pos,
+                        )
+                    );
 
                     return None;
                 }
@@ -299,12 +336,14 @@ impl<'a> res::TypeChecker<'a> {
                 if lop_type != rop_type {
                     let err_pos = ex.copy_pos();
                     self.detect_error(
-                        er::CompileError::binary_operation_must_have_two_same_type_operands(
-                            ex.operator_to_string(),
-                            lop_type.unwrap(),
-                            rop_type.unwrap(),
+                        CE::new(
+                            CEK::BINARYOPERATIONMUSTHAVETOSAMETYPEOPERANDS(
+                                ex.operator_to_string(),
+                                lop_type.unwrap(),
+                                rop_type.unwrap(),
+                            ),
                             err_pos,
-                        ),
+                        )
                     );
                     return None;
                 }
@@ -351,7 +390,12 @@ impl<'a> res::TypeChecker<'a> {
 
                 if body_type != alter_type {
                     let err_pos = ex.copy_pos();
-                    self.detect_error(er::CompileError::both_blocks_must_be_same_type(err_pos));
+                    self.detect_error(
+                        CE::new(
+                            CEK::BOTHBLOCKSMUSTBESAMETYPE,
+                            err_pos,
+                        )
+                    );
 
                     return None;
                 }
@@ -383,10 +427,10 @@ impl<'a> res::TypeChecker<'a> {
         if !self.is_boolean_type(&cond_expr_type) {
             let err_pos = cond_expr.copy_pos();
             self.detect_error(
-                er::CompileError::condition_expression_must_be_an_boolean_in_if(
-                    cond_expr_type,
+                CE::new(
+                    CEK::CONDITIONEXPRESSIONMUSTBEANBOOLEANINIF(cond_expr_type),
                     err_pos,
-                ),
+                )
             );
 
             return true;
@@ -427,10 +471,12 @@ impl<'a> res::TypeChecker<'a> {
 
         if ex_type.is_none() {
             let err_pos = ex.copy_pos();
-            self.detect_error(er::CompileError::unable_to_resolve_expression_type(
-                ex.clone(),
-                err_pos,
-            ));
+            self.detect_error(
+                CE::new(
+                    CEK::UNABLETORESOLVEEXPRESSIONTYPE(ex.clone()),
+                    err_pos,
+                )
+            );
             return None;
         }
         ex_type
@@ -456,11 +502,15 @@ impl<'a> res::TypeChecker<'a> {
 
         // try_to_resolve_expression() とは別にエラーを生成
         if rvalue_type.is_none() {
-            self.detect_error(er::CompileError::cannot_assignment_unresolved_right_value(
-                lvalue.clone(),
-                rvalue.clone(),
-                assign_pos,
-            ));
+            self.detect_error(
+                CE::new(
+                    CEK::CANNOTASSIGNMENTUNRESOLVEDRIGHTVALUE(
+                        lvalue.clone(),
+                        rvalue.clone(),
+                    ),
+                    assign_pos,
+                )
+            );
             return None;
         }
 
@@ -469,10 +519,12 @@ impl<'a> res::TypeChecker<'a> {
             if let Some(pvar) = locals.get(&lvalue.get_ident_ids()) {
                 if pvar.is_constant() {
                     self.detect_error(
-                        er::CompileError::cannot_assignment_to_constant_after_initialization(
-                            lvalue.clone(),
+                        CE::new(
+                            CEK::CANNOTASSIGNMENTTOCONSTANTAFTERINITIALIZATION(
+                                lvalue.clone(),
+                            ),
                             assign_pos,
-                        ),
+                        )
                     );
                     return None;
                 }
@@ -481,11 +533,13 @@ impl<'a> res::TypeChecker<'a> {
 
         if lvalue_type != rvalue_type {
             self.detect_error(
-                er::CompileError::both_values_must_be_same_type_in_assignment(
-                    lvalue_type.unwrap(),
-                    rvalue_type.unwrap(),
+                CE::new(
+                    CEK::BOTHVALUESMUSTBESAMETYPEINASSIGNMENT(
+                        lvalue_type.unwrap(),
+                        rvalue_type.unwrap()
+                    ),
                     assign_pos,
-                ),
+                )
             );
             return None;
         }
