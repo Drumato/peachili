@@ -30,7 +30,7 @@ impl TopLevelDecl {
                 let mut members = BTreeMap::new();
 
                 for (m_name, (m_t, m_off)) in ms.iter() {
-                    members.insert(*m_name, (m_t.clone(), m_off.clone()));
+                    members.insert(*m_name, (m_t.clone(), *m_off));
                 }
 
                 res::PType::new_struct(members)
