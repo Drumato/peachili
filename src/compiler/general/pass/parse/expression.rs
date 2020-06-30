@@ -46,7 +46,7 @@ impl<'a> res::Parser<'a> {
 
         let rval = self.expression(func_name_id);
 
-        res::ExpressionNode::new_assign(lval, rval, cur_pos)
+        res::ExpressionNode::new_binary_expr("=", lval, rval, cur_pos)
     }
 
     pub fn additive(&mut self, func_name_id: res::PStringId) -> res::ExpressionNode {
@@ -56,9 +56,9 @@ impl<'a> res::Parser<'a> {
             let cur_pos = self.current_position();
 
             if self.eat_if_matched(&res::TokenKind::PLUS) {
-                lop = res::ExpressionNode::new_add(lop, self.multiplicative(func_name_id), cur_pos);
+                lop = res::ExpressionNode::new_binary_expr("+", lop, self.multiplicative(func_name_id), cur_pos);
             } else if self.eat_if_matched(&res::TokenKind::MINUS) {
-                lop = res::ExpressionNode::new_sub(lop, self.multiplicative(func_name_id), cur_pos);
+                lop = res::ExpressionNode::new_binary_expr("-", lop, self.multiplicative(func_name_id), cur_pos);
             } else {
                 break;
             }
@@ -73,9 +73,9 @@ impl<'a> res::Parser<'a> {
             let cur_pos = self.current_position();
 
             if self.eat_if_matched(&res::TokenKind::ASTERISK) {
-                lop = res::ExpressionNode::new_mul(lop, self.unary(func_name_id), cur_pos);
+                lop = res::ExpressionNode::new_binary_expr("*", lop, self.unary(func_name_id), cur_pos);
             } else if self.eat_if_matched(&res::TokenKind::SLASH) {
-                lop = res::ExpressionNode::new_div(lop, self.unary(func_name_id), cur_pos);
+                lop = res::ExpressionNode::new_binary_expr("/", lop, self.unary(func_name_id), cur_pos);
             } else {
                 break;
             }
@@ -91,23 +91,40 @@ impl<'a> res::Parser<'a> {
         match cur_kind {
             res::TokenKind::PLUS => {
                 self.progress();
-                self.primary(func_name_id)
+                self.postfix(func_name_id)
             }
             res::TokenKind::MINUS => {
                 self.progress();
-                res::ExpressionNode::new_neg(self.primary(func_name_id), cur_pos)
+                res::ExpressionNode::new_unary_expr("-", self.postfix(func_name_id), cur_pos)
             }
             res::TokenKind::ASTERISK => {
                 self.progress();
-                res::ExpressionNode::new_deref(self.primary(func_name_id), cur_pos)
+                res::ExpressionNode::new_unary_expr("*", self.postfix(func_name_id), cur_pos)
             }
             res::TokenKind::AMPERSAND => {
                 self.progress();
-                res::ExpressionNode::new_address(self.primary(func_name_id), cur_pos)
+                res::ExpressionNode::new_unary_expr("&", self.postfix(func_name_id), cur_pos)
             }
 
-            _ => self.primary(func_name_id),
+            _ => self.postfix(func_name_id),
         }
+    }
+
+    pub fn postfix(&mut self, func_name_id: res::PStringId) -> res::ExpressionNode {
+        let mut n = self.primary(func_name_id);
+
+        loop {
+            let cur_pos = self.current_position();
+
+            if self.eat_if_matched(&res::TokenKind::DOT) {
+                let member_id = self.expect_name().unwrap();
+                n = res::ExpressionNode::new_member(n, member_id, cur_pos);
+            } else {
+                break;
+            }
+        }
+
+        n
     }
 
     pub fn primary(&mut self, func_name_id: res::PStringId) -> res::ExpressionNode {

@@ -69,7 +69,7 @@ impl Generator {
             )));
         }
 
-        self.gen_block_statement(func.get_statements(),local_map, string_map, const_pool );
+        self.gen_block_statement(func.get_statements(), local_map, string_map, const_pool);
 
         // 暗黙的に return 0; を挿入する．
         if is_main_symbol {
@@ -298,6 +298,21 @@ impl Generator {
                 );
                 self.gen_pushreg64(GPR::RAX);
             }
+            res::ExpressionNodeKind::MEMBER(_id, _member_id) => {
+                // メンバ自身のアドレスを得てから，デリファレンス
+                self.gen_left_value(ex, local_map, string_map);
+                self.gen_popreg64(GPR::RAX);
+                self.add_i(
+                    self.new_i(
+                        x64_asm::new_r64rm64!(
+                            MOVR64RM64,
+                            GPR::RAX,
+                            self.new_mem(GPR::RAX)
+                        )
+                    )
+                );
+                self.gen_pushreg64(GPR::RAX);
+            }
 
             // binary-expression
             res::ExpressionNodeKind::ADD(lop, rop) => {
@@ -330,7 +345,7 @@ impl Generator {
                     label: fin_label.clone(),
                 }));
 
-                self.gen_block_statement(body,local_map, string_map, const_pool );
+                self.gen_block_statement(body, local_map, string_map, const_pool);
                 self.add_group_to_cursym(fin_label);
 
                 self.gen_comment("end if expression");
@@ -346,7 +361,7 @@ impl Generator {
                     label: else_label.clone(),
                 }));
 
-                self.gen_block_statement(body,local_map, string_map, const_pool );
+                self.gen_block_statement(body, local_map, string_map, const_pool);
 
                 self.add_i(self.new_i(Opcode::JMPLABEL {
                     label: fin_label.clone(),
@@ -354,7 +369,7 @@ impl Generator {
 
                 self.add_group_to_cursym(else_label);
 
-                self.gen_block_statement(alter,local_map, string_map, const_pool );
+                self.gen_block_statement(alter, local_map, string_map, const_pool);
 
                 self.add_group_to_cursym(fin_label);
 
@@ -522,7 +537,7 @@ impl Generator {
         &mut self,
         lval: &res::ExpressionNode,
         local_map: &BTreeMap<Vec<res::PStringId>, res::PVariable>,
-        _string_map: &BTreeMap<res::PStringId, u64>,
+        string_map: &BTreeMap<res::PStringId, u64>,
     ) {
         match &lval.kind {
             res::ExpressionNodeKind::IDENT(id_name) => {
@@ -548,7 +563,7 @@ impl Generator {
             }
 
             res::ExpressionNodeKind::DEREF(ident_ex) => {
-                self.gen_left_value(ident_ex, local_map, _string_map);
+                self.gen_left_value(ident_ex, local_map, string_map);
 
                 // get value from address
                 self.gen_popreg64(GPR::RAX);
@@ -558,6 +573,39 @@ impl Generator {
                     GPR::RAX,
                     self.new_mem(GPR::RAX)
                 )));
+                self.gen_pushreg64(GPR::RAX);
+            }
+            res::ExpressionNodeKind::MEMBER(id, member_id) => {
+                // 構造体の先頭アドレスを取得
+                self.gen_left_value(id, local_map, string_map);
+
+                let ident_ids = id.get_ident_ids();
+                let cur_pvar = local_map.get(&ident_ids).unwrap();
+                let cur_pvar_type = cur_pvar.get_type();
+                let members = cur_pvar_type.get_members();
+                let member_offset = members.get(member_id).unwrap().1;
+
+                // メンバの位置にオフセットをずらす
+                self.gen_popreg64(GPR::RAX);
+                self.add_i(
+                    self.new_i(
+                        x64_asm::new_rm64imm32!(
+                            MOVRM64IMM32,
+                            self.new_gpr_op(GPR::RDI),
+                            Immediate::I32(member_offset as i32)
+                        )
+                    )
+                );
+                self.add_i(
+                    self.new_i(
+                        x64_asm::new_r64rm64!(
+                            ADDR64RM64,
+                            GPR::RAX,
+                            self.new_gpr_op(GPR::RDI)
+                        )
+                    )
+                );
+
                 self.gen_pushreg64(GPR::RAX);
             }
             _ => panic!("can't generate {} as lvalue", lval.kind),

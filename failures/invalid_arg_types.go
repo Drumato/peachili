@@ -1,6 +1,6 @@
-func callee(v1 int64, v2 uint64, v3 str) noreturn {
+func callee(v1 Int64, v2 Uint64, v3 ConstStr) Noreturn {
 }
 
-func main() noreturn {
+func main() Noreturn {
     callee(100u, "Hello, world!", 0);
 }

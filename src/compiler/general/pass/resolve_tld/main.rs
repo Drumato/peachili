@@ -37,7 +37,11 @@ impl res::TLDResolver {
         type_map: &BTreeMap<res::PStringId, res::PType>,
     ) {
         for (type_name_id, def_type) in type_map.iter() {
-            let tld_type = res::TopLevelDecl::new_alias(def_type.clone());
+            let tld_type = if def_type.is_struct() {
+                res::TopLevelDecl::new_struct(def_type.copy_members())
+            } else {
+                res::TopLevelDecl::new_alias(def_type.clone())
+            };
 
             self.insert_entry(*type_name_id, tld_type);
         }

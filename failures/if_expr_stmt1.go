@@ -1,9 +1,9 @@
 require (
     "std"
 )
-func main() noreturn {
+func main() Noreturn {
 
-    // if式内の条件式はboolean型のみ
+    // if式内の条件式はBoolean型のみ
 	if (1) {
 		std::os::exit_with(1);
 	};

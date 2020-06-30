@@ -1,7 +1,7 @@
 require (
     "std"
 )
-func main() noreturn {
+func main() Noreturn {
 
     // if式内の条件式はboolean型のみ
 	if (0) {

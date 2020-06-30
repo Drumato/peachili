@@ -1,3 +1,3 @@
-func main(v1 int64) int64 {
+func main(v1 Int64) Int64 {
     return v1 + 1;
 }

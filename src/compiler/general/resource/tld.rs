@@ -19,6 +19,25 @@ impl TopLevelDecl {
     pub fn new_alias(src_type: res::PType) -> Self {
         Self::new(TLDKind::ALIAS(src_type))
     }
+    pub fn new_struct(members: BTreeMap<res::PStringId, (res::PType, usize)>) -> Self {
+        Self::new(TLDKind::STRUCT(members))
+    }
+
+    pub fn to_ptype(&self) -> res::PType {
+        match &self.kind {
+            TLDKind::ALIAS(src_type) => src_type.clone(),
+            TLDKind::STRUCT(ms) => {
+                let mut members = BTreeMap::new();
+
+                for (m_name, (m_t, m_off)) in ms.iter() {
+                    members.insert(*m_name, (m_t.clone(), m_off.clone()));
+                }
+
+                res::PType::new_struct(members)
+            }
+            _ => unimplemented!(),
+        }
+    }
 
     pub fn get_return_type(&self) -> &res::PType {
         match &self.kind {
@@ -33,10 +52,10 @@ impl TopLevelDecl {
         }
     }
 
-    pub fn get_src_type(&self) -> &res::PType {
+    pub fn get_members(&self) -> &BTreeMap<res::PStringId, (res::PType, usize)> {
         match &self.kind {
-            TLDKind::ALIAS(src_type) => src_type,
-            _ => panic!("not an alias"),
+            TLDKind::STRUCT(members) => members,
+            _ => panic!("not a struct"),
         }
     }
 }
@@ -46,7 +65,7 @@ pub enum TLDKind {
     // CONST,
     FN(res::PType, Vec<(res::PStringId, res::PType)>),
     ALIAS(res::PType),
-    // TYPE,
+    STRUCT(BTreeMap<res::PStringId, (res::PType, usize)>),
 }
 
 pub struct TLDResolver {

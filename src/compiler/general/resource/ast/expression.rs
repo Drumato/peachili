@@ -13,6 +13,7 @@ impl ExpressionNode {
         match &self.kind {
             ExpressionNodeKind::IDENT(id_name) => IdentName::correct_name(id_name),
             ExpressionNodeKind::DEREF(pointer_ex) => pointer_ex.get_ident_ids(),
+            ExpressionNodeKind::MEMBER(id, _members) => id.get_ident_ids(),
             _ => panic!("unexpected call `get_ident_id` with {}", self.kind),
         }
     }
@@ -64,47 +65,26 @@ impl ExpressionNode {
         Self::new(ExpressionNodeKind::CALL(ident, args), ex_pos)
     }
 
-    pub fn new_neg(value: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(ExpressionNodeKind::NEG(Box::new(value)), ex_pos)
+    pub fn new_unary_expr(op: &str, value: ExpressionNode, ex_pos: pos::Position) -> Self {
+        match op {
+            "-" => Self::new(ExpressionNodeKind::NEG(Box::new(value)), ex_pos),
+            "&" => Self::new(ExpressionNodeKind::ADDRESS(Box::new(value)), ex_pos),
+            "*" => Self::new(ExpressionNodeKind::DEREF(Box::new(value)), ex_pos),
+            _ => unimplemented!()
+        }
     }
-    pub fn new_address(value: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(ExpressionNodeKind::ADDRESS(Box::new(value)), ex_pos)
+    pub fn new_member(id: ExpressionNode, member: res::PStringId, ex_pos: pos::Position) -> Self {
+        Self::new(ExpressionNodeKind::MEMBER(Box::new(id), member), ex_pos)
     }
-    pub fn new_deref(value: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(ExpressionNodeKind::DEREF(Box::new(value)), ex_pos)
-    }
-
-    pub fn new_add(lop: ExpressionNode, rop: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(
-            ExpressionNodeKind::ADD(Box::new(lop), Box::new(rop)),
-            ex_pos,
-        )
-    }
-
-    pub fn new_sub(lop: ExpressionNode, rop: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(
-            ExpressionNodeKind::SUB(Box::new(lop), Box::new(rop)),
-            ex_pos,
-        )
-    }
-    pub fn new_mul(lop: ExpressionNode, rop: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(
-            ExpressionNodeKind::MUL(Box::new(lop), Box::new(rop)),
-            ex_pos,
-        )
-    }
-    pub fn new_div(lop: ExpressionNode, rop: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(
-            ExpressionNodeKind::DIV(Box::new(lop), Box::new(rop)),
-            ex_pos,
-        )
-    }
-
-    pub fn new_assign(lval: ExpressionNode, rval: ExpressionNode, ex_pos: pos::Position) -> Self {
-        Self::new(
-            ExpressionNodeKind::ASSIGN(Box::new(lval), Box::new(rval)),
-            ex_pos,
-        )
+    pub fn new_binary_expr(op: &str, lop: ExpressionNode, rop: ExpressionNode, ex_pos: pos::Position) -> Self {
+        match op {
+            "+" => Self::new(ExpressionNodeKind::ADD(Box::new(lop), Box::new(rop)), ex_pos),
+            "-" => Self::new(ExpressionNodeKind::SUB(Box::new(lop), Box::new(rop)), ex_pos),
+            "*" => Self::new(ExpressionNodeKind::MUL(Box::new(lop), Box::new(rop)), ex_pos),
+            "/" => Self::new(ExpressionNodeKind::DIV(Box::new(lop), Box::new(rop)), ex_pos),
+            "=" => Self::new(ExpressionNodeKind::ASSIGN(Box::new(lop), Box::new(rop)), ex_pos),
+            _ => unimplemented!()
+        }
     }
 
     pub fn new_if(
@@ -156,6 +136,7 @@ pub enum ExpressionNodeKind {
     ADDRESS(Box<ExpressionNode>),
     DEREF(Box<ExpressionNode>),
     NEG(Box<ExpressionNode>),
+    MEMBER(Box<ExpressionNode>, res::PStringId),
 
     // binary
     ADD(Box<ExpressionNode>, Box<ExpressionNode>),
@@ -200,6 +181,7 @@ impl std::fmt::Display for ExpressionNodeKind {
             Self::NEG(v) => write!(f, "-{}", v),
             Self::ADDRESS(v) => write!(f, "&{}", v),
             Self::DEREF(v) => write!(f, "*{}", v),
+            Self::MEMBER(id, member) => write!(f, "{}.{:?}", id, member),
 
             // binary
             Self::ADD(lop, rop) => write!(f, "{} + {}", lop, rop),

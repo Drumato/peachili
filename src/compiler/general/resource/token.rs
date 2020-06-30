@@ -91,6 +91,7 @@ pub enum TokenKind {
     BLANK,
     NEWLINE,
     COMMA,
+    DOT,
     EOF,
     AMPERSAND,
 
@@ -145,6 +146,7 @@ impl std::fmt::Display for TokenKind {
             TokenKind::BLANK => write!(f, "BLANK"),
             TokenKind::NEWLINE => write!(f, "NEWLINE"),
             TokenKind::COMMA => write!(f, ","),
+            TokenKind::DOT => write!(f, "."),
             TokenKind::EOF => write!(f, "eof"),
 
             // 予約語
@@ -192,6 +194,7 @@ impl TokenKind {
             "," => TokenKind::COMMA,
             ";" => TokenKind::SEMICOLON,
             "&" => TokenKind::AMPERSAND,
+            "." => TokenKind::DOT,
             _ => panic!("invalid tokenkind from {}", s),
         }
     }
@@ -221,6 +224,7 @@ impl TokenKind {
             TokenKind::COMMA => ",",
             TokenKind::EOF => "eof",
             TokenKind::AMPERSAND => "&",
+            TokenKind::DOT => ".",
 
             // 予約語
             TokenKind::STRUCT => "strct",

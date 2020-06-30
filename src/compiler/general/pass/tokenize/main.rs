@@ -195,7 +195,7 @@ impl<'a> res::Lexer<'a> {
             }
         }
 
-        let simple_symbols = vec!["+", "-", "*", "/", ";", "(", ")", "{", "}", "=", ",", "&"];
+        let simple_symbols = vec!["+", "-", "*", "/", ";", "(", ")", "{", "}", "=", ",", "&", "."];
 
         for sym_str in simple_symbols.iter() {
             if self.contents_starts_with(sym_str) {

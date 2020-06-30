@@ -112,6 +112,14 @@ impl CompileError {
             CmpErrorKind::DEFINITIONMUSTHAVENAME => {
                 "definition identifier must have one name".to_string()
             }
+            CmpErrorKind::CANNOTACCESSMEMBERWITHNOTSTRUCT(inner) => format!(
+                "cannot access any members with `{}`; its not a struct",
+                inner
+            ),
+            CmpErrorKind::UNDEFINEDSUCHAMEMBER(st_type, member) => format!(
+                "undefined such a member `{}` in `{}`",
+                member, st_type
+            )
         }
     }
     pub fn error_message_ja(&self) -> String {
@@ -124,7 +132,7 @@ impl CompileError {
                 format!("関数 '{}' は未定義です", called_name)
             }
             CmpErrorKind::USEDUNDEFINEDAUTOVAR(ident_name) => {
-                format!("自動変数 '{}' は未定義です", ident_name,)
+                format!("自動変数 '{}' は未定義です", ident_name, )
             }
             CmpErrorKind::UNABLETORESOLVEEXPRESSIONTYPE(expr) => {
                 format!("式 '{}' の型を解決できません", expr)
@@ -193,13 +201,20 @@ impl CompileError {
             CmpErrorKind::DEFINITIONMUSTHAVENAME => {
                 "識別子を定義する際には名前が必要です".to_string()
             }
+            CmpErrorKind::CANNOTACCESSMEMBERWITHNOTSTRUCT(inner) => format!(
+                "非構造体型である `{}` に対してメンバアクセスは無効です",
+                inner
+            ),
+            CmpErrorKind::UNDEFINEDSUCHAMEMBER(st_type, member) => format!(
+                "`{}` 型に `{}` というメンバは定義されていません",
+                st_type, member
+            )
         }
     }
 
     pub fn out_of_64bit_sint_range(number_str: String, err_pos: pos::Position) -> Self {
         Self::new(CmpErrorKind::OUTOF64BITSINTRANGE(number_str), err_pos)
     }
-
 }
 
 #[derive(Clone)]
@@ -293,4 +308,10 @@ pub enum CmpErrorKind {
 
     /// 定義時に識別子名を記述していない
     DEFINITIONMUSTHAVENAME,
+
+    /// 構造体型以外に対するメンバアクセス構文
+    CANNOTACCESSMEMBERWITHNOTSTRUCT(res::PType),
+
+    /// 存在しないメンバに対するアクセス
+    UNDEFINEDSUCHAMEMBER(res::PType, String),
 }

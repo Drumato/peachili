@@ -36,7 +36,9 @@ impl res::PFunction {
                     panic!("should emit a compile-error");
                 }
 
-                let resolved_type = tld_map.get(&type_last).unwrap().get_src_type();
+                let base_type = tld_map.get(&type_last).unwrap();
+
+                let resolved_type = base_type.to_ptype();
                 pvar.set_type(resolved_type.clone());
             }
         }

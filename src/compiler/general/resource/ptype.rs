@@ -61,9 +61,13 @@ impl PType {
     pub fn new_pointer(inner: PType, ref_local: bool) -> Self {
         Self::new(PTypeKind::POINTER(Box::new(inner), ref_local), 8)
     }
-    pub fn new_struct(members: BTreeMap<res::PStringId, PType>) -> Self {
+    pub fn new_struct(mut members: BTreeMap<res::PStringId, (PType, usize)>) -> Self {
+        let mut total_size: usize = 0;
         // メンバのサイズを合計
-        let total_size: usize = members.iter().map(|(_name, t)| t.type_size()).sum();
+        for (_name, (member_t, offset)) in members.iter_mut() {
+            *offset = total_size;
+            total_size += member_t.type_size();
+        }
         Self::new(PTypeKind::STRUCT { members }, total_size)
     }
 
@@ -85,6 +89,12 @@ impl PType {
             _ => false,
         }
     }
+    pub fn is_struct(&self) -> bool {
+        match &self.kind {
+            PTypeKind::STRUCT { members: _ } => true,
+            _ => false,
+        }
+    }
 
     pub fn dereference(&self) -> Self {
         match &self.kind {
@@ -96,6 +106,19 @@ impl PType {
         match &self.kind {
             PTypeKind::POINTER(_inner, ref_local) => *ref_local,
             _ => panic!("not a pointer"),
+        }
+    }
+    pub fn copy_members(&self) -> BTreeMap<res::PStringId, (PType, usize)> {
+        match &self.kind {
+            PTypeKind::STRUCT { members } => members.clone(),
+            _ => panic!("not a struct"),
+        }
+    }
+
+    pub fn get_members(&self) -> &BTreeMap<res::PStringId, (PType, usize)> {
+        match &self.kind {
+            PTypeKind::STRUCT { members } => &members,
+            _ => panic!("not a struct"),
         }
     }
 
@@ -141,8 +164,10 @@ pub enum PTypeKind {
 
     /// inner_type, is_local
     POINTER(Box<PType>, bool),
+
+    /// member_name -> (member_type, member_relative_offset)
     STRUCT {
-        members: BTreeMap<res::PStringId, PType>,
+        members: BTreeMap<res::PStringId, (PType, usize)>,
     },
     INVALID,
 }

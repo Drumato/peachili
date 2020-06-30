@@ -1,8 +1,8 @@
-func main() noreturn {
+func main() Noreturn {
     callee();
 }
 
-func callee() *int64 {
-    varinit x int64 = 0;
+func callee() *Int64 {
+    varinit x Int64 = 0;
     return &x;
 }

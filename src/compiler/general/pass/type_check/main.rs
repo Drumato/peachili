@@ -34,7 +34,6 @@ pub fn type_check_phase(
 
             // mainシンボルの型シグネチャが不正である
             if !func.arg_empty() || func.get_return_type().kind != res::PTypeKind::NORETURN {
-
                 CE::new(CEK::MAINMUSTHAVENOARGSANDNORETURN, Default::default())
                     .emit_stderr("", build_option);
                 std::process::exit(1);
@@ -175,7 +174,7 @@ impl<'a> res::TypeChecker<'a> {
                     let type_last = res::IdentName::last_name(type_name);
 
                     if let Some(src_type) = tld_map.get(&type_last) {
-                        return Some(src_type.get_src_type().clone());
+                        return Some(src_type.to_ptype().clone());
                     }
                 }
 
@@ -300,8 +299,7 @@ impl<'a> res::TypeChecker<'a> {
                     tld_map,
                     locals,
                     const_pool,
-                );
-                let pointer_type = pointer_type.unwrap();
+                ).unwrap();
 
                 if !pointer_type.is_pointer() {
                     let err_pos = ex.copy_pos();
@@ -318,6 +316,49 @@ impl<'a> res::TypeChecker<'a> {
                 }
 
                 Some(pointer_type.dereference())
+            }
+
+            res::ExpressionNodeKind::MEMBER(id, member_id) => {
+                let struct_type = self.try_to_resolve_expression(
+                    func_name_id,
+                    id,
+                    tld_map,
+                    locals,
+                    const_pool,
+                ).unwrap();
+
+                if !struct_type.is_struct() {
+                    let err_pos = ex.copy_pos();
+                    self.detect_error(
+                        CE::new(
+                            CEK::CANNOTACCESSMEMBERWITHNOTSTRUCT(
+                                struct_type
+                            ),
+                            err_pos,
+                        )
+                    );
+
+                    return None;
+                }
+
+                let members = struct_type.get_members();
+                let member_opt = members.get(member_id);
+
+                if member_opt.is_none() {
+                    let err_pos = ex.copy_pos();
+                    let member_name = const_pool.get(*member_id).unwrap();
+                    self.detect_error(
+                        CE::new(
+                            CEK::UNDEFINEDSUCHAMEMBER(
+                                struct_type.clone(),
+                                member_name.copy_value()),
+                            err_pos,
+                        )
+                    );
+                    return None;
+                }
+
+                Some(member_opt.unwrap().0.clone())
             }
 
             res::ExpressionNodeKind::ADD(lop, rop)
@@ -501,7 +542,7 @@ impl<'a> res::TypeChecker<'a> {
             self.try_to_resolve_expression(func_name_id, rvalue, tld_map, locals, const_pool);
 
         // try_to_resolve_expression() とは別にエラーを生成
-        if rvalue_type.is_none() {
+        if lvalue_type.is_none() || rvalue_type.is_none() {
             self.detect_error(
                 CE::new(
                     CEK::CANNOTASSIGNMENTUNRESOLVEDRIGHTVALUE(
@@ -536,7 +577,7 @@ impl<'a> res::TypeChecker<'a> {
                 CE::new(
                     CEK::BOTHVALUESMUSTBESAMETYPEINASSIGNMENT(
                         lvalue_type.unwrap(),
-                        rvalue_type.unwrap()
+                        rvalue_type.unwrap(),
                     ),
                     assign_pos,
                 )

@@ -1,4 +1,4 @@
-func main() noreturn {
-    varinit x uint64 = 1;
-    varinit y uint64 = -x;
+func main() Noreturn {
+    varinit x Uint64 = 1;
+    varinit y Uint64 = -x;
 }

@@ -51,5 +51,6 @@ try 1 "unsigned_int.go"
 try 30 "varinit.go"
 try 4 "pointer.go"
 try 4 "pointer2.go"
+try 45 "simple_struct.go"
 
 echo -e "\n\nOK"

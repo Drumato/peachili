@@ -61,7 +61,7 @@ impl<'a> res::Parser<'a> {
     }
 
     /// members_definition -> `{` (identifier type_name )* `}`
-    fn members_definition(&mut self) -> BTreeMap<res::PStringId, res::PType> {
+    fn members_definition(&mut self) -> BTreeMap<res::PStringId, (res::PType, usize)> {
         let mut members = BTreeMap::new();
 
         self.expect(res::TokenKind::LBRACE);
@@ -72,7 +72,7 @@ impl<'a> res::Parser<'a> {
             }
 
             let (member_name_id, member_type) = self.ident_and_type();
-            members.insert(member_name_id, member_type);
+            members.insert(member_name_id, (member_type, 0));
         }
 
         members
