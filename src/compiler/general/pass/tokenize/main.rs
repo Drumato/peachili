@@ -275,11 +275,11 @@ mod tokenize_main_tests {
         assert!(res::Lexer::check_reserved("struct").is_some());
         assert!(res::Lexer::check_reserved("true").is_some());
         assert!(res::Lexer::check_reserved("false").is_some());
-        assert!(res::Lexer::check_reserved("boolean").is_some());
+        assert!(res::Lexer::check_reserved("Boolean").is_some());
         assert!(res::Lexer::check_reserved("ifret").is_some());
         assert!(res::Lexer::check_reserved("if").is_some());
         assert!(res::Lexer::check_reserved("else").is_some());
-        assert!(res::Lexer::check_reserved("int64").is_some());
+        assert!(res::Lexer::check_reserved("Int64").is_some());
         assert!(res::Lexer::check_reserved("func").is_some());
         assert!(res::Lexer::check_reserved("return").is_some());
         assert!(res::Lexer::check_reserved("declare").is_some());
@@ -288,10 +288,10 @@ mod tokenize_main_tests {
         assert!(res::Lexer::check_reserved("to").is_some());
         assert!(res::Lexer::check_reserved("require").is_some());
         assert!(res::Lexer::check_reserved("asm").is_some());
-        assert!(res::Lexer::check_reserved("noreturn").is_some());
-        assert!(res::Lexer::check_reserved("str").is_some());
+        assert!(res::Lexer::check_reserved("Noreturn").is_some());
+        assert!(res::Lexer::check_reserved("ConstStr").is_some());
         assert!(res::Lexer::check_reserved("pubtype").is_some());
-        assert!(res::Lexer::check_reserved("uint64").is_some());
+        assert!(res::Lexer::check_reserved("Uint64").is_some());
         assert!(res::Lexer::check_reserved("varinit").is_some());
         assert!(res::Lexer::check_reserved("const").is_some());
 
