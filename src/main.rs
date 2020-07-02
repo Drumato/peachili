@@ -1,78 +1,50 @@
-#[macro_use]
 extern crate clap;
-extern crate id_arena;
+extern crate typed_arena;
 extern crate yaml_rust;
 extern crate x64_asm;
 
-use std::sync::{Arc, Mutex};
 
-use clap::App;
+use common::{option, module};
+use arch::x64;
+use typed_arena::Arena;
 
-use bundler::bundler_main;
-use common::{module, option};
-use compiler::general::resource as res;
-
-pub mod assembler;
-pub mod bundler;
-pub mod common;
-pub mod compiler;
-pub mod x64_main;
-pub mod linker;
+mod bundler;
+mod common;
+mod arch;
+mod setup;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // スタティックなライフタイムを必要とするアロケータ達
-    let mut module_allocator: module::ModuleAllocator = Default::default();
-    let const_pool: res::ConstAllocator = Default::default();
+    let matches = setup::create_arg_matches();
+    let build_option = initialize(matches);
 
-    let yaml = load_yaml!("cli.yml");
-    let matches = App::from(yaml).get_matches();
-
-    let (main_file_path, build_option) = initialize(matches);
+    let module_arena: Arena<module::ModuleData> = Arena::new();
 
     // ******************
     // *    Bundler     *
     // ******************
 
-    // 各モジュールで共有したいので，Arc<Mutex<T>>に
-    let main_mod_id = bundler_main::bundle_main(
-        &build_option,
-        main_file_path,
-        &mut module_allocator,
-        Arc::new(Mutex::new(const_pool)),
-    );
+    let source = build_option.get_source();
+    let _main_module = bundler::main( build_option.target, source, &module_arena);
 
     // ******************
     // *    Compiler    *
     // ******************
 
     match build_option.target {
-        option::Target::X86_64 => x64_main::main(&build_option, main_mod_id, module_allocator)?,
-        option::Target::LLVMIR => unimplemented!(),
+        option::Target::X86_64 => x64::main()?,
     }
 
     Ok(())
 }
 
-fn initialize(matches: clap::ArgMatches) -> (String, option::BuildOption) {
-    let mut build_option: option::BuildOption = Default::default();
-    build_option.debug = matches.is_present("debug");
-    build_option.verbose = matches.is_present("verbose");
-    build_option.stop_assemble = matches.is_present("stop-assemble");
-    build_option.stop_link = matches.is_present("stop-link");
+/// コンパイラオプションを定義
+/// clap::ArgMatchesを持たせて，いろんなフラグを取得できるようにしておく
+fn initialize(matches: clap::ArgMatches) -> option::BuildOption {
+    let target = option::Target::new(matches.value_of("target").unwrap());
+    let mut build_option = option::BuildOption::new(matches);
 
-    let lang_str = std::env::var("LANG").unwrap();
-    let lang = option::Language::new(lang_str);
-    if let Some(target_str) = matches.value_of("target") {
-        build_option.target = option::Target::new(target_str);
-    }
-    if let Some(arch_str) = matches.value_of("arch") {
-        build_option.arch = option::Architecture::new(arch_str);
-    }
+    // default_valueがあるので，unwrap()してよい
+    build_option.target = target;
 
-    build_option.language = lang;
-
-    (
-        matches.value_of("source").unwrap().to_string(),
-        build_option,
-    )
+    build_option
 }

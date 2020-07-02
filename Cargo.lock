@@ -98,12 +98,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "id-arena"
-version = "2.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25a2bc672d1148e28034f176e01fffebb08b35768468cc954630da77a1449005"
-
-[[package]]
 name = "indexmap"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -131,24 +125,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae91b68aebc4ddb91978b11a1b02ddd8602a05ec19002801c5666000e05e0f83"
 
 [[package]]
-name = "llvm-scratch"
-version = "0.1.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40e9cf9e80e517436c43c7a462035fea8577198d2e429a699513e3cfeed59a7b"
-dependencies = [
- "id-arena",
-]
-
-[[package]]
 name = "peachili"
 version = "0.1.0"
 dependencies = [
  "clap",
  "colored",
  "elf-utilities",
- "id-arena",
  "indexmap",
- "llvm-scratch",
+ "typed-arena",
  "x64_asm",
  "yaml-rust",
 ]
@@ -233,6 +217,12 @@ checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
 ]
+
+[[package]]
+name = "typed-arena"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0685c84d5d54d1c26f7d3eb96cd41550adb97baed141a761cf335d3d33bcd0ae"
 
 [[package]]
 name = "unicode-segmentation"
