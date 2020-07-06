@@ -1,25 +1,26 @@
 use std::sync::{Arc, Mutex};
+use id_arena::Id;
 
 /// 各ファイル(パッケージ)を表す構造体
 /// 依存グラフの各ノードとしても動作する
 #[derive(Clone)]
-pub struct ModuleData<'a> {
+pub struct Module {
     /// モジュールの種類
     pub kind: ModuleKind,
     /// 参照するモジュール
-    pub refs: Arc<Mutex<Vec<Module<'a>>>>,
+    pub refs: Arc<Mutex<Vec<ModuleId>>>,
     /// ディレクトリにぶら下がっているモジュール
-    pub childs: Arc<Mutex<Vec<Module<'a>>>>,
+    pub childs: Arc<Mutex<Vec<ModuleId>>>,
     /// モジュールが存在するパス
     file_path: String,
     /// モジュール名
     name: String,
 }
 
-pub type Module<'a> = &'a ModuleData<'a>;
+pub type ModuleId = Id<Module>;
 
 #[allow(dead_code)]
-impl<'a> ModuleData<'a> {
+impl Module {
     fn new(kind: ModuleKind, file_path: String, name: String) -> Self {
         Self {
             kind,
@@ -31,12 +32,12 @@ impl<'a> ModuleData<'a> {
     }
 
     /// モジュールの依存ノードを追加する
-    pub fn add_reference_module(&self, ref_module: Module<'a>) {
+    pub fn add_reference_module(&self, ref_module: ModuleId) {
         self.refs.lock().unwrap().push(ref_module);
     }
 
     /// モジュールの下位ノードを追加する
-    pub fn add_child_module(&self, child_module: Module<'a>) {
+    pub fn add_child_module(&self, child_module: ModuleId) {
         self.childs.lock().unwrap().push(child_module);
     }
 

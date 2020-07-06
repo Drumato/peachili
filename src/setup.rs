@@ -1,5 +1,25 @@
 use clap::{Arg, App, ArgMatches};
+use std::sync::{Arc, Mutex};
+use crate::common;
+use id_arena::Arena;
 
+lazy_static! {
+    pub static ref BUILD_OPTION: common::option::BuildOption = {
+        let matches = create_arg_matches();
+
+        // default_valueがあるので，unwrap()してよい
+        let target = common::option::Target::new(matches.value_of("target").unwrap());
+        let mut build_option = common::option::BuildOption::new(matches);
+
+        build_option.target = target;
+
+        build_option
+    };
+}
+
+lazy_static! {
+    pub static ref MODULE_ARENA: Arc<Mutex<Arena<common::module::Module>>> = Arc::new(Mutex::new(Arena::new()));
+}
 
 /// clap::ArgMatches
 pub fn create_arg_matches() -> ArgMatches {

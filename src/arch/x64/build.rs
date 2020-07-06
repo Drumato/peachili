@@ -1,6 +1,11 @@
+use crate::arch::x64;
+use crate::common::{
+    module
+};
+
 /// x64アーキテクチャ向けのビルドルーチン
-/// コンパイラは，機械独立なパスを呼び出した後x64依存のパスを処理する．
-/// アセンブラ以降はarch::x64以下に定義されたパスを呼び出す．
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main(main_module_id: module::ModuleId) -> Result<(), Box<dyn std::error::Error>> {
+    x64::compiler::main(main_module_id);
+
     Ok(())
 }
