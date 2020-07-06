@@ -17,10 +17,7 @@ impl Default for Position {
 
 impl Position {
     pub fn new(row: usize, column: usize) -> Self {
-        Self {
-            row,
-            column,
-        }
+        Self { row, column }
     }
     /// 内部情報の取得
     pub fn get_info(&self) -> (usize, usize) {

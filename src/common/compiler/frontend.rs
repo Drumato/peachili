@@ -1,10 +1,5 @@
-use crate::common::{
-    file_util,
-    module,
-};
-use crate::common::compiler::{
-    tokenizer
-};
+use crate::common::compiler::{parser, tokenizer};
+use crate::common::{file_util, module};
 use crate::setup::MODULE_ARENA;
 
 /// 字句解析，パース，意味解析等を行う．
@@ -15,6 +10,8 @@ pub fn frontend(main_module_id: module::ModuleId) {
         // Bundlerがファイルの存在はチェックしているはず
         assert!(source.is_some());
 
-        let _tokens = tokenizer::main(source.unwrap());
+        let tokens = tokenizer::main(source.unwrap());
+
+        let _ast = parser::main(tokens);
     }
 }

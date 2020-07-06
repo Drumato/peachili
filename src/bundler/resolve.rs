@@ -1,59 +1,58 @@
 use crate::common::{
     error::{BundleError as BE, BundleErrorKind as BEK},
-    file_util as fu, module as m,
-    option as opt,
+    file_util as fu, module as m, option as opt,
 };
 use crate::setup;
+use id_arena::Arena;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use std::fs;
 
-pub fn main(
-    source_name: String,
-) -> m::ModuleId {
+pub fn resolve_main(arena: Arc<Mutex<Arena<m::Module>>>, source_name: String) -> m::ModuleId {
     let file_contents = try_to_get_file_contents(&source_name);
-    let main_mod = alloc_main_module(source_name);
+    let main_mod = alloc_main_module(arena.lock().unwrap(), source_name);
 
     // スタートアップ･ライブラリの追加
     let startup_module_path = setup_startup_routine();
-    process_ext_module(startup_module_path, "startup".to_string());
+    process_ext_module(arena.clone(), startup_module_path, "startup".to_string());
 
     // mainが参照するモジュールに対しそれぞれprocess_ext_moduleする
     let main_requires = collect_import_modules_from_program(file_contents);
 
-    add_dependencies_to(main_mod, main_requires, false);
+    add_dependencies_to(arena, main_mod, main_requires, false);
 
     main_mod
 }
 
 /// (間接的にではあるが)再帰的に呼び出される
-fn process_ext_module<'a>(
+fn process_ext_module(
+    arena: Arc<Mutex<Arena<m::Module>>>,
     ext_fp: String,
     ext_name: String,
 ) -> m::ModuleId {
-    let parent_mod = alloc_ext_module(ext_fp.to_string(), ext_name);
+    let parent_mod = alloc_ext_module(arena.lock().unwrap(), ext_fp.to_string(), ext_name);
 
     // TODO: エラー出したほうがいいかも
     let ext_module_is_dir = fs::metadata(&ext_fp).unwrap().is_dir();
 
     if ext_module_is_dir {
         // parent_modのsubsにモジュールをぶら下げる
-        process_submodules( &parent_mod);
+        process_submodules(arena, &parent_mod);
     } else {
         // 普通のファイルと同じように処理する
         let file_contents = try_to_get_file_contents(&ext_fp);
         let requires = collect_import_modules_from_program(file_contents);
 
-        add_dependencies_to(parent_mod, requires, false);
+        add_dependencies_to(arena, parent_mod, requires, false);
     }
 
     parent_mod
 }
 
 /// ディレクトリ内の各ファイルに対して，resolveを実行する
-fn process_submodules(dir_module_id: &m::ModuleId) {
-    if let Ok(ref mut arena) = setup::MODULE_ARENA.lock() {
-        let dir_module = arena.get_mut(*dir_module_id).unwrap();
-
+fn process_submodules(arena: Arc<Mutex<Arena<m::Module>>>, dir_module_id: &m::ModuleId) {
+    if let Ok(ref mut ar) = setup::MODULE_ARENA.lock() {
+        let dir_module = ar.get_mut(*dir_module_id).unwrap();
 
         let parent_module_path = dir_module.copy_path();
 
@@ -62,25 +61,25 @@ fn process_submodules(dir_module_id: &m::ModuleId) {
             let child_module_name = file_in_dir.path().to_str().unwrap().to_string();
             let resolved_path = resolve_path_from_name(child_module_name.to_string());
 
-            let child_module = process_ext_module(resolved_path, child_module_name);
+            let child_module = process_ext_module(arena.clone(), resolved_path, child_module_name);
             dir_module.add_child_module(child_module);
         }
     }
-
 }
 
 /// 依存ノードを追加する
 fn add_dependencies_to(
+    arena: Arc<Mutex<Arena<m::Module>>>,
     src_mod_id: m::ModuleId,
     dependencies: Vec<String>,
     is_dir: bool,
 ) {
-    if let Ok(ref mut arena) = setup::MODULE_ARENA.lock(){
-        let src_mod = arena.get_mut(src_mod_id).unwrap();
+    if let Ok(ref mut ar) = setup::MODULE_ARENA.lock() {
+        let src_mod = ar.get_mut(src_mod_id).unwrap();
 
         for req in dependencies {
             let req_path = resolve_path_from_name(req.to_string());
-            let ext_mod = process_ext_module(req_path, req);
+            let ext_mod = process_ext_module(arena.clone(), req_path, req);
 
             if is_dir {
                 src_mod.add_child_module(ext_mod);
@@ -155,17 +154,17 @@ fn search_directory(dir_name: String) -> Option<String> {
     Some(dir_name)
 }
 
-
 /// PRIMARYなモジュールをアロケートして返す
-fn alloc_main_module(main_fp: String) -> m::ModuleId {
-    setup::MODULE_ARENA.lock().unwrap().alloc(m::Module::new_primary(main_fp, "main".to_string()))
+fn alloc_main_module(mut arena: MutexGuard<Arena<m::Module>>, main_fp: String) -> m::ModuleId {
+    arena.alloc(m::Module::new_primary(main_fp, "main".to_string()))
 }
 
 fn alloc_ext_module(
+    mut arena: MutexGuard<Arena<m::Module>>,
     ext_fp: String,
     ext_name: String,
 ) -> m::ModuleId {
-    setup::MODULE_ARENA.lock().unwrap().alloc(m::Module::new_external(ext_fp, ext_name))
+    arena.alloc(m::Module::new_external(ext_fp, ext_name))
 }
 
 /// ファイル先頭にある任意数の `import <module-name>;` を解読して返す
@@ -209,7 +208,7 @@ fn try_to_get_file_contents(source_name: &str) -> String {
             BE::new(BEK::NOTFOUNDSUCHAFILE {
                 file_name: source_name.to_string(),
             })
-                .output();
+            .output();
             std::process::exit(1);
         }
     }
@@ -292,6 +291,7 @@ mod resolve_tests {
     }
 
     #[test]
+    #[ignore]
     fn resolve_test() {
         // lib/ のディレクトリ
         let p = resolve_path_from_name("std".to_string());

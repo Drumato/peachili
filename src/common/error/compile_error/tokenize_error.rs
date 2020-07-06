@@ -1,5 +1,5 @@
-use std::fmt;
 use fmt::Formatter;
+use std::fmt;
 
 use crate::common::error::CompileErrorKind;
 

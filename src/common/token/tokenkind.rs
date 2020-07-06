@@ -18,7 +18,6 @@ pub enum TokenKind {
     IDENTIFIER { name: String },
 
     // 記号
-
     /// `+`
     PLUS,
     /// `-`
@@ -61,7 +60,6 @@ pub enum TokenKind {
     COMMENT { contents: String },
 
     // 予約語
-
     /// `asm`
     ASM,
     /// `begin`
@@ -108,7 +106,6 @@ pub enum TokenKind {
     VARINIT,
 }
 
-
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> FR {
         let s = match self {
@@ -140,7 +137,7 @@ impl Display for TokenKind {
             TokenKind::COMMA => ",".to_string(),
             TokenKind::DOT => ".".to_string(),
             TokenKind::EOF => "(EOF)".to_string(),
-            TokenKind::COMMENT{contents: _} => "(COMMENT)".to_string(),
+            TokenKind::COMMENT { contents: _ } => "(COMMENT)".to_string(),
 
             // 予約語
             TokenKind::ASM => "asm".to_string(),

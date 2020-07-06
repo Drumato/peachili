@@ -1,9 +1,5 @@
-use crate::common::{
-    token::TokenKind,
-    position::Position,
-};
+use crate::common::{position::Position, token::TokenKind};
 use std::fmt::{Display, Formatter, Result as FR};
-
 
 /// トークナイザが返すリストの各要素
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
@@ -25,9 +21,7 @@ impl Token {
 
     pub fn try_new_keyword(s: &str, p: Position) -> Option<Self> {
         let tk = TokenKind::try_new_keyword(s);
-        if tk.is_none() {
-            return None;
-        }
+        tk.as_ref()?;
 
         Some(Token::new(tk.unwrap(), p))
     }
@@ -81,14 +75,14 @@ impl Token {
     pub fn copy_contents(&self) -> String {
         match &self.k {
             TokenKind::STRLIT { contents } => contents.to_string(),
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
     /// 識別子トークンだと仮定して，名前を受け取る
     pub fn copy_name(&self) -> String {
         match &self.k {
             TokenKind::IDENTIFIER { name } => name.to_string(),
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 
@@ -99,7 +93,7 @@ impl Token {
     /// Tokenizerが無視するトークンの種類
     pub fn should_ignore(&self) -> bool {
         match &self.k {
-            TokenKind::BLANK | TokenKind::NEWLINE | TokenKind::COMMENT{contents: _} => true,
+            TokenKind::BLANK | TokenKind::NEWLINE | TokenKind::COMMENT { contents: _ } => true,
             _ => false,
         }
     }

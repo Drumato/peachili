@@ -18,7 +18,6 @@ pub struct CompileError<K: CompileErrorKind> {
     p: Position,
 }
 
-
 impl<K: CompileErrorKind> CompileError<K> {
     pub fn new(kind: K, position: Position) -> Self {
         Self {
@@ -31,7 +30,6 @@ impl<K: CompileErrorKind> CompileError<K> {
         eprintln!("{}{} : {}", self.k.category().red().bold(), self.p, self.k);
     }
 }
-
 
 /// Compilerが発行するエラーの種類
 pub trait CompileErrorKind: fmt::Display {

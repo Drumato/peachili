@@ -1,7 +1,7 @@
-use clap::{Arg, App, ArgMatches};
-use std::sync::{Arc, Mutex};
 use crate::common;
+use clap::{App, Arg, ArgMatches};
 use id_arena::Arena;
+use std::sync::{Arc, Mutex};
 
 lazy_static! {
     pub static ref BUILD_OPTION: common::option::BuildOption = {
@@ -18,7 +18,13 @@ lazy_static! {
 }
 
 lazy_static! {
-    pub static ref MODULE_ARENA: Arc<Mutex<Arena<common::module::Module>>> = Arc::new(Mutex::new(Arena::new()));
+    pub static ref MODULE_ARENA: Arc<Mutex<Arena<common::module::Module>>> =
+        Arc::new(Mutex::new(Arena::new()));
+}
+
+lazy_static! {
+    pub static ref AST_EXPR_ARENA: Arc<Mutex<Arena<common::ast::ExpressionNode>>> =
+        Arc::new(Mutex::new(Arena::new()));
 }
 
 /// clap::ArgMatches
@@ -32,16 +38,17 @@ pub fn create_arg_matches() -> ArgMatches {
                 .required(true)
                 .index(1)
                 .help("Sets the input file to use"),
-
             // 生成するコードの対象
             Arg::with_name("target")
                 .default_value("x86_64")
                 .short('t')
                 .long("target")
-                .help("x86_64/aarch64")])
+                .help("x86_64/aarch64"),
+        ])
         .subcommand(
             App::new("Compiler")
                 .version("1.0")
-                .author("Drumato <drumato43@gmail.com>")
-        ).get_matches()
+                .author("Drumato <drumato43@gmail.com>"),
+        )
+        .get_matches()
 }

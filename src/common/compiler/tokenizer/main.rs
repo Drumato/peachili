@@ -1,7 +1,7 @@
 use crate::common::{
     error::{CompileError as CE, TokenizeErrorKind as TEK},
-    token::{Token, TokenKind},
     position::Position,
+    token::{Token, TokenKind},
 };
 
 /// トークナイザのメインルーチン
@@ -18,7 +18,6 @@ fn tokenize(mut source: String) -> Vec<Token> {
 
     loop {
         let t = scan(&mut source, &mut row, &mut column);
-
 
         if t.is_none() {
             tokens.push(Token::new(TokenKind::EOF, Default::default()));
@@ -38,7 +37,7 @@ fn tokenize(mut source: String) -> Vec<Token> {
 }
 
 fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Token> {
-    if source.len() == 0 {
+    if source.is_empty() {
         return None;
     }
 
@@ -62,19 +61,17 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
         }
 
         // 整数/非符号付き整数
-        number if number.is_ascii_digit() => {
-            match scan_number(source, *row, *column) {
-                Ok((t, len)) => {
-                    *column += len;
-                    source.drain(..len);
-                    Some(t)
-                }
-                Err(e) => {
-                    e.output();
-                    None
-                }
+        number if number.is_ascii_digit() => match scan_number(source, *row, *column) {
+            Ok((t, len)) => {
+                *column += len;
+                source.drain(..len);
+                Some(t)
             }
-        }
+            Err(e) => {
+                e.output();
+                None
+            }
+        },
 
         // 空白類文字
         ' ' | '\t' => {
@@ -93,7 +90,7 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
         }
         _ => {
             let (t, len) = scan_symbol(source, *row, *column);
-            if let &TokenKind::DOUBLESLASH = &t.get_kind() {
+            if let TokenKind::DOUBLESLASH = &t.get_kind() {
                 let (t, len) = scan_comment(source, *row, *column);
                 *column += len;
                 source.drain(..len);
@@ -115,7 +112,10 @@ fn scan_string_literal(s: &str, row: usize, column: usize) -> (Token, usize) {
     let len = contents_str.len();
 
     // +2 -> 先頭/終端の `"` 分
-    (Token::new_string_literal(contents_str, literal_pos), len + 2)
+    (
+        Token::new_string_literal(contents_str, literal_pos),
+        len + 2,
+    )
 }
 
 /// 識別子 or 予約語
@@ -134,7 +134,6 @@ fn scan_identifier(s: &str, row: usize, column: usize) -> (Token, usize) {
     (Token::new_identifier(ident_str, ident_pos), len)
 }
 
-
 /// 記号
 fn scan_symbol(s: &str, row: usize, column: usize) -> (Token, usize) {
     let symbol_pos = Position::new(row, column);
@@ -142,15 +141,23 @@ fn scan_symbol(s: &str, row: usize, column: usize) -> (Token, usize) {
 
     for sym_str in multilength_symbols.iter() {
         if s.starts_with(sym_str) {
-            return (Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos), 2);
+            return (
+                Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos),
+                2,
+            );
         }
     }
 
-    let symbols = vec!["+", "-", "*", "/", ";", "(", ")", "{", "}", "=", ",", "&", "."];
+    let symbols = vec![
+        "+", "-", "*", "/", ";", "(", ")", "{", "}", "=", ",", "&", ".",
+    ];
 
     for sym_str in symbols.iter() {
         if s.starts_with(sym_str) {
-            return (Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos), 1);
+            return (
+                Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos),
+                1,
+            );
         }
     }
 
@@ -163,9 +170,16 @@ fn scan_comment(s: &str, row: usize, column: usize) -> (Token, usize) {
     let comment_str = cut_string_while(s, |c| c != &'\n');
     let len = comment_str.len();
 
-    (Token::new(TokenKind::COMMENT { contents: comment_str }, comment_pos), len)
+    (
+        Token::new(
+            TokenKind::COMMENT {
+                contents: comment_str,
+            },
+            comment_pos,
+        ),
+        len,
+    )
 }
-
 
 /// 整数/非符号付き整数のトークン化
 fn scan_number(s: &str, row: usize, column: usize) -> Result<(Token, usize), CE<TEK>> {
@@ -184,10 +198,13 @@ fn scan_number(s: &str, row: usize, column: usize) -> Result<(Token, usize), CE<
     }
 
     // `100u` のようにuがついていればuint-literalとして処理
-    if s.len() > len && s.as_bytes()[len] == ('u' as u8) {
+    if s.len() > len && s.as_bytes()[len] == b'u' {
         let u_value = number_str.parse::<u64>();
 
-        return Ok((Token::new_uint_literal(u_value.unwrap(), literal_pos), len + 1));
+        return Ok((
+            Token::new_uint_literal(u_value.unwrap(), literal_pos),
+            len + 1,
+        ));
     }
 
     Ok((Token::new_int_literal(value.unwrap(), literal_pos), len))
@@ -208,7 +225,6 @@ fn scan_whitespace(s: &str, row: usize, column: usize) -> (Token, usize) {
 fn cut_string_while(s: &str, f: fn(&char) -> bool) -> String {
     s.chars().take_while(f).collect::<String>()
 }
-
 
 #[cfg(test)]
 mod tokenizer_tests {
@@ -274,14 +290,12 @@ mod tokenizer_tests {
         assert_eq!(&TokenKind::DOUBLECOLON, t.get_kind());
     }
 
-
     #[test]
     fn scan_comment_test() {
         let (t, len) = scan_comment("// this is comment\n", 0, 0);
         assert_eq!(18, len);
         assert!(t.should_ignore());
     }
-
 
     #[test]
     fn scan_test() {
@@ -330,11 +344,7 @@ mod tokenizer_tests {
         assert!(t.is_none());
     }
 
-    fn int_literal_test(
-        t: Option<Token>,
-        value: i64,
-        pos: Position,
-    ) {
+    fn int_literal_test(t: Option<Token>, value: i64, pos: Position) {
         assert!(t.is_some());
 
         let t = t.unwrap();
@@ -343,11 +353,7 @@ mod tokenizer_tests {
         assert_eq!(value, t.int_value());
     }
 
-    fn uint_literal_test(
-        t: Option<Token>,
-        value: u64,
-        pos: Position,
-    ) {
+    fn uint_literal_test(t: Option<Token>, value: u64, pos: Position) {
         assert!(t.is_some());
 
         let t = t.unwrap();
@@ -356,11 +362,7 @@ mod tokenizer_tests {
         assert_eq!(value, t.uint_value());
     }
 
-    fn string_literal_test(
-        t: Option<Token>,
-        value: &str,
-        pos: Position,
-    ) {
+    fn string_literal_test(t: Option<Token>, value: &str, pos: Position) {
         assert!(t.is_some());
 
         let t = t.unwrap();
@@ -369,11 +371,7 @@ mod tokenizer_tests {
         assert_eq!(value, t.copy_contents());
     }
 
-    fn identifier_test(
-        t: Option<Token>,
-        name: &str,
-        pos: Position,
-    ) {
+    fn identifier_test(t: Option<Token>, name: &str, pos: Position) {
         assert!(t.is_some());
 
         let t = t.unwrap();
@@ -382,11 +380,7 @@ mod tokenizer_tests {
         assert_eq!(name, t.copy_name());
     }
 
-    fn keyword_test(
-        t: Option<Token>,
-        k: TokenKind,
-        pos: Position,
-    ) {
+    fn keyword_test(t: Option<Token>, k: TokenKind, pos: Position) {
         assert!(t.is_some());
 
         let t = t.unwrap();
