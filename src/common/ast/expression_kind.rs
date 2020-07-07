@@ -11,7 +11,15 @@ pub enum ExpressionNodeKind {
     MUL { lhs: ExNodeId, rhs: ExNodeId },
     /// 除算ノード
     DIV { lhs: ExNodeId, rhs: ExNodeId },
+    /// 代入ノード
+    ASSIGN { lhs: ExNodeId, rhs: ExNodeId },
+
+    /// 符号反転
+    NEG { value: ExNodeId },
 
     /// 整数ノード
     INTEGER { value: i64 },
+    /// 識別子ノード
+    /// std::os::exit_with() みたいなのを["std", "os", "exit_with"] で保持
+    IDENTIFIER { names: Vec<String> },
 }

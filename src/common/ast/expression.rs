@@ -21,6 +21,16 @@ impl ExpressionNode {
     pub fn new_integer(int_value: i64, pos: position::Position) -> Self {
         Self::new(ExpressionNodeKind::INTEGER { value: int_value }, pos)
     }
+    pub fn new_identifier(names: Vec<String>, pos: position::Position) -> Self {
+        Self::new(ExpressionNodeKind::IDENTIFIER { names }, pos)
+    }
+    pub fn new_prefix_op(operator: &TokenKind, value: ExNodeId, pos: position::Position) -> Self {
+        let nk = match operator {
+            TokenKind::MINUS => ExpressionNodeKind::NEG { value },
+            _ => panic!("cannot create prefix-operation from {}", operator),
+        };
+        Self::new(nk, pos)
+    }
 
     pub fn new_binop(
         tk: &TokenKind,
@@ -33,6 +43,7 @@ impl ExpressionNode {
             TokenKind::MINUS => ExpressionNodeKind::SUB { lhs, rhs },
             TokenKind::ASTERISK => ExpressionNodeKind::MUL { lhs, rhs },
             TokenKind::SLASH => ExpressionNodeKind::DIV { lhs, rhs },
+            TokenKind::ASSIGN => ExpressionNodeKind::ASSIGN { lhs, rhs },
             _ => panic!("cannot create binary-operation from {}", tk),
         };
 

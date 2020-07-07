@@ -63,7 +63,7 @@ pub fn binary_operation_parser(
 }
 
 /// 二項演算ノードのアロケート
-fn alloc_binop_node(
+pub fn alloc_binop_node(
     mut arena: MutexGuard<Arena<ExpressionNode>>,
     k: &TokenKind,
     lhs: ExNodeId,

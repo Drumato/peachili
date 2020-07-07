@@ -6,7 +6,7 @@ use crate::common::compiler::parser::expression;
 use crate::setup;
 
 pub fn main(tokens: Vec<Token>) -> ExNodeId {
-    let (ex_id, _rest_tokens) = expression::addition(setup::AST_EXPR_ARENA.clone(), tokens);
+    let (ex_id, _rest_tokens) = expression::expression(setup::AST_EXPR_ARENA.clone(), tokens);
 
     ex_id
 }
