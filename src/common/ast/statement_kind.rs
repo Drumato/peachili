@@ -7,4 +7,11 @@ pub enum StatementNodeKind {
     RETURNSTMT { expr: ExNodeId },
     /// <expression>;
     EXPRSTMT { expr: ExNodeId },
+    /// ifret <expression>;
+    IFRETSTMT { expr: ExNodeId },
+    /// declare <ident-name> <type-name>;
+    DECLARESTMT {
+        ident_name: String,
+        type_name: String,
+    },
 }

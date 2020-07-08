@@ -151,7 +151,7 @@ fn primary(arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
             )
         }
         TokenKind::IDENTIFIER { name: _ } => {
-            let (names, tokens) = expect_identifier(tokens);
+            let (names, tokens) = parser_util::expect_identifier(tokens);
             (
                 alloc_identifier_node(arena.lock().unwrap(), names, pos),
                 tokens,
@@ -159,29 +159,6 @@ fn primary(arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
         }
         _ => panic!("not implemented for `{}` in primary()", head.get_kind()),
     }
-}
-
-/// identifier_path -> identifier (`::` identifier)*
-fn expect_identifier(mut tokens: Vec<Token>) -> (Vec<String>, Vec<Token>) {
-    let head = parser_util::head(&tokens);
-    // primary() で識別子であることはチェック済みなのでcopy_name()を読んで良い
-    let mut names = vec![head.copy_name()];
-
-    parser_util::eat_token(&mut tokens);
-    loop {
-        let head = parser_util::head(&tokens);
-        match head.get_kind() {
-            TokenKind::DOUBLECOLON => {
-                parser_util::eat_token(&mut tokens);
-                let ident = parser_util::head(&tokens);
-                names.push(ident.copy_name());
-                parser_util::eat_token(&mut tokens);
-            }
-            _ => break,
-        }
-    }
-
-    (names, tokens)
 }
 
 /// 前置単項演算ノードのアロケート

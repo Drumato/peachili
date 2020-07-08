@@ -80,3 +80,50 @@ pub fn alloc_binop_node(
 ) -> ExNodeId {
     arena.alloc(ExpressionNode::new_binop(k, lhs, rhs, pos))
 }
+
+/// identifier_path -> identifier (`::` identifier)*
+pub fn expect_identifier(mut tokens: Vec<Token>) -> (Vec<String>, Vec<Token>) {
+    let base = head(&tokens);
+    // primary() で識別子であることはチェック済みなのでcopy_name()を読んで良い
+    let mut names = vec![base.copy_name()];
+
+    eat_token(&mut tokens);
+    loop {
+        let next = head(&tokens);
+        match next.get_kind() {
+            TokenKind::DOUBLECOLON => {
+                eat_token(&mut tokens);
+                let ident = head(&tokens);
+                names.push(ident.copy_name());
+                eat_token(&mut tokens);
+            }
+            _ => break,
+        }
+    }
+
+    (names, tokens)
+}
+
+/// type -> "Int64" | "Uint64" | "ConstStr"
+pub fn expect_type(mut tokens: Vec<Token>) -> (String, Vec<Token>) {
+    let type_t = head(&tokens);
+
+    match type_t.get_kind() {
+        TokenKind::INT64 => {
+            eat_token(&mut tokens);
+            ("Int64".to_string(), tokens)
+        }
+        TokenKind::ASTERISK => {
+            eat_token(&mut tokens);
+            let (inner_type, mut rest_tokens) = expect_type(tokens);
+            eat_token(&mut rest_tokens);
+            (format!("*{}", inner_type), rest_tokens)
+        }
+        TokenKind::IDENTIFIER { name: _ } => {
+            let (names, mut rest_tokens) = expect_identifier(tokens);
+            eat_token(&mut rest_tokens);
+            (names.join("::"), rest_tokens)
+        }
+        _ => panic!("TODO we must compile error when got difference token in expect_type()"),
+    }
+}
