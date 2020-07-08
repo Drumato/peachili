@@ -16,6 +16,12 @@ pub enum ExpressionNodeKind {
 
     /// 符号反転
     NEG { value: ExNodeId },
+    /// アドレッシング
+    ADDRESSOF { value: ExNodeId },
+    /// デリファレンス
+    DEREFERENCE { value: ExNodeId },
+    /// メンバアクセス
+    MEMBER { value: ExNodeId },
 
     /// 整数ノード
     INTEGER { value: i64 },

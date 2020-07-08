@@ -14,11 +14,11 @@ addition -> multiplication (addition_op multiplication)*
 multiplication -> prefix (multiplication_op prefix)*
 prefix -> prefix_op* postfix
 postfix -> primary (postfix_op postfix)*
-primary -> integer_literal
+primary -> integer_literal | identifier
 
 // Operators
 addition_op -> `+` | `-`
 multiplication_op -> `*` | `/`
-prefix_op -> `+` | `-`
-postfix_op
+prefix_op -> `+` | `-` | `&` | `*`
+postfix_op -> `.`
 ```

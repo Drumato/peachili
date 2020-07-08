@@ -27,7 +27,16 @@ impl ExpressionNode {
     pub fn new_prefix_op(operator: &TokenKind, value: ExNodeId, pos: position::Position) -> Self {
         let nk = match operator {
             TokenKind::MINUS => ExpressionNodeKind::NEG { value },
+            TokenKind::AMPERSAND => ExpressionNodeKind::ADDRESSOF { value },
+            TokenKind::ASTERISK => ExpressionNodeKind::DEREFERENCE { value },
             _ => panic!("cannot create prefix-operation from {}", operator),
+        };
+        Self::new(nk, pos)
+    }
+    pub fn new_postfix_op(operator: &TokenKind, value: ExNodeId, pos: position::Position) -> Self {
+        let nk = match operator {
+            TokenKind::DOT => ExpressionNodeKind::MEMBER { value },
+            _ => panic!("cannot create postfix-operation from {}", operator),
         };
         Self::new(nk, pos)
     }
