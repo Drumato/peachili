@@ -1,12 +1,16 @@
-use crate::common::ast::ExNodeId;
+use crate::common::ast::StNodeId;
 use crate::common::token::Token;
 
-use crate::common::compiler::parser::expression;
+use crate::common::compiler::parser::statement;
 
 use crate::setup;
 
-pub fn main(tokens: Vec<Token>) -> ExNodeId {
-    let (ex_id, _rest_tokens) = expression::expression(setup::AST_EXPR_ARENA.clone(), tokens);
+pub fn main(tokens: Vec<Token>) -> StNodeId {
+    let (st_id, _rest_tokens) = statement::statement(
+        setup::AST_STMT_ARENA.clone(),
+        setup::AST_EXPR_ARENA.clone(),
+        tokens,
+    );
 
-    ex_id
+    st_id
 }

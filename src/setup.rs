@@ -27,6 +27,11 @@ lazy_static! {
         Arc::new(Mutex::new(Arena::new()));
 }
 
+lazy_static! {
+    pub static ref AST_STMT_ARENA: Arc<Mutex<Arena<common::ast::StatementNode>>> =
+        Arc::new(Mutex::new(Arena::new()));
+}
+
 /// clap::ArgMatches
 pub fn create_arg_matches() -> ArgMatches {
     App::new("Peachili - The Peachili Programming Language Driver")

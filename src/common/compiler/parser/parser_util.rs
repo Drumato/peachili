@@ -20,6 +20,14 @@ pub fn current_position(tokens: &[Token]) -> Position {
     tokens[0].get_position()
 }
 
+pub fn expect(expected: TokenKind, tokens: &mut Vec<Token>) {
+    let h = head(tokens);
+    if h.get_kind() != &expected {
+        panic!("TODO we must compile error when got difference token in expect()");
+    }
+    eat_token(tokens);
+}
+
 pub fn operator_parser(
     operators: Vec<TokenKind>,
     mut tokens: Vec<Token>,
