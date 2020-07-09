@@ -51,19 +51,15 @@ fn process_ext_module(
 
 /// ディレクトリ内の各ファイルに対して，resolveを実行する
 fn process_submodules(arena: Arc<Mutex<Arena<m::Module>>>, dir_module_id: &m::ModuleId) {
-    if let Ok(ref mut ar) = setup::MODULE_ARENA.lock() {
-        let dir_module = ar.get_mut(*dir_module_id).unwrap();
+    let parent_module_path = arena.lock().unwrap().get_mut(*dir_module_id).unwrap().copy_path();
 
-        let parent_module_path = dir_module.copy_path();
+    for entry in fs::read_dir(&parent_module_path).unwrap() {
+        let file_in_dir = entry.unwrap();
+        let child_module_name = file_in_dir.path().to_str().unwrap().to_string();
+        let resolved_path = resolve_path_from_name(child_module_name.to_string());
 
-        for entry in fs::read_dir(&parent_module_path).unwrap() {
-            let file_in_dir = entry.unwrap();
-            let child_module_name = file_in_dir.path().to_str().unwrap().to_string();
-            let resolved_path = resolve_path_from_name(child_module_name.to_string());
-
-            let child_module = process_ext_module(arena.clone(), resolved_path, child_module_name);
-            dir_module.add_child_module(child_module);
-        }
+        let child_module = process_ext_module(arena.clone(), resolved_path, child_module_name);
+        arena.lock().unwrap().get_mut(*dir_module_id).unwrap().add_child_module(child_module);
     }
 }
 
@@ -74,18 +70,14 @@ fn add_dependencies_to(
     dependencies: Vec<String>,
     is_dir: bool,
 ) {
-    if let Ok(ref mut ar) = setup::MODULE_ARENA.lock() {
-        let src_mod = ar.get_mut(src_mod_id).unwrap();
+    for req in dependencies {
+        let req_path = resolve_path_from_name(req.to_string());
+        let ext_mod = process_ext_module(arena.clone(), req_path, req);
 
-        for req in dependencies {
-            let req_path = resolve_path_from_name(req.to_string());
-            let ext_mod = process_ext_module(arena.clone(), req_path, req);
-
-            if is_dir {
-                src_mod.add_child_module(ext_mod);
-            } else {
-                src_mod.add_reference_module(ext_mod);
-            }
+        if is_dir {
+            arena.lock().unwrap().get_mut(src_mod_id).unwrap().add_child_module(ext_mod);
+        } else {
+            arena.lock().unwrap().get_mut(src_mod_id).unwrap().add_reference_module(ext_mod);
         }
     }
 }
@@ -208,7 +200,7 @@ fn try_to_get_file_contents(source_name: &str) -> String {
             BE::new(BEK::NOTFOUNDSUCHAFILE {
                 file_name: source_name.to_string(),
             })
-            .output();
+                .output();
             std::process::exit(1);
         }
     }
@@ -216,7 +208,7 @@ fn try_to_get_file_contents(source_name: &str) -> String {
 
 fn setup_startup_routine() -> String {
     match setup::BUILD_OPTION.target {
-        opt::Target::X86_64 => "startup_x64".to_string(),
+        opt::Target::X86_64 => format!("{}startup_x64.go", get_lib_path()),
     }
 }
 

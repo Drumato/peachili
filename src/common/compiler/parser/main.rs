@@ -43,9 +43,6 @@ pub fn main(fn_arena: FnArena, stmt_arena: StmtArena, expr_arena: ExprArena, mut
             }
             _ => break,
         }
-        if t.get_kind() == &TokenKind::EOF {
-            break;
-        }
     }
 
     ast_root
