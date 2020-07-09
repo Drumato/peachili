@@ -8,6 +8,13 @@ Terminal Symbol: string_literal/integer_literal/identifier/uint-literal
 
 program -> toplevel*
 
+toplevel -> func_def | struct_def | type_def
+
+func_def -> "func" identifier arg_list type block
+struct_def -> "struct" identifier member_block
+type_def -> "pubtype" identifier `=` type `;`
+member_block -> `{` (identifier type)* `}`
+
 // Statement Rewrite Rule
 statement -> return_st | ifret_st| declare_st | countup_st | asm_st | varinit_st| const_st
 return_st -> "return" expression `;`

@@ -41,6 +41,16 @@ pub fn expect(expected: TokenKind, tokens: &mut Vec<Token>) {
     eat_token(tokens);
 }
 
+pub fn consume(expected: TokenKind, tokens: &mut Vec<Token>) -> bool{
+    let h = head(tokens);
+    if h.get_kind() != &expected {
+        return false;
+    }
+    eat_token(tokens);
+
+    true
+}
+
 pub fn operator_parser(
     operators: Vec<TokenKind>,
     mut tokens: Vec<Token>,
