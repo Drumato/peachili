@@ -76,6 +76,8 @@ pub enum TokenKind {
     DECLARE,
     /// `else`
     ELSE,
+    /// `exclude`
+    EXCLUDE,
     /// `false`
     FALSE,
     /// `func`
@@ -100,8 +102,6 @@ pub enum TokenKind {
     TRUE,
     /// `Uint64`
     UINT64,
-    /// `until`
-    UNTIL,
     /// `varinit`
     VARINIT,
 }
@@ -148,6 +148,7 @@ impl Display for TokenKind {
             TokenKind::COUNTUP => "countup".to_string(),
             TokenKind::DECLARE => "declare".to_string(),
             TokenKind::ELSE => "else".to_string(),
+            TokenKind::EXCLUDE => "exclude".to_string(),
             TokenKind::FALSE => "false".to_string(),
             TokenKind::FUNC => "func".to_string(),
             TokenKind::IF => "if".to_string(),
@@ -160,7 +161,6 @@ impl Display for TokenKind {
             TokenKind::STRUCT => "struct".to_string(),
             TokenKind::TRUE => "true".to_string(),
             TokenKind::UINT64 => "Uint64".to_string(),
-            TokenKind::UNTIL => "until".to_string(),
             TokenKind::VARINIT => "varinit".to_string(),
         };
 
@@ -200,6 +200,7 @@ impl TokenKind {
             "countup" => Some(TokenKind::COUNTUP),
             "declare" => Some(TokenKind::DECLARE),
             "else" => Some(TokenKind::ELSE),
+            "exclude" => Some(TokenKind::EXCLUDE),
             "false" => Some(TokenKind::FALSE),
             "func" => Some(TokenKind::FUNC),
             "if" => Some(TokenKind::IF),
@@ -212,7 +213,6 @@ impl TokenKind {
             "struct" => Some(TokenKind::STRUCT),
             "true" => Some(TokenKind::TRUE),
             "Uint64" => Some(TokenKind::UINT64),
-            "until" => Some(TokenKind::UNTIL),
             "varinit" => Some(TokenKind::VARINIT),
             _ => None,
         }

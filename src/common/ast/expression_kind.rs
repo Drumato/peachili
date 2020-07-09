@@ -3,6 +3,9 @@ use crate::common::ast::*;
 /// 式ノードの種類
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum ExpressionNodeKind {
+    /// IF式ノード
+    IF { cond_ex: ExNodeId, body: Vec<StNodeId>, alter: Option<Vec<StNodeId>> },
+
     /// 加算ノード
     ADD { lhs: ExNodeId, rhs: ExNodeId },
     /// 減算ノード
@@ -21,10 +24,16 @@ pub enum ExpressionNodeKind {
     /// デリファレンス
     DEREFERENCE { value: ExNodeId },
     /// メンバアクセス
-    MEMBER { value: ExNodeId },
+    MEMBER { id: ExNodeId, value: ExNodeId },
 
     /// 整数ノード
     INTEGER { value: i64 },
+    /// 非符号付き整数ノード
+    UINTEGER { value: u64 },
+    /// 真偽値リテラル
+    BOOLEAN { truth: bool },
+    /// 文字列リテラル
+    STRING { contents: String },
     /// 識別子ノード
     /// std::os::exit_with() みたいなのを["std", "os", "exit_with"] で保持
     IDENTIFIER { names: Vec<String> },

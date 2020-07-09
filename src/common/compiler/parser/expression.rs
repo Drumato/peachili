@@ -1,30 +1,59 @@
 use crate::common::{
-    ast::{ExNodeId, ExpressionNode},
-    position,
+    ast::{ExNodeId, ExpressionNode, StatementNode},
     token::{Token, TokenKind},
 };
 
 use crate::common::compiler::parser::parser_util;
 
 use id_arena::Arena;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 
+type StmtArena = Arc<Mutex<Arena<StatementNode>>>;
 type ExprArena = Arc<Mutex<Arena<ExpressionNode>>>;
 
 /// expression -> if_expression | assignment
 #[allow(clippy::match_single_binding)]
-pub fn expression(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+pub fn expression(stmt_arena: StmtArena, expr_arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
     let head = parser_util::head(&tokens);
 
     match head.get_kind() {
-        // TokenKind::IF => if_expression(arena, tokens),
-        _ => assignment(arena, tokens),
+        TokenKind::IF => if_expression(stmt_arena, expr_arena, tokens),
+        _ => assignment(stmt_arena, expr_arena, tokens),
     }
 }
 
+/// if_expression -> "if" paren_expr block ("else" block)?
+fn if_expression(stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+    let expr_pos = parser_util::current_position(&tokens);
+    parser_util::eat_token(&mut tokens);
+    let (cond_id, rest_tokens) = paren_expr(stmt_arena.clone(), expr_arena.clone(), tokens);
+
+    let (stmts, mut rest_tokens) = parser_util::expect_block(stmt_arena.clone(), expr_arena.clone(), rest_tokens);
+
+    let t = parser_util::head(&rest_tokens);
+    if t.get_kind() != &TokenKind::ELSE {
+        return (
+            expr_arena.lock().unwrap().alloc(
+                ExpressionNode::new_if(cond_id, stmts, None, expr_pos),
+            ),
+            rest_tokens
+        );
+    }
+
+    parser_util::eat_token(&mut rest_tokens);
+    let (alter, rest_tokens) = parser_util::expect_block(stmt_arena, expr_arena.clone(), rest_tokens);
+
+    (
+        expr_arena.lock().unwrap().alloc(
+            ExpressionNode::new_if(cond_id, stmts, Some(alter), expr_pos),
+        ),
+        rest_tokens
+    )
+}
+
 /// assignment -> addition (`=` expression)?
-fn assignment(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
-    let (lval, mut rest_tokens) = addition(arena.clone(), tokens);
+fn assignment(stmt_arena: StmtArena, expr_arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+    let (lval, mut rest_tokens) = addition(stmt_arena.clone(), expr_arena.clone(), tokens);
 
     let head = parser_util::head(&rest_tokens);
 
@@ -32,11 +61,11 @@ fn assignment(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
         TokenKind::ASSIGN => {
             let assign_pos = head.get_position();
             parser_util::eat_token(&mut rest_tokens);
-            let (rval, rest_tokens) = expression(arena.clone(), rest_tokens);
+            let (rval, rest_tokens) = expression(stmt_arena, expr_arena.clone(), rest_tokens);
 
             (
                 parser_util::alloc_binop_node(
-                    arena.lock().unwrap(),
+                    expr_arena.lock().unwrap(),
                     &TokenKind::ASSIGN,
                     lval,
                     rval,
@@ -50,8 +79,8 @@ fn assignment(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
 }
 
 /// addition -> multiplication (addition_op multiplication)*
-fn addition(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
-    parser_util::binary_operation_parser(addition_op, multiplication, arena, tokens)
+fn addition(stmt_arena: StmtArena, expr_arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+    parser_util::binary_operation_parser(addition_op, multiplication, stmt_arena, expr_arena, tokens)
 }
 
 /// addition_op -> `+` | `-`
@@ -60,8 +89,8 @@ fn addition_op(tokens: Vec<Token>) -> (Option<TokenKind>, Vec<Token>) {
 }
 
 /// multiplication -> primary (multiplication_op primary)*
-fn multiplication(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
-    parser_util::binary_operation_parser(multiplication_op, prefix, arena, tokens)
+fn multiplication(stmt_arena: StmtArena, expr_arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+    parser_util::binary_operation_parser(multiplication_op, prefix, stmt_arena, expr_arena, tokens)
 }
 
 /// multiplication_op -> `*` | `/`
@@ -70,56 +99,46 @@ fn multiplication_op(tokens: Vec<Token>) -> (Option<TokenKind>, Vec<Token>) {
 }
 
 /// prefix -> prefix_op* postfix
-fn prefix(arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+fn prefix(stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
     let head = parser_util::head(&tokens);
     let prefix_pos = head.get_position();
 
     match head.get_kind() {
         TokenKind::PLUS => {
             parser_util::eat_token(&mut tokens);
-            postfix(arena, tokens)
+            postfix(stmt_arena, expr_arena, tokens)
         }
         TokenKind::MINUS => {
             parser_util::eat_token(&mut tokens);
-            let (value, rest_tokens) = prefix(arena.clone(), tokens);
+            let (value, rest_tokens) = prefix(stmt_arena, expr_arena.clone(), tokens);
             (
-                alloc_prefix_op(arena.lock().unwrap(), &TokenKind::MINUS, value, prefix_pos),
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_prefix_op(&TokenKind::MINUS, value, prefix_pos)),
                 rest_tokens,
             )
         }
         TokenKind::AMPERSAND => {
             parser_util::eat_token(&mut tokens);
-            let (value, rest_tokens) = prefix(arena.clone(), tokens);
+            let (value, rest_tokens) = prefix(stmt_arena, expr_arena.clone(), tokens);
             (
-                alloc_prefix_op(
-                    arena.lock().unwrap(),
-                    &TokenKind::AMPERSAND,
-                    value,
-                    prefix_pos,
-                ),
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_prefix_op(&TokenKind::AMPERSAND, value, prefix_pos)),
                 rest_tokens,
             )
         }
         TokenKind::ASTERISK => {
             parser_util::eat_token(&mut tokens);
-            let (value, rest_tokens) = prefix(arena.clone(), tokens);
+            let (value, rest_tokens) = prefix(stmt_arena, expr_arena.clone(), tokens);
             (
-                alloc_prefix_op(
-                    arena.lock().unwrap(),
-                    &TokenKind::ASTERISK,
-                    value,
-                    prefix_pos,
-                ),
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_prefix_op(&TokenKind::ASTERISK, value, prefix_pos)),
                 rest_tokens,
             )
         }
-        _ => postfix(arena, tokens),
+        _ => postfix(stmt_arena, expr_arena, tokens),
     }
 }
 
 /// postfix -> primary (postfix_op postfix)*
-fn postfix(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
-    let (mut value, mut rest_tokens) = primary(arena.clone(), tokens);
+fn postfix(stmt_arena: StmtArena, expr_arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+    let (mut value, mut rest_tokens) = primary(stmt_arena.clone(), expr_arena.clone(), tokens);
 
     loop {
         let head = parser_util::head(&rest_tokens);
@@ -128,8 +147,12 @@ fn postfix(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
         match head.get_kind() {
             TokenKind::DOT => {
                 parser_util::eat_token(&mut rest_tokens);
+
+                let (v, rk) = postfix(stmt_arena.clone(), expr_arena.clone(), rest_tokens);
+                rest_tokens = rk;
+
                 value =
-                    alloc_postfix_op(arena.lock().unwrap(), &TokenKind::DOT, value, postfix_pos);
+                    expr_arena.lock().unwrap().alloc(ExpressionNode::new_postfix_op(&TokenKind::DOT, value, v, postfix_pos));
             }
             _ => break,
         }
@@ -137,23 +160,52 @@ fn postfix(arena: ExprArena, tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
     (value, rest_tokens)
 }
 
-/// primary -> integer_literal | identifier_path
-fn primary(arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+/// primary -> integer_literal | uinteger_literal | "true" | "false" | string_literal | identifier_path | paren_expr
+fn primary(stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
     let head = parser_util::head(&tokens);
     let pos = head.get_position();
 
     match head.get_kind() {
+        TokenKind::LPAREN => paren_expr(stmt_arena, expr_arena, tokens),
         TokenKind::INTEGER { value } => {
             parser_util::eat_token(&mut tokens);
             (
-                alloc_integer_node(arena.lock().unwrap(), *value, pos),
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_integer(*value, pos)),
+                tokens,
+            )
+        }
+        TokenKind::UNSIGNEDINTEGER { value } => {
+            parser_util::eat_token(&mut tokens);
+            (
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_uinteger(*value, pos)),
                 tokens,
             )
         }
         TokenKind::IDENTIFIER { name: _ } => {
             let (names, tokens) = parser_util::expect_identifier(tokens);
             (
-                alloc_identifier_node(arena.lock().unwrap(), names, pos),
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_identifier(names, pos)),
+                tokens,
+            )
+        }
+        TokenKind::STRLIT { contents } => {
+            parser_util::eat_token(&mut tokens);
+            (
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_string_literal(contents.to_string(), pos)),
+                tokens,
+            )
+        }
+        TokenKind::TRUE => {
+            parser_util::eat_token(&mut tokens);
+            (
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_boolean(true, pos)),
+                tokens,
+            )
+        }
+        TokenKind::FALSE => {
+            parser_util::eat_token(&mut tokens);
+            (
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_boolean(false, pos)),
                 tokens,
             )
         }
@@ -161,139 +213,110 @@ fn primary(arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
     }
 }
 
-/// 前置単項演算ノードのアロケート
-fn alloc_prefix_op(
-    mut arena: MutexGuard<Arena<ExpressionNode>>,
-    operator: &TokenKind,
-    value: ExNodeId,
-    pos: position::Position,
-) -> ExNodeId {
-    arena.alloc(ExpressionNode::new_prefix_op(operator, value, pos))
+/// paren_expr -> `(` expression `)`
+fn paren_expr(stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
+    parser_util::eat_token(&mut tokens);
+
+    let (ex_id, mut rest_tokens) = expression(stmt_arena, expr_arena, tokens);
+    parser_util::expect(TokenKind::RPAREN, &mut rest_tokens);
+
+    (ex_id, rest_tokens)
 }
 
-/// 後置単項演算ノードのアロケート
-fn alloc_postfix_op(
-    mut arena: MutexGuard<Arena<ExpressionNode>>,
-    operator: &TokenKind,
-    value: ExNodeId,
-    pos: position::Position,
-) -> ExNodeId {
-    arena.alloc(ExpressionNode::new_postfix_op(operator, value, pos))
-}
-
-/// 整数ノードのアロケート
-fn alloc_integer_node(
-    mut arena: MutexGuard<Arena<ExpressionNode>>,
-    int_value: i64,
-    pos: position::Position,
-) -> ExNodeId {
-    arena.alloc(ExpressionNode::new_integer(int_value, pos))
-}
-
-/// 識別子ノードのアロケート
-fn alloc_identifier_node(
-    mut arena: MutexGuard<Arena<ExpressionNode>>,
-    names: Vec<String>,
-    pos: position::Position,
-) -> ExNodeId {
-    arena.alloc(ExpressionNode::new_identifier(names, pos))
-}
 
 #[cfg(test)]
 mod expression_tests {
     use super::*;
-    use crate::common::ast::ExpressionNodeKind;
 
-    #[test]
-    fn primary_integer_test() {
-        let arena = new_allocator();
-        let (node_id, rest_tokens) = primary(
-            arena.clone(),
-            vec![Token::new_int_literal(30, Default::default())],
+    fn helper(expr_f: fn(StmtArena, ExprArena, Vec<Token>) -> (ExNodeId, Vec<Token>), tokens: Vec<Token>, rest_tokens_number: usize) {
+        let (stmt_arena, expr_arena) = new_allocators();
+        let (node_id, rest_tokens) = expr_f(
+            stmt_arena.clone(),
+            expr_arena.clone(),
+            tokens,
         );
 
-        assert!(rest_tokens.is_empty());
+        assert_eq!(rest_tokens_number, rest_tokens.len());
 
-        if let Ok(arena) = arena.lock() {
-            let integer_node = arena.get(node_id);
+        if let Ok(arena) = expr_arena.lock() {
+            let expr_node = arena.get(node_id);
 
-            assert!(integer_node.is_some());
-            let integer_node = integer_node.unwrap();
-
-            assert_eq!(
-                &ExpressionNodeKind::INTEGER { value: 30 },
-                integer_node.get_kind()
-            );
+            assert!(expr_node.is_some());
         };
     }
 
     #[test]
+    fn primary_integer_test() {
+        let tokens = vec![Token::new_int_literal(30, Default::default())];
+        helper(primary, tokens, 0);
+    }
+
+    #[test]
+    fn paren_expr_test() {
+        let tokens = vec![
+            Token::new(TokenKind::LPAREN, Default::default()),
+            Token::new_int_literal(30, Default::default()),
+            Token::new(TokenKind::RPAREN, Default::default()),
+        ];
+        helper(paren_expr, tokens, 0);
+    }
+
+    #[test]
+    fn if_expression_test() {
+        let tokens = vec![
+            Token::new(TokenKind::IF, Default::default()),
+            Token::new(TokenKind::LPAREN, Default::default()),
+            Token::new_int_literal(30, Default::default()),
+            Token::new(TokenKind::RPAREN, Default::default()),
+            Token::new(TokenKind::LBRACE, Default::default()),
+            Token::new(TokenKind::RETURN, Default::default()),
+            Token::new_int_literal(30, Default::default()),
+            Token::new(TokenKind::SEMICOLON, Default::default()),
+            Token::new(TokenKind::RBRACE, Default::default()),
+            Token::new(TokenKind::ELSE, Default::default()),
+            Token::new(TokenKind::LBRACE, Default::default()),
+            Token::new(TokenKind::RETURN, Default::default()),
+            Token::new_int_literal(30, Default::default()),
+            Token::new(TokenKind::SEMICOLON, Default::default()),
+            Token::new(TokenKind::RBRACE, Default::default()),
+        ];
+        helper(if_expression, tokens, 0);
+    }
+
+
+
+    #[test]
     fn primary_identifier_test() {
-        let arena = new_allocator();
-        let (node_id, _rest_tokens) = primary(
-            arena.clone(),
-            vec![
-                Token::new_identifier("std".to_string(), Default::default()),
-                Token::new(TokenKind::DOUBLECOLON, Default::default()),
-                Token::new_identifier("os".to_string(), Default::default()),
-                Token::new(TokenKind::DOUBLECOLON, Default::default()),
-                Token::new_identifier("exit_with".to_string(), Default::default()),
-                Token::new(TokenKind::EOF, Default::default()),
-            ],
-        );
-
-        if let Ok(arena) = arena.lock() {
-            let ident_node = arena.get(node_id);
-
-            assert!(ident_node.is_some());
-            let ident_node = ident_node.unwrap();
-
-            assert_eq!(
-                &ExpressionNodeKind::IDENTIFIER {
-                    names: vec!["std".to_string(), "os".to_string(), "exit_with".to_string()]
-                },
-                ident_node.get_kind()
-            );
-        };
+        let tokens = vec![
+            Token::new_identifier("std".to_string(), Default::default()),
+            Token::new(TokenKind::DOUBLECOLON, Default::default()),
+            Token::new_identifier("os".to_string(), Default::default()),
+            Token::new(TokenKind::DOUBLECOLON, Default::default()),
+            Token::new_identifier("exit_with".to_string(), Default::default()),
+            Token::new(TokenKind::EOF, Default::default()),
+        ];
+        helper(primary, tokens, 1);
     }
 
     #[test]
     fn postfix_test() {
-        let arena = new_allocator();
-        let (node_id, _rest_tokens) = postfix(
-            arena.clone(),
-            vec![
-                Token::new_identifier("x".to_string(), Default::default()),
-                Token::new(TokenKind::DOT, Default::default()),
-                Token::new_identifier("foo".to_string(), Default::default()),
-                Token::new(TokenKind::EOF, Default::default()),
-            ],
-        );
-
-        if let Ok(arena) = arena.lock() {
-            let postfix_node = arena.get(node_id);
-
-            assert!(postfix_node.is_some());
-        };
+        let tokens = vec![
+            Token::new_identifier("x".to_string(), Default::default()),
+            Token::new(TokenKind::DOT, Default::default()),
+            Token::new_identifier("foo".to_string(), Default::default()),
+            Token::new(TokenKind::EOF, Default::default()),
+        ];
+        helper(postfix, tokens, 1);
     }
 
     #[test]
     fn prefix_test() {
-        let arena = new_allocator();
-        let (node_id, _rest_tokens) = prefix(
-            arena.clone(),
-            vec![
-                Token::new(TokenKind::MINUS, Default::default()),
-                Token::new_int_literal(30, Default::default()),
-                Token::new(TokenKind::EOF, Default::default()),
-            ],
-        );
-
-        if let Ok(arena) = arena.lock() {
-            let prefix_node = arena.get(node_id);
-
-            assert!(prefix_node.is_some());
-        };
+        let tokens = vec![
+            Token::new(TokenKind::MINUS, Default::default()),
+            Token::new_int_literal(30, Default::default()),
+            Token::new(TokenKind::EOF, Default::default()),
+        ];
+        helper(prefix, tokens, 1);
     }
 
     #[test]
@@ -305,16 +328,7 @@ mod expression_tests {
             Token::new_int_literal(50, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
-
-        let arena = new_allocator();
-        let (node_id, rest_tokens) = multiplication(arena.clone(), tokens);
-
-        assert_eq!(1, rest_tokens.len());
-
-        if let Ok(arena) = arena.lock() {
-            let binop_node = arena.get(node_id);
-            assert!(binop_node.is_some());
-        };
+        helper(multiplication, tokens, 1);
     }
 
     #[test]
@@ -330,16 +344,7 @@ mod expression_tests {
             Token::new_int_literal(4, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
-
-        let arena = new_allocator();
-        let (node_id, rest_tokens) = addition(arena.clone(), tokens);
-
-        assert_eq!(1, rest_tokens.len());
-
-        if let Ok(arena) = arena.lock() {
-            let binop_node = arena.get(node_id);
-            assert!(binop_node.is_some());
-        };
+        helper(addition, tokens, 1);
     }
 
     #[test]
@@ -353,19 +358,16 @@ mod expression_tests {
             Token::new_int_literal(2, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
-
-        let arena = new_allocator();
-        let (node_id, rest_tokens) = assignment(arena.clone(), tokens);
-
-        assert_eq!(1, rest_tokens.len());
-
-        if let Ok(arena) = arena.lock() {
-            let binop_node = arena.get(node_id);
-            assert!(binop_node.is_some());
-        };
+        helper(assignment, tokens, 1);
     }
 
-    fn new_allocator() -> Arc<Mutex<Arena<ExpressionNode>>> {
-        Arc::new(Mutex::new(Arena::new()))
+    fn new_allocators() -> (
+        StmtArena,
+        ExprArena,
+    ) {
+        (
+            Arc::new(Mutex::new(Arena::new())),
+            Arc::new(Mutex::new(Arena::new())),
+        )
     }
 }

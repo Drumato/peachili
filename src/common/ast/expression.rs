@@ -1,4 +1,4 @@
-use crate::common::ast::ExpressionNodeKind;
+use crate::common::ast::{ExpressionNodeKind, StNodeId};
 use crate::common::position;
 use crate::common::token::TokenKind;
 
@@ -24,6 +24,25 @@ impl ExpressionNode {
     pub fn new_identifier(names: Vec<String>, pos: position::Position) -> Self {
         Self::new(ExpressionNodeKind::IDENTIFIER { names }, pos)
     }
+    pub fn new_uinteger(uint_value: u64, pos: position::Position) -> Self {
+        Self::new(ExpressionNodeKind::UINTEGER { value: uint_value }, pos)
+    }
+    pub fn new_string_literal(contents: String, pos: position::Position) -> Self {
+        Self::new(ExpressionNodeKind::STRING { contents }, pos)
+    }
+    pub fn new_boolean(truth: bool, pos: position::Position) -> Self {
+        Self::new(ExpressionNodeKind::BOOLEAN { truth }, pos)
+    }
+    pub fn new_if(cond_id: ExNodeId, body: Vec<StNodeId>, alter: Option<Vec<StNodeId>>, pos: position::Position) -> Self {
+        Self::new(
+            ExpressionNodeKind::IF {
+                cond_ex: cond_id,
+                body,
+                alter,
+            },
+            pos,
+        )
+    }
     pub fn new_prefix_op(operator: &TokenKind, value: ExNodeId, pos: position::Position) -> Self {
         let nk = match operator {
             TokenKind::MINUS => ExpressionNodeKind::NEG { value },
@@ -33,9 +52,9 @@ impl ExpressionNode {
         };
         Self::new(nk, pos)
     }
-    pub fn new_postfix_op(operator: &TokenKind, value: ExNodeId, pos: position::Position) -> Self {
+    pub fn new_postfix_op(operator: &TokenKind, id: ExNodeId, value: ExNodeId, pos: position::Position) -> Self {
         let nk = match operator {
-            TokenKind::DOT => ExpressionNodeKind::MEMBER { value },
+            TokenKind::DOT => ExpressionNodeKind::MEMBER { id, value },
             _ => panic!("cannot create postfix-operation from {}", operator),
         };
         Self::new(nk, pos)
