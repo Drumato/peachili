@@ -1,35 +1,43 @@
 use crate::common::ast::function;
-use indexmap::map::IndexMap;
+use std::collections::BTreeMap;
 
 /// Root
 #[derive(Debug, Clone)]
 pub struct ASTRoot {
     pub funcs: Vec<function::FnId>,
-    pub typedefs: IndexMap<String, StructDef>,
-    pub alias: IndexMap<String, String>,
-    pub parent_modules: Vec<String>,
+    pub typedefs: BTreeMap<String, StructDef>,
+    pub alias: BTreeMap<String, String>,
 }
 
 impl Default for ASTRoot {
     fn default() -> Self {
         Self {
             funcs: Vec::new(),
-            parent_modules: Vec::new(),
-            alias: IndexMap::new(),
-            typedefs: Default::default(),
+            alias: BTreeMap::new(),
+            typedefs: BTreeMap::new(),
         }
+    }
+}
+
+impl ASTRoot{
+    /// 別モジュールのASTRootを吸収する
+    pub fn absorb(&mut self, mut target: Self) {
+        self.funcs.append(&mut target.funcs);
+        self.typedefs.append(&mut target.typedefs);
+        self.alias.append(&mut target.alias);
+
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct StructDef {
-    pub members: IndexMap<String, String>,
+    pub members: BTreeMap<String, String>,
 }
 
 impl Default for StructDef {
     fn default() -> Self {
         Self {
-            members: IndexMap::new(),
+            members: BTreeMap::new(),
         }
     }
 }

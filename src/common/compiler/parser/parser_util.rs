@@ -1,15 +1,13 @@
-use crate::common::ast::{ExNodeId, ExpressionNode,StatementNode, StNodeId};
+use crate::common::ast::{ExNodeId, ExpressionNode, StNodeId};
 use crate::common::position::Position;
 use crate::common::token::{Token, TokenKind};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{MutexGuard};
 use crate::common::compiler::parser::statement;
 
 use id_arena::Arena;
+use crate::setup;
 
-type StmtArena = Arc<Mutex<Arena<StatementNode>>>;
-type ExprArena = Arc<Mutex<Arena<ExpressionNode>>>;
-
-type ChildParser = fn(StmtArena, ExprArena, Vec<Token>) -> (ExNodeId, Vec<Token>);
+type ChildParser = fn(setup::StmtArena, setup::ExprArena, Vec<Token>) -> (ExNodeId, Vec<Token>);
 type OperatorParser = fn(Vec<Token>) -> (Option<TokenKind>, Vec<Token>);
 
 pub fn eat_token(tokens: &mut Vec<Token>) {
@@ -41,7 +39,7 @@ pub fn expect(expected: TokenKind, tokens: &mut Vec<Token>) {
     eat_token(tokens);
 }
 
-pub fn consume(expected: TokenKind, tokens: &mut Vec<Token>) -> bool{
+pub fn consume(expected: TokenKind, tokens: &mut Vec<Token>) -> bool {
     let h = head(tokens);
     if h.get_kind() != &expected {
         return false;
@@ -71,8 +69,8 @@ pub fn operator_parser(
 pub fn binary_operation_parser(
     operator_parser: OperatorParser,
     child_parser: ChildParser,
-    stmt_arena: StmtArena,
-    expr_arena: ExprArena,
+    stmt_arena: setup::StmtArena,
+    expr_arena: setup::ExprArena,
     tokens: Vec<Token>,
 ) -> (ExNodeId, Vec<Token>) {
     let (mut lhs_id, mut rest_tokens) = child_parser(stmt_arena.clone(), expr_arena.clone(), tokens);
@@ -169,7 +167,7 @@ pub fn expect_type(mut tokens: Vec<Token>) -> (String, Vec<Token>) {
 
 
 /// block -> `{` statement* `}`
-pub fn expect_block(stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Vec<Token>) -> (Vec<StNodeId>, Vec<Token>) {
+pub fn expect_block(stmt_arena: setup::StmtArena, expr_arena: setup::ExprArena, mut tokens: Vec<Token>) -> (Vec<StNodeId>, Vec<Token>) {
     eat_token(&mut tokens);
 
     let mut stmts: Vec<StNodeId> = Vec::new();
@@ -193,6 +191,9 @@ pub fn expect_block(stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Ve
 #[cfg(test)]
 mod parser_util_tests {
     use super::*;
+    
+    use id_arena::Arena;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn expect_identifier_test() {
@@ -237,15 +238,15 @@ mod parser_util_tests {
             Token::new(TokenKind::EOF, Default::default()),
         ];
 
-        let (stmt_arena, expr_arena) =  new_allocators();
+        let (stmt_arena, expr_arena) = new_allocators();
         let (stmts, rest_tokens) = expect_block(stmt_arena, expr_arena, tokens);
         assert_eq!(1, rest_tokens.len());
         assert_eq!(0, stmts.len());
     }
 
     fn new_allocators() -> (
-        StmtArena,
-        ExprArena,
+        setup::StmtArena,
+        setup::ExprArena,
     ) {
         (
             Arc::new(Mutex::new(Arena::new())),

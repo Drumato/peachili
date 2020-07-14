@@ -3,7 +3,7 @@ use crate::common::{
     position,
 };
 use id_arena::Id;
-use indexmap::IndexMap;
+use std::collections::BTreeMap;
 
 pub type FnId = Id<Function>;
 
@@ -15,6 +15,8 @@ pub struct Function {
     pub return_type: String,
 
     /// arg_name -> arg_type
-    pub args: IndexMap<String, String>,
+    pub args: BTreeMap<String, String>,
     pub pos: position::Position,
+
+    pub module_name: String,
 }

@@ -3,6 +3,11 @@ use clap::{App, Arg, ArgMatches};
 use id_arena::Arena;
 use std::sync::{Arc, Mutex};
 
+pub type ModuleArena = Arc<Mutex<Arena<common::module::Module>>>;
+pub type FnArena = Arc<Mutex<Arena<common::ast::Function>>>;
+pub type StmtArena = Arc<Mutex<Arena<common::ast::StatementNode>>>;
+pub type ExprArena = Arc<Mutex<Arena<common::ast::ExpressionNode>>>;
+
 lazy_static! {
     pub static ref BUILD_OPTION: common::option::BuildOption = {
         let matches = create_arg_matches();
@@ -18,17 +23,17 @@ lazy_static! {
 }
 
 lazy_static! {
-    pub static ref MODULE_ARENA: Arc<Mutex<Arena<common::module::Module>>> =
+    pub static ref MODULE_ARENA: ModuleArena =
         Arc::new(Mutex::new(Arena::new()));
 }
 
 lazy_static! {
-    pub static ref AST_EXPR_ARENA: Arc<Mutex<Arena<common::ast::ExpressionNode>>> =
+    pub static ref AST_EXPR_ARENA: ExprArena =
         Arc::new(Mutex::new(Arena::new()));
 }
 
 lazy_static! {
-    pub static ref AST_STMT_ARENA: Arc<Mutex<Arena<common::ast::StatementNode>>> =
+    pub static ref AST_STMT_ARENA: StmtArena =
         Arc::new(Mutex::new(Arena::new()));
 }
 

@@ -1,22 +1,19 @@
 use crate::common::ast::*;
 use crate::common::token::{Token, TokenKind};
 
-use indexmap::IndexMap;
+use std::collections::BTreeMap;
 use crate::common::compiler::parser::*;
 
-use std::sync::{Arc, Mutex};
+use crate::setup;
 
-use id_arena::Arena;
-use crate::common::compiler::parser::parser_util::expect_type;
-
-type FnArena = Arc<Mutex<Arena<Function>>>;
-type StmtArena = Arc<Mutex<Arena<StatementNode>>>;
-type ExprArena = Arc<Mutex<Arena<ExpressionNode>>>;
-
-
-pub fn main(fn_arena: FnArena, stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Vec<Token>, parent_modules: Vec<String>) -> ASTRoot {
+pub fn main(
+    fn_arena: setup::FnArena,
+    stmt_arena: setup::StmtArena,
+    expr_arena: setup::ExprArena,
+    mut tokens: Vec<Token>,
+    module_name: String
+) -> ASTRoot {
     let mut ast_root: ASTRoot = Default::default();
-    ast_root.parent_modules = parent_modules;
 
     // program -> toplevel*
     loop {
@@ -24,7 +21,7 @@ pub fn main(fn_arena: FnArena, stmt_arena: StmtArena, expr_arena: ExprArena, mut
 
         match t.get_kind() {
             TokenKind::FUNC => {
-                let (fn_id, rest_tokens) = func_def(fn_arena.clone(), stmt_arena.clone(), expr_arena.clone(), tokens);
+                let (fn_id, rest_tokens) = func_def(fn_arena.clone(), stmt_arena.clone(), expr_arena.clone(), module_name.clone(), tokens);
                 tokens = rest_tokens;
 
                 ast_root.funcs.push(fn_id);
@@ -33,13 +30,13 @@ pub fn main(fn_arena: FnArena, stmt_arena: StmtArena, expr_arena: ExprArena, mut
                 let (type_name, struct_def, rest_tokens) = struct_def(tokens);
                 tokens = rest_tokens;
 
-                ast_root.typedefs.insert(type_name, struct_def);
+                ast_root.typedefs.insert(format!("{}::{}",module_name,  type_name), struct_def);
             }
             TokenKind::PUBTYPE => {
                 let (alias_name, src_name, rest_tokens) = type_alias(tokens);
                 tokens = rest_tokens;
 
-                ast_root.alias.insert(alias_name, src_name);
+                ast_root.alias.insert(format!("{}::{}",module_name,  alias_name), src_name);
             }
             _ => break,
         }
@@ -58,8 +55,8 @@ fn struct_def(mut tokens: Vec<Token>) -> (String, StructDef, Vec<Token>) {
     (type_name, StructDef { members }, rest_tokens)
 }
 
-fn member_block(mut tokens: Vec<Token>) -> (IndexMap<String, String>, Vec<Token>) {
-    let mut members = IndexMap::new();
+fn member_block(mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
+    let mut members = BTreeMap::new();
     parser_util::expect(TokenKind::LBRACE, &mut tokens);
 
     loop {
@@ -90,13 +87,13 @@ fn type_alias(mut tokens: Vec<Token>) -> (String, String, Vec<Token>) {
 
     parser_util::expect(TokenKind::ASSIGN, &mut rest_tokens);
 
-    let (src_name, mut rest_tokens) = expect_type(rest_tokens);
+    let (src_name, mut rest_tokens) = parser_util::expect_type(rest_tokens);
     parser_util::expect(TokenKind::SEMICOLON, &mut rest_tokens);
 
     (alias_name, src_name, rest_tokens)
 }
 
-fn func_def(fn_arena: FnArena, stmt_arena: StmtArena, expr_arena: ExprArena, mut tokens: Vec<Token>) -> (FnId, Vec<Token>) {
+fn func_def(fn_arena: setup::FnArena, stmt_arena: setup::StmtArena, expr_arena: setup::ExprArena, module_name: String, mut tokens: Vec<Token>) -> (FnId, Vec<Token>) {
     let func_pos = parser_util::current_position(&tokens);
     parser_util::eat_token(&mut tokens);
 
@@ -116,14 +113,15 @@ fn func_def(fn_arena: FnArena, stmt_arena: StmtArena, expr_arena: ExprArena, mut
             stmts,
             return_type,
             pos: func_pos,
+            module_name,
         }
     ), rest_tokens)
 }
 
-fn arg_list(mut tokens: Vec<Token>) -> (IndexMap<String, String>, Vec<Token>) {
+fn arg_list(mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
     parser_util::expect(TokenKind::LPAREN, &mut tokens);
 
-    let mut arg_map = IndexMap::new();
+    let mut arg_map = BTreeMap::new();
 
     loop {
         let t = parser_util::head(&tokens);
@@ -150,6 +148,9 @@ fn arg_list(mut tokens: Vec<Token>) -> (IndexMap<String, String>, Vec<Token>) {
 #[cfg(test)]
 mod toplevel_tests {
     use super::*;
+
+    use id_arena::Arena;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn type_alias_test() {
@@ -253,7 +254,7 @@ mod toplevel_tests {
 
         let (fn_arena, stmt_arena, expr_arena) = new_allocators();
 
-        let (_fn_id, rest_tokens) = func_def(fn_arena, stmt_arena, expr_arena, tokens);
+        let (_fn_id, rest_tokens) = func_def(fn_arena, stmt_arena, expr_arena, "sample".to_string(), tokens);
 
         assert_eq!(1, rest_tokens.len());
     }
@@ -296,15 +297,15 @@ mod toplevel_tests {
 
         let (fn_arena, stmt_arena, expr_arena) = new_allocators();
 
-        let root = main(fn_arena, stmt_arena, expr_arena, tokens, Vec::new());
+        let root = main(fn_arena, stmt_arena, expr_arena, tokens, "sample".to_string());
 
         assert_eq!(2, root.funcs.len());
     }
 
     fn new_allocators() -> (
-        FnArena,
-        StmtArena,
-        ExprArena,
+        setup::FnArena,
+        setup::StmtArena,
+        setup::ExprArena,
     ) {
         (
             Arc::new(Mutex::new(Arena::new())),

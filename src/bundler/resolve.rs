@@ -1,5 +1,5 @@
 use crate::common::{
-    error::{BundleError as BE, BundleErrorKind as BEK},
+    error::{CompileError as CE, BundleErrorKind as BEK},
     file_util as fu, module as m, option as opt,
 };
 use crate::setup;
@@ -197,10 +197,12 @@ fn try_to_get_file_contents(source_name: &str) -> String {
     match fu::read_program_from_file(source_name) {
         Some(contents) => contents,
         None => {
-            BE::new(BEK::NOTFOUNDSUCHAFILE {
-                file_name: source_name.to_string(),
-            })
-                .output();
+            CE::new(
+                BEK::NOTFOUNDSUCHAFILE {
+                    file_name: source_name.to_string(),
+                },
+                Default::default(),
+            ).output();
             std::process::exit(1);
         }
     }

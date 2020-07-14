@@ -10,7 +10,7 @@ pub struct Module {
     /// 参照するモジュール
     pub refs: Arc<Mutex<Vec<ModuleId>>>,
     /// ディレクトリにぶら下がっているモジュール
-    pub childs: Arc<Mutex<Vec<ModuleId>>>,
+    pub children: Arc<Mutex<Vec<ModuleId>>>,
     /// モジュールが存在するパス
     file_path: String,
     /// モジュール名
@@ -27,7 +27,7 @@ impl Module {
             file_path,
             name,
             refs: Arc::new(Mutex::new(Vec::new())),
-            childs: Arc::new(Mutex::new(Vec::new())),
+            children: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -38,7 +38,7 @@ impl Module {
 
     /// モジュールの下位ノードを追加する
     pub fn add_child_module(&self, child_module: ModuleId) {
-        self.childs.lock().unwrap().push(child_module);
+        self.children.lock().unwrap().push(child_module);
     }
 
     /// ファイルパスの参照
@@ -49,6 +49,11 @@ impl Module {
     /// ファイルパスのコピー
     pub fn copy_path(&self) -> String {
         self.file_path.to_string()
+    }
+
+    /// モジュール名のコピー
+    pub fn copy_name(&self) -> String {
+        self.name.to_string()
     }
 
     /// mainパッケージを割り当てる
@@ -73,7 +78,7 @@ impl Module {
 
     /// 下位モジュール数の取得
     pub fn child_count(&self) -> usize {
-        self.childs.lock().unwrap().len()
+        self.children.lock().unwrap().len()
     }
 }
 
