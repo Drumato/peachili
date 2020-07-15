@@ -23,18 +23,18 @@ pub fn frontend(
     // メインモジュールが参照する各モジュールも同様にパース
     base_ast.absorb(parse_requires(
         fn_arena.clone(),
-        stmt_arena,
+        stmt_arena.clone(),
         expr_arena,
         main_module_id,
         String::new(),
     ));
 
     // TLD解析
-    let tld_map = tld_collector::main(fn_arena, &base_ast);
+    let tld_map = tld_collector::main(fn_arena.clone(), &base_ast);
 
     // 意味解析
     // 先に型環境を構築してから，型検査を行う
-    let _type_env = analyzer::type_resolve_main(&tld_map, &base_ast, setup::BUILD_OPTION.target);
+    let _type_env = analyzer::type_resolve_main(fn_arena, stmt_arena, &tld_map, &base_ast, setup::BUILD_OPTION.target);
 }
 
 /// 再帰呼出しされる，外部モジュールの組み立て関数
