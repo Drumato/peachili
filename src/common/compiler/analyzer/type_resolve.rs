@@ -2,11 +2,10 @@ use crate::common::{ast, error::CompileError, option, peachili_type::Type, tld};
 
 use crate::common::error::TypeErrorKind;
 use std::collections::BTreeMap;
-use crate::setup;
 
 /// 型情報の収集．
 pub fn type_resolve_main(
-    fn_arena: setup::FnArena,
+    fn_arena: ast::FnArena,
     tld_map: &BTreeMap<String, tld::TopLevelDecl>,
     ast_root: &ast::ASTRoot,
     target: option::Target,

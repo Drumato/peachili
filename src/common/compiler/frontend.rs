@@ -1,12 +1,14 @@
 use crate::common::compiler::{analyzer, parser, tld_collector, tokenizer};
 use crate::common::{ast, file_util, module};
 use crate::setup;
+use std::sync::{Mutex, Arc};
+use id_arena::Arena;
 
 /// 字句解析，パース，意味解析等を行う．
 pub fn frontend(
-    fn_arena: setup::FnArena,
     main_module_id: module::ModuleId,
-) {
+) /*(FnArena, ASTRoot)*/ {
+    let fn_arena = Arc::new(Mutex::new(Arena::new()));
     let source = read_module_contents(main_module_id);
 
     // 初期値として空のStringを渡しておく
@@ -34,7 +36,7 @@ pub fn frontend(
 /// 再帰呼出しされる，外部モジュールの組み立て関数
 /// 本体 -> 参照 -> 子の順にパースし，すべてを結合して返す
 fn parse_ext_module(
-    fn_arena: setup::FnArena,
+    fn_arena: ast::FnArena,
     ext_id: module::ModuleId,
     mut module_name: String,
 ) -> ast::ASTRoot {
@@ -82,7 +84,7 @@ fn parse_ext_module(
 
 // mod_idのモジュールが参照するすべてのモジュールをパースし，結合
 fn parse_requires(
-    fn_arena: setup::FnArena,
+    fn_arena: ast::FnArena,
     mod_id: module::ModuleId,
     module_name: String,
 ) -> ast::ASTRoot {
@@ -110,7 +112,7 @@ fn parse_requires(
 
 // mod_idのモジュール以下のすべてのモジュールをパースし，結合
 fn parse_children(
-    fn_arena: setup::FnArena,
+    fn_arena: ast::FnArena,
     mod_id: module::ModuleId,
     module_name: String,
 ) -> ast::ASTRoot {
@@ -138,7 +140,7 @@ fn parse_children(
 
 // 字句解析, 構文解析をして返す
 fn parse_file(
-    fn_arena: setup::FnArena,
+    fn_arena: ast::FnArena,
     file_contents: String,
     module_name: String,
 ) -> ast::ASTRoot {
@@ -202,7 +204,7 @@ mod frontend_tests {
         assert_eq!(0, a.alias.len());
     }
 
-    fn new_allocators() ->  setup::FnArena {
+    fn new_allocators() -> ast::FnArena {
         Arc::new(Mutex::new(Arena::new()))
     }
 }

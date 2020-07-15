@@ -4,12 +4,11 @@ use crate::common::token::{Token, TokenKind};
 use std::collections::BTreeMap;
 use crate::common::compiler::parser::*;
 
-use crate::setup;
 use std::sync::{Arc, Mutex};
 use id_arena::Arena;
 
 pub fn main(
-    fn_arena: setup::FnArena,
+    fn_arena: FnArena,
     mut tokens: Vec<Token>,
     module_name: String,
 ) -> ASTRoot {
@@ -93,7 +92,7 @@ fn type_alias(mut tokens: Vec<Token>) -> (String, String, Vec<Token>) {
     (alias_name, src_name, rest_tokens)
 }
 
-fn func_def(fn_arena: setup::FnArena, module_name: String, mut tokens: Vec<Token>) -> (FnId, Vec<Token>) {
+fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (FnId, Vec<Token>) {
     let func_pos = parser_util::current_position(&tokens);
     parser_util::eat_token(&mut tokens);
 
@@ -306,7 +305,7 @@ mod toplevel_tests {
         assert_eq!(2, root.funcs.len());
     }
 
-    fn new_allocators() -> setup::FnArena {
+    fn new_allocators() -> FnArena {
         Arc::new(Mutex::new(Arena::new()))
     }
 }

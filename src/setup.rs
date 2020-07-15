@@ -4,7 +4,6 @@ use id_arena::Arena;
 use std::sync::{Arc, Mutex};
 
 pub type ModuleArena = Arc<Mutex<Arena<common::module::Module>>>;
-pub type FnArena = Arc<Mutex<Arena<common::ast::Function>>>;
 
 lazy_static! {
     pub static ref BUILD_OPTION: common::option::BuildOption = {
@@ -24,12 +23,6 @@ lazy_static! {
     pub static ref MODULE_ARENA: ModuleArena =
         Arc::new(Mutex::new(Arena::new()));
 }
-
-lazy_static! {
-    pub static ref AST_FN_ARENA: Arc<Mutex<Arena<common::ast::Function>>> =
-        Arc::new(Mutex::new(Arena::new()));
-}
-
 /// clap::ArgMatches
 pub fn create_arg_matches() -> ArgMatches {
     App::new("Peachili - The Peachili Programming Language Driver")

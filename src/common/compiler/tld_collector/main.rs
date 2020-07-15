@@ -1,11 +1,10 @@
 use crate::common::ast;
 use crate::common::tld;
-use crate::setup;
 use std::collections::BTreeMap;
 
 /// TLD解析のトップレベルルーチン
 pub fn main(
-    fn_arena: setup::FnArena,
+    fn_arena: ast::FnArena,
     full_ast: &ast::ASTRoot,
 ) -> BTreeMap<String, tld::TopLevelDecl> {
     let mut tld_map: BTreeMap<String, tld::TopLevelDecl> = BTreeMap::new();

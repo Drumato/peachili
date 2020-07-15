@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 pub type FnId = Id<Function>;
 pub type StmtArena = Arc<Mutex<Arena<StatementNode>>>;
 pub type ExprArena = Arc<Mutex<Arena<ExpressionNode>>>;
+pub type FnArena = Arc<Mutex<Arena<Function>>>;
 
 /// 関数
 #[derive(Debug, Clone)]
