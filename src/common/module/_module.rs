@@ -1,4 +1,4 @@
-use id_arena::Id;
+use id_arena::{Id, Arena};
 use std::sync::{Arc, Mutex};
 
 /// 各ファイル(パッケージ)を表す構造体
@@ -17,6 +17,7 @@ pub struct Module {
     name: String,
 }
 
+pub type ModuleArena = Arc<Mutex<Arena<Module>>>;
 pub type ModuleId = Id<Module>;
 
 #[allow(dead_code)]

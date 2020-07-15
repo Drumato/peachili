@@ -6,10 +6,11 @@ use id_arena::Arena;
 
 /// 字句解析，パース，意味解析等を行う．
 pub fn frontend(
+    module_arena: module::ModuleArena,
     main_module_id: module::ModuleId,
 ) /*(FnArena, ASTRoot)*/ {
     let fn_arena = Arc::new(Mutex::new(Arena::new()));
-    let source = read_module_contents(main_module_id);
+    let source = read_module_contents(module_arena.clone(), main_module_id);
 
     // 初期値として空のStringを渡しておく
     let mut base_ast = parse_file(
@@ -20,6 +21,7 @@ pub fn frontend(
 
     // メインモジュールが参照する各モジュールも同様にパース
     base_ast.absorb(parse_requires(
+        module_arena,
         fn_arena.clone(),
         main_module_id,
         String::new(),
@@ -36,11 +38,12 @@ pub fn frontend(
 /// 再帰呼出しされる，外部モジュールの組み立て関数
 /// 本体 -> 参照 -> 子の順にパースし，すべてを結合して返す
 fn parse_ext_module(
+    module_arena: module::ModuleArena,
     fn_arena: ast::FnArena,
     ext_id: module::ModuleId,
     mut module_name: String,
 ) -> ast::ASTRoot {
-    let is_dir_module = setup::MODULE_ARENA
+    let is_dir_module = module_arena
         .lock()
         .unwrap()
         .get(ext_id)
@@ -48,7 +51,7 @@ fn parse_ext_module(
         .child_count()
         != 0;
     // モジュール名を構築．
-    let this_module_name = setup::MODULE_ARENA
+    let this_module_name = module_arena
         .lock()
         .unwrap()
         .get(ext_id)
@@ -59,7 +62,7 @@ fn parse_ext_module(
     let mut base_ast = if is_dir_module {
         Default::default()
     } else {
-        let source = read_module_contents(ext_id);
+        let source = read_module_contents(module_arena.clone(), ext_id);
         parse_file(
             fn_arena.clone(),
             source,
@@ -69,11 +72,13 @@ fn parse_ext_module(
 
     // 参照･子ノードたちのパース，結合
     base_ast.absorb(parse_requires(
+        module_arena.clone(),
         fn_arena.clone(),
         ext_id,
         module_name.clone(),
     ));
     base_ast.absorb(parse_children(
+        module_arena,
         fn_arena,
         ext_id,
         module_name,
@@ -84,6 +89,7 @@ fn parse_ext_module(
 
 // mod_idのモジュールが参照するすべてのモジュールをパースし，結合
 fn parse_requires(
+    module_arena: module::ModuleArena,
     fn_arena: ast::FnArena,
     mod_id: module::ModuleId,
     module_name: String,
@@ -91,7 +97,7 @@ fn parse_requires(
     let mut base_ast: ast::ASTRoot = Default::default();
 
     // 参照ノードをすべて取得
-    let requires = setup::MODULE_ARENA
+    let requires = module_arena
         .lock()
         .unwrap()
         .get(mod_id)
@@ -100,6 +106,7 @@ fn parse_requires(
         .clone();
     for req_id in requires.lock().unwrap().iter() {
         let req_ast = parse_ext_module(
+            module_arena.clone(),
             fn_arena.clone(),
             *req_id,
             module_name.clone(),
@@ -112,6 +119,7 @@ fn parse_requires(
 
 // mod_idのモジュール以下のすべてのモジュールをパースし，結合
 fn parse_children(
+    module_arena: module::ModuleArena,
     fn_arena: ast::FnArena,
     mod_id: module::ModuleId,
     module_name: String,
@@ -119,7 +127,7 @@ fn parse_children(
     let mut base_ast: ast::ASTRoot = Default::default();
 
     // 参照ノードをすべて取得
-    let children = setup::MODULE_ARENA
+    let children = module_arena
         .lock()
         .unwrap()
         .get(mod_id)
@@ -128,6 +136,7 @@ fn parse_children(
         .clone();
     for child_id in children.lock().unwrap().iter() {
         let child_ast = parse_ext_module(
+            module_arena.clone(),
             fn_arena.clone(),
             *child_id,
             module_name.clone(),
@@ -150,8 +159,11 @@ fn parse_file(
 }
 
 // モジュールの内容(Peachiliコード)を読み出す
-fn read_module_contents(module_id: module::ModuleId) -> String {
-    if let Ok(arena) = setup::MODULE_ARENA.lock() {
+fn read_module_contents(
+    module_arena: module::ModuleArena,
+    module_id: module::ModuleId,
+) -> String {
+    if let Ok(arena) = module_arena.lock() {
         let main_module = arena.get(module_id).unwrap();
         let source = file_util::read_program_from_file(main_module.get_path());
 

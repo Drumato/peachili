@@ -1,9 +1,5 @@
 use crate::common;
 use clap::{App, Arg, ArgMatches};
-use id_arena::Arena;
-use std::sync::{Arc, Mutex};
-
-pub type ModuleArena = Arc<Mutex<Arena<common::module::Module>>>;
 
 lazy_static! {
     pub static ref BUILD_OPTION: common::option::BuildOption = {
@@ -19,10 +15,6 @@ lazy_static! {
     };
 }
 
-lazy_static! {
-    pub static ref MODULE_ARENA: ModuleArena =
-        Arc::new(Mutex::new(Arena::new()));
-}
 /// clap::ArgMatches
 pub fn create_arg_matches() -> ArgMatches {
     App::new("Peachili - The Peachili Programming Language Driver")
