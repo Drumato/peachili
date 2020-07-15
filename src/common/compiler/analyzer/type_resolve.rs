@@ -7,7 +7,6 @@ use crate::setup;
 /// 型情報の収集．
 pub fn type_resolve_main(
     fn_arena: setup::FnArena,
-    stmt_arena: setup::StmtArena,
     tld_map: &BTreeMap<String, tld::TopLevelDecl>,
     ast_root: &ast::ASTRoot,
     target: option::Target,
@@ -34,7 +33,7 @@ pub fn type_resolve_main(
     for fn_id in ast_root.funcs.iter() {
         if let Ok(arena) = fn_arena.lock() {
             let function = arena.get(*fn_id).unwrap();
-            if let Err(e) = check_vardecl_statements_in_func(stmt_arena.clone(), tld_map, &mut type_env, function, target){
+            if let Err(e) = check_vardecl_statements_in_func(tld_map, &mut type_env, function, target){
                 e.output();
                 std::process::exit(1);
             }
@@ -45,7 +44,6 @@ pub fn type_resolve_main(
 }
 
 fn check_vardecl_statements_in_func(
-    stmt_arena: setup::StmtArena,
     tld_map: &BTreeMap<String, tld::TopLevelDecl>,
     type_env: &mut BTreeMap<String, BTreeMap<String, Type>>,
     function: &ast::Function,
@@ -55,7 +53,7 @@ fn check_vardecl_statements_in_func(
     type_env.insert(func_name.to_string(), BTreeMap::new());
 
     for stmt_id in function.stmts.iter() {
-        if let Ok(arena) = stmt_arena.lock() {
+        if let Ok(arena) = function.stmt_arena.lock() {
             let stmt = arena.get(*stmt_id).unwrap();
 
             match stmt.get_kind() {
@@ -79,6 +77,50 @@ fn check_vardecl_statements_in_func(
                     if let Some(locals) = type_env.get_mut(&func_name) {
                         locals.insert(ident_name.to_string(), var_type);
                     }
+                }
+                ast::StatementNodeKind::VARINIT {
+                    ident_name,
+                    type_name,
+                    expr: _,
+                } => {
+                    let var_type = resolve_type_string(tld_map, type_name.to_string(), target)?;
+
+                    if let Some(locals) = type_env.get_mut(&func_name) {
+                        locals.insert(ident_name.to_string(), var_type);
+                    }
+                }
+
+                _ => {}
+            }
+        }
+    }
+
+    for stmt_id in function.stmts.iter() {
+        if let Ok(arena) = function.stmt_arena.lock() {
+            let stmt = arena.get(*stmt_id).unwrap();
+
+            match stmt.get_kind() {
+                ast::StatementNodeKind::DECLARE {
+                    ident_name,
+                    type_name,
+                } => {
+                    let var_type = resolve_type_string(tld_map, type_name.to_string(), target)?;
+
+                    if let Some(locals) = type_env.get_mut(&func_name) {
+                        locals.insert(ident_name.to_string(), var_type);
+                    }
+                }
+                ast::StatementNodeKind::CONST {
+                    ident_name,
+                    type_name,
+                    expr: _,
+                } => {
+                    let var_type = resolve_type_string(tld_map, type_name.to_string(), target)?;
+
+                    if let Some(locals) = type_env.get_mut(&func_name) {
+                        locals.insert(ident_name.to_string(), var_type);
+                    }
+
                 }
                 ast::StatementNodeKind::VARINIT {
                     ident_name,

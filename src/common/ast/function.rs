@@ -2,10 +2,13 @@ use crate::common::{
     ast::*,
     position,
 };
-use id_arena::Id;
+use id_arena::{Id, Arena};
 use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
 pub type FnId = Id<Function>;
+pub type StmtArena = Arc<Mutex<Arena<StatementNode>>>;
+pub type ExprArena = Arc<Mutex<Arena<ExpressionNode>>>;
 
 /// 関数
 #[derive(Debug, Clone)]
@@ -19,4 +22,8 @@ pub struct Function {
     pub pos: position::Position,
 
     pub module_name: String,
+
+    // アロケータ
+    pub stmt_arena: StmtArena,
+    pub expr_arena: ExprArena,
 }

@@ -5,8 +5,6 @@ use crate::setup;
 /// 字句解析，パース，意味解析等を行う．
 pub fn frontend(
     fn_arena: setup::FnArena,
-    stmt_arena: setup::StmtArena,
-    expr_arena: setup::ExprArena,
     main_module_id: module::ModuleId,
 ) {
     let source = read_module_contents(main_module_id);
@@ -14,8 +12,6 @@ pub fn frontend(
     // 初期値として空のStringを渡しておく
     let mut base_ast = parse_file(
         fn_arena.clone(),
-        stmt_arena.clone(),
-        expr_arena.clone(),
         source,
         String::new(),
     );
@@ -23,8 +19,6 @@ pub fn frontend(
     // メインモジュールが参照する各モジュールも同様にパース
     base_ast.absorb(parse_requires(
         fn_arena.clone(),
-        stmt_arena.clone(),
-        expr_arena,
         main_module_id,
         String::new(),
     ));
@@ -34,15 +28,13 @@ pub fn frontend(
 
     // 意味解析
     // 先に型環境を構築してから，型検査を行う
-    let _type_env = analyzer::type_resolve_main(fn_arena, stmt_arena, &tld_map, &base_ast, setup::BUILD_OPTION.target);
+    let _type_env = analyzer::type_resolve_main(fn_arena, &tld_map, &base_ast, setup::BUILD_OPTION.target);
 }
 
 /// 再帰呼出しされる，外部モジュールの組み立て関数
 /// 本体 -> 参照 -> 子の順にパースし，すべてを結合して返す
 fn parse_ext_module(
     fn_arena: setup::FnArena,
-    stmt_arena: setup::StmtArena,
-    expr_arena: setup::ExprArena,
     ext_id: module::ModuleId,
     mut module_name: String,
 ) -> ast::ASTRoot {
@@ -68,8 +60,6 @@ fn parse_ext_module(
         let source = read_module_contents(ext_id);
         parse_file(
             fn_arena.clone(),
-            stmt_arena.clone(),
-            expr_arena.clone(),
             source,
             module_name.clone(),
         )
@@ -78,15 +68,11 @@ fn parse_ext_module(
     // 参照･子ノードたちのパース，結合
     base_ast.absorb(parse_requires(
         fn_arena.clone(),
-        stmt_arena.clone(),
-        expr_arena.clone(),
         ext_id,
         module_name.clone(),
     ));
     base_ast.absorb(parse_children(
         fn_arena,
-        stmt_arena,
-        expr_arena,
         ext_id,
         module_name,
     ));
@@ -97,8 +83,6 @@ fn parse_ext_module(
 // mod_idのモジュールが参照するすべてのモジュールをパースし，結合
 fn parse_requires(
     fn_arena: setup::FnArena,
-    stmt_arena: setup::StmtArena,
-    expr_arena: setup::ExprArena,
     mod_id: module::ModuleId,
     module_name: String,
 ) -> ast::ASTRoot {
@@ -115,8 +99,6 @@ fn parse_requires(
     for req_id in requires.lock().unwrap().iter() {
         let req_ast = parse_ext_module(
             fn_arena.clone(),
-            stmt_arena.clone(),
-            expr_arena.clone(),
             *req_id,
             module_name.clone(),
         );
@@ -129,8 +111,6 @@ fn parse_requires(
 // mod_idのモジュール以下のすべてのモジュールをパースし，結合
 fn parse_children(
     fn_arena: setup::FnArena,
-    stmt_arena: setup::StmtArena,
-    expr_arena: setup::ExprArena,
     mod_id: module::ModuleId,
     module_name: String,
 ) -> ast::ASTRoot {
@@ -147,8 +127,6 @@ fn parse_children(
     for child_id in children.lock().unwrap().iter() {
         let child_ast = parse_ext_module(
             fn_arena.clone(),
-            stmt_arena.clone(),
-            expr_arena.clone(),
             *child_id,
             module_name.clone(),
         );
@@ -161,14 +139,12 @@ fn parse_children(
 // 字句解析, 構文解析をして返す
 fn parse_file(
     fn_arena: setup::FnArena,
-    stmt_arena: setup::StmtArena,
-    expr_arena: setup::ExprArena,
     file_contents: String,
     module_name: String,
 ) -> ast::ASTRoot {
     let tokens = tokenizer::main(file_contents);
 
-    parser::main(fn_arena, stmt_arena, expr_arena, tokens, module_name)
+    parser::main(fn_arena, tokens, module_name)
 }
 
 // モジュールの内容(Peachiliコード)を読み出す
@@ -215,11 +191,9 @@ mod frontend_tests {
 
     #[test]
     fn parse_file_test() {
-        let (f, s, e) = new_allocators();
+        let f = new_allocators();
         let a = parse_file(
             f,
-            s,
-            e,
             "func main() Noreturn {}".to_string(),
             "sample".to_string(),
         );
@@ -228,11 +202,7 @@ mod frontend_tests {
         assert_eq!(0, a.alias.len());
     }
 
-    fn new_allocators() -> (setup::FnArena, setup::StmtArena, setup::ExprArena) {
-        (
-            Arc::new(Mutex::new(Arena::new())),
-            Arc::new(Mutex::new(Arena::new())),
-            Arc::new(Mutex::new(Arena::new())),
-        )
+    fn new_allocators() ->  setup::FnArena {
+        Arc::new(Mutex::new(Arena::new()))
     }
 }

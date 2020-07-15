@@ -5,13 +5,13 @@ use std::collections::BTreeMap;
 use crate::common::compiler::parser::*;
 
 use crate::setup;
+use std::sync::{Arc, Mutex};
+use id_arena::Arena;
 
 pub fn main(
     fn_arena: setup::FnArena,
-    stmt_arena: setup::StmtArena,
-    expr_arena: setup::ExprArena,
     mut tokens: Vec<Token>,
-    module_name: String
+    module_name: String,
 ) -> ASTRoot {
     let mut ast_root: ASTRoot = Default::default();
 
@@ -21,7 +21,7 @@ pub fn main(
 
         match t.get_kind() {
             TokenKind::FUNC => {
-                let (fn_id, rest_tokens) = func_def(fn_arena.clone(), stmt_arena.clone(), expr_arena.clone(), module_name.clone(), tokens);
+                let (fn_id, rest_tokens) = func_def(fn_arena.clone(), module_name.clone(), tokens);
                 tokens = rest_tokens;
 
                 ast_root.funcs.push(fn_id);
@@ -30,13 +30,13 @@ pub fn main(
                 let (type_name, struct_def, rest_tokens) = struct_def(tokens);
                 tokens = rest_tokens;
 
-                ast_root.typedefs.insert(format!("{}::{}",module_name,  type_name), struct_def);
+                ast_root.typedefs.insert(format!("{}::{}", module_name, type_name), struct_def);
             }
             TokenKind::PUBTYPE => {
                 let (alias_name, src_name, rest_tokens) = type_alias(tokens);
                 tokens = rest_tokens;
 
-                ast_root.alias.insert(format!("{}::{}",module_name,  alias_name), src_name);
+                ast_root.alias.insert(format!("{}::{}", module_name, alias_name), src_name);
             }
             _ => break,
         }
@@ -93,9 +93,12 @@ fn type_alias(mut tokens: Vec<Token>) -> (String, String, Vec<Token>) {
     (alias_name, src_name, rest_tokens)
 }
 
-fn func_def(fn_arena: setup::FnArena, stmt_arena: setup::StmtArena, expr_arena: setup::ExprArena, module_name: String, mut tokens: Vec<Token>) -> (FnId, Vec<Token>) {
+fn func_def(fn_arena: setup::FnArena, module_name: String, mut tokens: Vec<Token>) -> (FnId, Vec<Token>) {
     let func_pos = parser_util::current_position(&tokens);
     parser_util::eat_token(&mut tokens);
+
+    let stmt_arena = Arc::new(Mutex::new(Arena::new()));
+    let expr_arena = Arc::new(Mutex::new(Arena::new()));
 
     let (func_names, rest_tokens) = parser_util::expect_identifier(tokens);
     let func_name = func_names[0].clone();
@@ -104,7 +107,7 @@ fn func_def(fn_arena: setup::FnArena, stmt_arena: setup::StmtArena, expr_arena: 
 
     let (return_type, rest_tokens) = parser_util::expect_type(rest_tokens);
 
-    let (stmts, rest_tokens) = parser_util::expect_block(stmt_arena, expr_arena, rest_tokens);
+    let (stmts, rest_tokens) = parser_util::expect_block(stmt_arena.clone(), expr_arena.clone(), rest_tokens);
 
     (fn_arena.lock().unwrap().alloc(
         Function {
@@ -114,6 +117,8 @@ fn func_def(fn_arena: setup::FnArena, stmt_arena: setup::StmtArena, expr_arena: 
             return_type,
             pos: func_pos,
             module_name,
+            stmt_arena,
+            expr_arena,
         }
     ), rest_tokens)
 }
@@ -252,9 +257,9 @@ mod toplevel_tests {
             Token::new(TokenKind::EOF, Default::default()),
         ];
 
-        let (fn_arena, stmt_arena, expr_arena) = new_allocators();
+        let fn_arena = new_allocators();
 
-        let (_fn_id, rest_tokens) = func_def(fn_arena, stmt_arena, expr_arena, "sample".to_string(), tokens);
+        let (_fn_id, rest_tokens) = func_def(fn_arena, "sample".to_string(), tokens);
 
         assert_eq!(1, rest_tokens.len());
     }
@@ -294,23 +299,14 @@ mod toplevel_tests {
             Token::new(TokenKind::RBRACE, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
+        let fn_arena = new_allocators();
 
-        let (fn_arena, stmt_arena, expr_arena) = new_allocators();
-
-        let root = main(fn_arena, stmt_arena, expr_arena, tokens, "sample".to_string());
+        let root = main(fn_arena, tokens, "sample".to_string());
 
         assert_eq!(2, root.funcs.len());
     }
 
-    fn new_allocators() -> (
-        setup::FnArena,
-        setup::StmtArena,
-        setup::ExprArena,
-    ) {
-        (
-            Arc::new(Mutex::new(Arena::new())),
-            Arc::new(Mutex::new(Arena::new())),
-            Arc::new(Mutex::new(Arena::new())),
-        )
+    fn new_allocators() -> setup::FnArena {
+        Arc::new(Mutex::new(Arena::new()))
     }
 }
