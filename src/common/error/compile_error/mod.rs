@@ -29,6 +29,11 @@ impl<K: CompileErrorKind> CompileError<K> {
     pub fn output(&self) {
         eprintln!("{}{} : {}", self.k.category().red().bold(), self.p, self.k);
     }
+
+    /// エラーの種類のを取得する
+    pub fn get_kind(&self) -> &K {
+        &self.k
+    }
 }
 
 /// Compilerが発行するエラーの種類

@@ -19,9 +19,19 @@ fn tokenize(mut source: String) -> Vec<Token> {
     loop {
         let t = scan(&mut source, &mut row, &mut column);
 
-        if t.is_none() {
-            tokens.push(Token::new(TokenKind::EOF, Default::default()));
-            break;
+        if let Err(e) = t {
+            match e.get_kind() {
+                // 単純にトークナイズ終了とする
+                TEK::SOURCEISEMPTY => {
+                    tokens.push(Token::new(TokenKind::EOF, Position::new(row, column)));
+                    break;
+                }
+                // 字句解析エラーなので，出力して終了
+                _ => {
+                    e.output();
+                    std::process::exit(1);
+                }
+            }
         }
 
         let t = t.unwrap();
@@ -36,9 +46,12 @@ fn tokenize(mut source: String) -> Vec<Token> {
     tokens
 }
 
-fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Token> {
+fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Result<Token, CE<TEK>> {
     if source.is_empty() {
-        return None;
+        return Err(CE::new(
+            TEK::SOURCEISEMPTY,
+            Default::default(),
+        ));
     }
 
     let cur_char = source.as_bytes()[0];
@@ -49,7 +62,7 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
             let (t, len) = scan_string_literal(source, *row, *column);
             *column += len;
             source.drain(..len);
-            Some(t)
+            Ok(t)
         }
 
         // 識別子 or キーワード
@@ -57,7 +70,7 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
             let (t, len) = scan_identifier(source, *row, *column);
             *column += len;
             source.drain(..len);
-            Some(t)
+            Ok(t)
         }
 
         // 整数/非符号付き整数
@@ -65,11 +78,10 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
             Ok((t, len)) => {
                 *column += len;
                 source.drain(..len);
-                Some(t)
+                Ok(t)
             }
             Err(e) => {
-                e.output();
-                None
+                Err(e)
             }
         },
 
@@ -78,7 +90,7 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
             let (t, len) = scan_whitespace(source, *row, *column);
             *column += len;
             source.drain(..len);
-            Some(t)
+            Ok(t)
         }
 
         // 改行
@@ -86,7 +98,7 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
             *row += 1;
             *column = 1;
             source.drain(..1);
-            Some(Token::new(TokenKind::NEWLINE, Position::new(0, 0)))
+            Ok(Token::new(TokenKind::NEWLINE, Position::new(0, 0)))
         }
         _ => {
             let (t, len) = scan_symbol(source, *row, *column);
@@ -94,11 +106,11 @@ fn scan(source: &mut String, row: &mut usize, column: &mut usize) -> Option<Toke
                 let (t, len) = scan_comment(source, *row, *column);
                 *column += len;
                 source.drain(..len);
-                return Some(t);
+                return Ok(t);
             }
 
             source.drain(..len);
-            Some(t)
+            Ok(t)
         }
     }
 }
@@ -279,6 +291,7 @@ mod tokenizer_tests {
         let (_, len) = scan_whitespace("\t\t\t\t1000", 0, 0);
         assert_eq!(4, len);
     }
+
     #[test]
     fn scan_symbol_test() {
         let (t, len) = scan_symbol("+", 0, 0);
@@ -341,11 +354,11 @@ mod tokenizer_tests {
 
         // EOF
         let t = scan(&mut case, &mut row, &mut column);
-        assert!(t.is_none());
+        assert!(t.is_err());
     }
 
-    fn int_literal_test(t: Option<Token>, value: i64, pos: Position) {
-        assert!(t.is_some());
+    fn int_literal_test(t: Result<Token, CE<TEK>>, value: i64, pos: Position) {
+        assert!(t.is_ok());
 
         let t = t.unwrap();
         let t_pos = t.get_position();
@@ -353,8 +366,8 @@ mod tokenizer_tests {
         assert_eq!(value, t.int_value());
     }
 
-    fn uint_literal_test(t: Option<Token>, value: u64, pos: Position) {
-        assert!(t.is_some());
+    fn uint_literal_test(t: Result<Token, CE<TEK>>, value: u64, pos: Position) {
+        assert!(t.is_ok());
 
         let t = t.unwrap();
         let t_pos = t.get_position();
@@ -362,8 +375,8 @@ mod tokenizer_tests {
         assert_eq!(value, t.uint_value());
     }
 
-    fn string_literal_test(t: Option<Token>, value: &str, pos: Position) {
-        assert!(t.is_some());
+    fn string_literal_test(t: Result<Token, CE<TEK>>, value: &str, pos: Position) {
+        assert!(t.is_ok());
 
         let t = t.unwrap();
         let t_pos = t.get_position();
@@ -371,8 +384,8 @@ mod tokenizer_tests {
         assert_eq!(value, t.copy_contents());
     }
 
-    fn identifier_test(t: Option<Token>, name: &str, pos: Position) {
-        assert!(t.is_some());
+    fn identifier_test(t: Result<Token, CE<TEK>>, name: &str, pos: Position) {
+        assert!(t.is_ok());
 
         let t = t.unwrap();
         let t_pos = t.get_position();
@@ -380,8 +393,8 @@ mod tokenizer_tests {
         assert_eq!(name, t.copy_name());
     }
 
-    fn keyword_test(t: Option<Token>, k: TokenKind, pos: Position) {
-        assert!(t.is_some());
+    fn keyword_test(t: Result<Token, CE<TEK>>, k: TokenKind, pos: Position) {
+        assert!(t.is_ok());
 
         let t = t.unwrap();
         let t_pos = t.get_position();
@@ -389,8 +402,8 @@ mod tokenizer_tests {
         assert_eq!(&k, t.get_kind());
     }
 
-    fn ignore_test(t: Option<Token>) {
-        assert!(t.is_some());
+    fn ignore_test(t: Result<Token, CE<TEK>>) {
+        assert!(t.is_ok());
         assert!(t.unwrap().should_ignore())
     }
 }

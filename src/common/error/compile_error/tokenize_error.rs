@@ -8,6 +8,9 @@ use crate::common::error::CompileErrorKind;
 pub enum TokenizeErrorKind {
     /// 整数トークンが許容範囲外であった
     INTEGERLITERALOUTOFRANGE(String),
+
+    /// これ以上トークナイズできない
+    SOURCEISEMPTY,
 }
 
 impl CompileErrorKind for TokenizeErrorKind {
@@ -21,6 +24,9 @@ impl fmt::Display for TokenizeErrorKind {
         let s = match self {
             TokenizeErrorKind::INTEGERLITERALOUTOFRANGE(number) => {
                 format!("an int-literal `{}` out of range 64bit", number)
+            }
+            TokenizeErrorKind::SOURCEISEMPTY => {
+                "source is empty".to_string()
             }
         };
 

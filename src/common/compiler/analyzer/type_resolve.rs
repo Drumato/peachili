@@ -2,6 +2,7 @@ use crate::common::{ast, error::CompileError, option, peachili_type::Type, tld};
 
 use crate::common::error::TypeErrorKind;
 use std::collections::BTreeMap;
+use crate::common::compiler::analyzer::type_util;
 
 /// 型情報の収集．
 pub fn type_resolve_main(
@@ -32,7 +33,17 @@ pub fn type_resolve_main(
     for fn_id in ast_root.funcs.iter() {
         if let Ok(arena) = fn_arena.lock() {
             let function = arena.get(*fn_id).unwrap();
-            if let Err(e) = check_vardecl_statements_in_func(tld_map, &mut type_env, function, target){
+            let function_ret_type = resolve_type_string(tld_map, function.return_type.to_string(), target);
+            if let Err(e) = function_ret_type {
+                e.output();
+                std::process::exit(1);
+            }
+            if let Some(func_env) = type_env.get_mut(&function.name) {
+                func_env.insert(function.name.clone(), function_ret_type.unwrap());
+            }
+
+
+            if let Err(e) = add_auto_var_to_env(tld_map, &mut type_env, function, target) {
                 e.output();
                 std::process::exit(1);
             }
@@ -42,7 +53,7 @@ pub fn type_resolve_main(
     type_env
 }
 
-fn check_vardecl_statements_in_func(
+fn add_auto_var_to_env(
     tld_map: &BTreeMap<String, tld::TopLevelDecl>,
     type_env: &mut BTreeMap<String, BTreeMap<String, Type>>,
     function: &ast::Function,
@@ -51,6 +62,15 @@ fn check_vardecl_statements_in_func(
     let func_name = function.name.to_string();
     type_env.insert(func_name.to_string(), BTreeMap::new());
 
+    // 引数のデータ格納
+    for (arg_name, arg_type_str) in function.args.iter() {
+        if let Some(locals) = type_env.get_mut(&func_name) {
+            let arg_type = resolve_type_string(tld_map, arg_type_str.to_string(), target)?;
+            locals.insert(arg_name.to_string(), arg_type);
+        }
+    }
+
+    // 変数宣言系のデータ格納
     for stmt_id in function.stmts.iter() {
         if let Ok(arena) = function.stmt_arena.lock() {
             let stmt = arena.get(*stmt_id).unwrap();
@@ -119,7 +139,6 @@ fn check_vardecl_statements_in_func(
                     if let Some(locals) = type_env.get_mut(&func_name) {
                         locals.insert(ident_name.to_string(), var_type);
                     }
-
                 }
                 ast::StatementNodeKind::VARINIT {
                     ident_name,
@@ -149,26 +168,26 @@ fn resolve_type_string(
 ) -> Result<Type, CompileError<TypeErrorKind>> {
     if type_name_str.starts_with('*') {
         let pointer_to = resolve_type_string(tld_map, type_name_str[1..].to_string(), target)?;
-        let pointer_size = resolve_type_size(tld_map, ForCalcTypeSize::POINTER, target);
+        let pointer_size = type_util::resolve_type_size(tld_map, type_util::ForCalcTypeSize::POINTER, target);
         return Ok(Type::new_pointer(pointer_to, pointer_size));
     }
 
     match type_name_str.as_str() {
-        "Int64" => Ok(Type::new_int64(resolve_type_size(
+        "Int64" => Ok(Type::new_int64(type_util::resolve_type_size(
             tld_map,
-            ForCalcTypeSize::INT64,
+            type_util::ForCalcTypeSize::INT64,
             target,
         ))),
-        "Uint64" => Ok(Type::new_uint64(resolve_type_size(
+        "Uint64" => Ok(Type::new_uint64(type_util::resolve_type_size(
             tld_map,
-            ForCalcTypeSize::UINT64,
+            type_util::ForCalcTypeSize::UINT64,
             target,
         ))),
         "Noreturn" => Ok(Type::new_noreturn()),
         _ => {
             // TopLevelDeclから探す，なかったらいよいよエラー
             if let Some(tld_entry) = tld_map.get(&type_name_str) {
-                return resolve_type_from_tld(tld_map, tld_entry, target);
+                return resolve_type_from_tld(type_name_str.to_string(), tld_map, tld_entry, target);
             }
 
             Err(CompileError::new(
@@ -183,6 +202,7 @@ fn resolve_type_string(
 
 /// TopLevelDecl領域を探索して，対象の型を返す
 fn resolve_type_from_tld(
+    type_name_str: String,
     tld_map: &BTreeMap<String, tld::TopLevelDecl>,
     entry: &tld::TopLevelDecl,
     target: option::Target,
@@ -191,10 +211,6 @@ fn resolve_type_from_tld(
         tld::TLDKind::ALIAS { src_type } => {
             resolve_type_string(tld_map, src_type.to_string(), target)
         }
-        tld::TLDKind::FN {
-            return_type,
-            args: _,
-        } => resolve_type_string(tld_map, return_type.to_string(), target),
         tld::TLDKind::STRUCT { members } => {
             let mut member_types = BTreeMap::new();
             let mut total_size = 0;
@@ -210,50 +226,21 @@ fn resolve_type_from_tld(
 
             Ok(Type::new_struct(member_types, total_size))
         }
+        // 関数名だったときは何もしない．
+        tld::TLDKind::FN {
+            return_type: _,
+            args: _,
+        } => Err(CompileError::new(TypeErrorKind::GOTFUNCTIONNAMEASTYPE {
+            func_name: type_name_str,
+        }, Default::default())),
     }
 }
 
-/// 型のサイズの計算
-fn resolve_type_size(
-    _tld_map: &BTreeMap<String, tld::TopLevelDecl>,
-    t: ForCalcTypeSize,
-    target: option::Target,
-) -> usize {
-    match t {
-        ForCalcTypeSize::INT64 => Type::int64_size(target),
-        ForCalcTypeSize::UINT64 => Type::uint64_size(target),
-        ForCalcTypeSize::POINTER => Type::pointer_size(target),
-    }
-}
-
-/// アーキテクチャごとに型のサイズを割り当てるためだけに使用．
-enum ForCalcTypeSize {
-    INT64,
-    UINT64,
-    POINTER,
-}
 
 #[cfg(test)]
 mod analyze_tests {
     use super::*;
     use crate::common::tld::{TLDKind, TopLevelDecl};
-
-    #[test]
-    fn resolve_type_size_in_x64_test() {
-        let m = BTreeMap::new();
-        assert_eq!(
-            8,
-            resolve_type_size(&m, ForCalcTypeSize::INT64, option::Target::X86_64)
-        );
-        assert_eq!(
-            8,
-            resolve_type_size(&m, ForCalcTypeSize::UINT64, option::Target::X86_64)
-        );
-        assert_eq!(
-            8,
-            resolve_type_size(&m, ForCalcTypeSize::POINTER, option::Target::X86_64)
-        );
-    }
 
     #[test]
     fn resolve_type_string_in_x64_test() {
@@ -270,7 +257,6 @@ mod analyze_tests {
         );
 
         check_types(Type::new_int64(8), &m, "T1", option::Target::X86_64);
-        check_types(Type::new_noreturn(), &m, "F1", option::Target::X86_64);
         check_types(
             Type::new_struct(
                 {
@@ -308,13 +294,6 @@ mod analyze_tests {
             "T1".to_string(),
             TopLevelDecl::new(TLDKind::ALIAS {
                 src_type: "Int64".to_string(),
-            }),
-        );
-        m.insert(
-            "F1".to_string(),
-            TopLevelDecl::new(TLDKind::FN {
-                return_type: "Noreturn".to_string(),
-                args: vec![],
             }),
         );
         m.insert(

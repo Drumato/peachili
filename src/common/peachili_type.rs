@@ -31,6 +31,18 @@ impl Type {
             Target::X86_64 => 8,
         }
     }
+    /// Boolean型サイズ
+    pub fn boolean_size(target: Target) -> usize {
+        match target {
+            Target::X86_64 => 8,
+        }
+    }
+    /// ConstStr
+    pub fn conststr_size(target: Target) -> usize {
+        match target {
+            Target::X86_64 => 8,
+        }
+    }
 
     /// Int64型を新たに割り当てる
     pub fn new_int64(size: usize) -> Self {
@@ -47,11 +59,25 @@ impl Type {
             size,
         }
     }
+    /// Boolean型を新たに割り当てる
+    pub fn new_boolean(size: usize) -> Self {
+        Self {
+            kind: TypeKind::BOOLEAN,
+            size,
+        }
+    }
     /// Noreturn型
     pub fn new_noreturn() -> Self {
         Self {
             kind: TypeKind::NORETURN,
             size: 0,
+        }
+    }
+    /// ConstStr
+    pub fn new_const_str(size: usize) -> Self {
+        Self {
+            kind: TypeKind::CONSTSTR,
+            size,
         }
     }
 
@@ -74,6 +100,22 @@ impl Type {
             size: total_size,
         }
     }
+
+    /// 構造体型であるか
+    pub fn is_struct(&self) -> bool {
+        match self.kind {
+            TypeKind::STRUCT { members: _ } => true,
+            _ => false,
+        }
+    }
+
+    /// 構造体型であると解釈し, メンバを取り出す
+    pub fn get_members(&self) -> &BTreeMap<String, (Box<Type>, usize)> {
+        match &self.kind {
+            TypeKind::STRUCT { members } => members,
+            _ => panic!("cannot call get_members() with not a struct"),
+        }
+    }
 }
 
 
@@ -88,6 +130,10 @@ pub enum TypeKind {
     POINTER {
         to: Box<Type>,
     },
+    /// ConstStr
+    CONSTSTR,
+    /// Boolean
+    BOOLEAN,
     /// Noreturn
     NORETURN,
     /// 構造体型

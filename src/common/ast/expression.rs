@@ -18,6 +18,15 @@ impl ExpressionNode {
     fn new(k: ExpressionNodeKind, p: position::Position) -> Self {
         Self { k, p }
     }
+    pub fn get_pos(&self) -> position::Position {
+        self.p
+    }
+    pub fn copy_names(&self) -> Vec<String> {
+        match self.get_kind() {
+            ExpressionNodeKind::IDENTIFIER { names } => names.clone(),
+            _ => panic!("cannot copy_names with not identifier"),
+        }
+    }
     pub fn new_integer(int_value: i64, pos: position::Position) -> Self {
         Self::new(ExpressionNodeKind::INTEGER { value: int_value }, pos)
     }
@@ -80,5 +89,12 @@ impl ExpressionNode {
 
     pub fn get_kind(&self) -> &ExpressionNodeKind {
         &self.k
+    }
+
+    pub fn is_identifier(&self) -> bool {
+        match self.get_kind() {
+            ExpressionNodeKind::IDENTIFIER { names: _ } => true,
+            _ => false
+        }
     }
 }
