@@ -12,6 +12,7 @@ mod arch;
 mod bundler;
 mod common;
 mod setup;
+mod debug;
 
 #[macro_use]
 extern crate lazy_static;
@@ -26,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ******************
 
     match setup::BUILD_OPTION.target {
-        option::Target::X86_64 => x64::main(module_arena, main_module)?,
+        option::Target::X86_64 => x64::main(module_arena, main_module, setup::BUILD_OPTION.matches.is_present("verbose-hir"))?,
     }
 
     Ok(())

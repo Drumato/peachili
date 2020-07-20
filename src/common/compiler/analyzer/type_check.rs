@@ -131,7 +131,6 @@ fn type_check_vardecl_stmt(
     let _var_type = type_env.get(ident_name).unwrap();
     let _expr_type = type_check_expr(tld_env, type_env, expr_arena.clone(), expr_arena.lock().unwrap().get(expr_id).unwrap(), target)?;
 
-
     Ok(())
 }
 
@@ -161,11 +160,11 @@ fn type_check_expr(
             tld_env, type_util::ForCalcTypeSize::CONSTSTR, target,
         ))),
         ast::ExpressionNodeKind::MEMBER {
-            id: st_id, value: value_id,
+            id: st_id, member: member_id,
         } => {
             let struct_node = expr_arena.lock().unwrap().get(*st_id).unwrap().clone();
-            let value_node = expr_arena.lock().unwrap().get(*value_id).unwrap().clone();
-            type_check_member_expression(tld_env, type_env, struct_node, value_node, target)
+            let member_node = expr_arena.lock().unwrap().get(*member_id).unwrap().clone();
+            type_check_member_expression(tld_env, type_env, struct_node, member_node, target)
         }
         _ => panic!("unimplemented type check with `{:?}`", expr),
     }

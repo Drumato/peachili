@@ -1,14 +1,15 @@
 use crate::common::compiler::{analyzer, parser, tld_collector, tokenizer};
-use crate::common::{ast, file_util, module};
+use crate::common::{ast, peachili_type, file_util, module};
 use crate::setup;
 use std::sync::{Mutex, Arc};
 use id_arena::Arena;
+use std::collections::BTreeMap;
 
 /// 字句解析，パース，意味解析等を行う．
 pub fn frontend(
     module_arena: module::ModuleArena,
     main_module_id: module::ModuleId,
-) /*(FnArena, ASTRoot)*/ {
+) -> (ast::FnArena, ast::ASTRoot, BTreeMap<String, BTreeMap<String, peachili_type::Type>>) {
     let fn_arena = Arc::new(Mutex::new(Arena::new()));
     let source = read_module_contents(module_arena.clone(), main_module_id);
 
@@ -33,7 +34,9 @@ pub fn frontend(
     // 意味解析
     // 先に型環境を構築してから，型検査を行う
     let type_env = analyzer::type_resolve_main(fn_arena.clone(), &tld_env, &base_ast, setup::BUILD_OPTION.target);
-    analyzer::type_check_main(fn_arena, &tld_env, &type_env, &base_ast, setup::BUILD_OPTION.target);
+    analyzer::type_check_main(fn_arena.clone(), &tld_env, &type_env, &base_ast, setup::BUILD_OPTION.target);
+
+    (fn_arena, base_ast, type_env)
 }
 
 /// 再帰呼出しされる，外部モジュールの組み立て関数

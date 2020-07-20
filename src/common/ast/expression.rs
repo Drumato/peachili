@@ -61,9 +61,9 @@ impl ExpressionNode {
         };
         Self::new(nk, pos)
     }
-    pub fn new_postfix_op(operator: &TokenKind, id: ExNodeId, value: ExNodeId, pos: position::Position) -> Self {
+    pub fn new_postfix_op(operator: &TokenKind, id: ExNodeId, member: ExNodeId, pos: position::Position) -> Self {
         let nk = match operator {
-            TokenKind::DOT => ExpressionNodeKind::MEMBER { id, value },
+            TokenKind::DOT => ExpressionNodeKind::MEMBER { id, member },
             _ => panic!("cannot create postfix-operation from {}", operator),
         };
         Self::new(nk, pos)

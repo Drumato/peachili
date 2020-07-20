@@ -1,6 +1,8 @@
 use crate::common;
 use clap::{App, Arg, ArgMatches};
 
+pub const PEACHILI_VERSION: &str = "1.0";
+
 lazy_static! {
     pub static ref BUILD_OPTION: common::option::BuildOption = {
         let matches = create_arg_matches();
@@ -18,7 +20,7 @@ lazy_static! {
 /// clap::ArgMatches
 pub fn create_arg_matches() -> ArgMatches {
     App::new("Peachili - The Peachili Programming Language Driver")
-        .version("1.0")
+        .version(PEACHILI_VERSION)
         .author("Drumato <drumato43@gmail.com>")
         .args(&[
             // コンパイル対象のファイル
@@ -32,11 +34,16 @@ pub fn create_arg_matches() -> ArgMatches {
                 .short('t')
                 .long("target")
                 .help("x86_64/aarch64"),
+            // IRのダンプ
+            Arg::with_name("verbose-hir")
+                .long("verbose-hir")
+                .help("dump IR-Module to hir.dot")
         ])
-        .subcommand(
-            App::new("Compiler")
-                .version("1.0")
-                .author("Drumato <drumato43@gmail.com>"),
-        )
+        .subcommand(App::new("compile")
+            .version(PEACHILI_VERSION)
+            .author("Drumato <drumato43@gmail.com>"))
+        .subcommand(App::new("translate-c")
+            .version(PEACHILI_VERSION)
+            .author("Drumato <drumato43@gmail.com>"))
         .get_matches()
 }
