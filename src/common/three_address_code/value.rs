@@ -7,3 +7,9 @@ pub type ValueId = Id<Value>;
 pub struct Value {
     pub kind: value_kind::ValueKind,
 }
+
+impl Value{
+    pub fn dump(&self) -> String{
+        self.kind.dump()
+    }
+}

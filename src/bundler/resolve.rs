@@ -1,5 +1,5 @@
 use crate::common::{
-    error::{CompileError as CE, BundleErrorKind as BEK},
+    error::{BundleErrorKind as BEK, CompileError as CE},
     file_util as fu, module as m, option as opt,
 };
 use crate::setup;
@@ -30,6 +30,17 @@ fn process_ext_module(
     ext_fp: String,
     ext_name: String,
 ) -> m::ModuleId {
+    // 相対パス部分と拡張子を削る
+    let ext_name = if ext_name.contains('/') {
+        let ext_name = ext_name.split('/').collect::<Vec<&str>>().pop().unwrap();
+        if ext_name.contains('.') {
+            ext_name.split('.').collect::<Vec<&str>>()[0].to_string()
+        } else {
+            ext_name.to_string()
+        }
+    } else {
+        ext_name
+    };
     let parent_mod = alloc_ext_module(arena.lock().unwrap(), ext_fp.to_string(), ext_name);
 
     // TODO: エラー出したほうがいいかも
@@ -51,7 +62,12 @@ fn process_ext_module(
 
 /// ディレクトリ内の各ファイルに対して，resolveを実行する
 fn process_submodules(arena: Arc<Mutex<Arena<m::Module>>>, dir_module_id: &m::ModuleId) {
-    let parent_module_path = arena.lock().unwrap().get_mut(*dir_module_id).unwrap().copy_path();
+    let parent_module_path = arena
+        .lock()
+        .unwrap()
+        .get_mut(*dir_module_id)
+        .unwrap()
+        .copy_path();
 
     for entry in fs::read_dir(&parent_module_path).unwrap() {
         let file_in_dir = entry.unwrap();
@@ -59,7 +75,12 @@ fn process_submodules(arena: Arc<Mutex<Arena<m::Module>>>, dir_module_id: &m::Mo
         let resolved_path = resolve_path_from_name(child_module_name.to_string());
 
         let child_module = process_ext_module(arena.clone(), resolved_path, child_module_name);
-        arena.lock().unwrap().get_mut(*dir_module_id).unwrap().add_child_module(child_module);
+        arena
+            .lock()
+            .unwrap()
+            .get_mut(*dir_module_id)
+            .unwrap()
+            .add_child_module(child_module);
     }
 }
 
@@ -75,9 +96,19 @@ fn add_dependencies_to(
         let ext_mod = process_ext_module(arena.clone(), req_path, req);
 
         if is_dir {
-            arena.lock().unwrap().get_mut(src_mod_id).unwrap().add_child_module(ext_mod);
+            arena
+                .lock()
+                .unwrap()
+                .get_mut(src_mod_id)
+                .unwrap()
+                .add_child_module(ext_mod);
         } else {
-            arena.lock().unwrap().get_mut(src_mod_id).unwrap().add_reference_module(ext_mod);
+            arena
+                .lock()
+                .unwrap()
+                .get_mut(src_mod_id)
+                .unwrap()
+                .add_reference_module(ext_mod);
         }
     }
 }
@@ -88,7 +119,6 @@ fn add_dependencies_to(
 fn resolve_path_from_name(module_name: String) -> String {
     // 普通に相対パスで検索
     let resolved_path = search_module(module_name.to_string());
-
     if let Some(relative_path) = resolved_path {
         return relative_path;
     }
@@ -202,7 +232,8 @@ fn try_to_get_file_contents(source_name: &str) -> String {
                     file_name: source_name.to_string(),
                 },
                 Default::default(),
-            ).output();
+            )
+                .output();
             std::process::exit(1);
         }
     }

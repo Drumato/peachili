@@ -14,3 +14,14 @@ pub enum ValueKind {
         name: String,
     },
 }
+
+impl ValueKind {
+    pub fn dump(&self) -> String {
+        match self {
+            ValueKind::INTLITERAL { value } => value.to_string(),
+            ValueKind::UINTLITERAL { value } => value.to_string(),
+            ValueKind::TEMP { number } => format!("temp{}", number),
+            ValueKind::ID { name } => name.to_string(),
+        }
+    }
+}

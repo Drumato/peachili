@@ -1,7 +1,4 @@
-use crate::common::{
-    ast,
-    peachili_type,
-    three_address_code as tac};
+use crate::common::{ast, peachili_type, three_address_code as tac};
 use id_arena::Arena;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -31,15 +28,23 @@ pub fn translate_ir(
 }
 
 /// 関数単位でIRに変換する
-fn gen_ir_fn(ast_fn: &ast::Function, type_env: &BTreeMap<String, BTreeMap<String, peachili_type::Type>>) -> tac::IRFunction {
+fn gen_ir_fn(
+    ast_fn: &ast::Function,
+    type_env: &BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
+) -> tac::IRFunction {
     // コード生成に必要な情報が多いので，構造体にまとめてメンバでやり取りする
-    let mut function_translator = FunctionTranslator::new(
-        ast_fn.expr_arena.clone(),
-        ast_fn.stmt_arena.clone());
+    let mut function_translator =
+        FunctionTranslator::new(ast_fn.expr_arena.clone(), ast_fn.stmt_arena.clone());
 
     // Statement をループして，それぞれをIRに変換する
     for stmt_id in ast_fn.stmts.iter() {
-        let stmt = function_translator.stmt_arena.lock().unwrap().get(*stmt_id).unwrap().clone();
+        let stmt = function_translator
+            .stmt_arena
+            .lock()
+            .unwrap()
+            .get(*stmt_id)
+            .unwrap()
+            .clone();
         function_translator.gen_ir_from_stmt(&stmt);
     }
 
@@ -49,7 +54,12 @@ fn gen_ir_fn(ast_fn: &ast::Function, type_env: &BTreeMap<String, BTreeMap<String
         code_allocator: Arc::new(Mutex::new(function_translator.code_arena)),
         value_allocator: Arc::new(Mutex::new(function_translator.value_arena)),
         codes: function_translator.codes,
-        return_type: type_env.get(&ast_fn.name).unwrap().get(&ast_fn.name).unwrap().clone(),
+        return_type: type_env
+            .get(&ast_fn.name)
+            .unwrap()
+            .get(&ast_fn.name)
+            .unwrap()
+            .clone(),
     }
 }
 
@@ -73,20 +83,25 @@ struct FunctionTranslator {
 
 impl FunctionTranslator {
     /// 文単位でIRに変換する
+    #[allow(clippy::single_match)]
     fn gen_ir_from_stmt(&mut self, stmt: &ast::StatementNode) {
         match stmt.get_kind() {
             // return v1;
             ast::StatementNodeKind::RETURN { expr: expr_id } => {
-                let expr = self.expr_arena.lock().unwrap().get(*expr_id).unwrap().clone();
+                let expr = self
+                    .expr_arena
+                    .lock()
+                    .unwrap()
+                    .get(*expr_id)
+                    .unwrap()
+                    .clone();
                 let expr_id = self.gen_ir_from_expr(&expr);
                 let return_code_id = self.code_arena.alloc(tac::Code {
-                    kind: tac::CodeKind::RETURN {
-                        value: expr_id
-                    }
+                    kind: tac::CodeKind::RETURN { value: expr_id },
                 });
                 self.codes.push(return_code_id);
             }
-            _ => unimplemented!()
+            _ => {}
         }
     }
 
@@ -95,40 +110,32 @@ impl FunctionTranslator {
         match expr.get_kind() {
             // PRIMARY
             // これらはcacheしなくて良い
-            ast::ExpressionNodeKind::INTEGER { value } => {
-                self.value_arena.alloc(tac::Value {
-                    kind: tac::ValueKind::INTLITERAL { value: *value }
-                })
-            }
-            ast::ExpressionNodeKind::UINTEGER { value } => {
-                self.value_arena.alloc(tac::Value {
-                    kind: tac::ValueKind::UINTLITERAL { value: *value }
-                })
-            }
-            ast::ExpressionNodeKind::IDENTIFIER { names } => {
-                self.value_arena.alloc(tac::Value {
-                    kind: tac::ValueKind::ID { name: names.join("::") }
-                })
-            }
+            ast::ExpressionNodeKind::INTEGER { value } => self.value_arena.alloc(tac::Value {
+                kind: tac::ValueKind::INTLITERAL { value: *value },
+            }),
+            ast::ExpressionNodeKind::UINTEGER { value } => self.value_arena.alloc(tac::Value {
+                kind: tac::ValueKind::UINTLITERAL { value: *value },
+            }),
+            ast::ExpressionNodeKind::IDENTIFIER { names } => self.value_arena.alloc(tac::Value {
+                kind: tac::ValueKind::ID {
+                    name: names.join("::"),
+                },
+            }),
 
             // 代入式
             ast::ExpressionNodeKind::ASSIGN { lhs, rhs } => {
                 // オペランドをIRに変換する
                 let ident_node = self.expr_arena.lock().unwrap().get(*lhs).unwrap().clone();
-                let ident_id = self.gen_ir_from_expr(
-                    &ident_node
-                );
+                let ident_id = self.gen_ir_from_expr(&ident_node);
                 let value_node = self.expr_arena.lock().unwrap().get(*rhs).unwrap().clone();
-                let value_id = self.gen_ir_from_expr(
-                    &value_node
-                );
+                let value_id = self.gen_ir_from_expr(&value_node);
 
                 // 生成結果を変数に格納するコードを生成
                 let code_id = self.code_arena.alloc(tac::Code {
                     kind: tac::CodeKind::ASSIGN {
                         value: value_id,
                         result: ident_id,
-                    }
+                    },
                 });
                 self.codes.push(code_id);
                 value_id
@@ -137,17 +144,31 @@ impl FunctionTranslator {
             // 単項演算
             // 計算結果を格納するTMP変数を返す
             ast::ExpressionNodeKind::NEG { value } => self.gen_ir_from_unop_expr("-", expr, value),
-            ast::ExpressionNodeKind::ADDRESSOF { value } => self.gen_ir_from_unop_expr("&", expr, value),
-            ast::ExpressionNodeKind::DEREFERENCE { value } => self.gen_ir_from_unop_expr("*", expr, value),
+            ast::ExpressionNodeKind::ADDRESSOF { value } => {
+                self.gen_ir_from_unop_expr("&", expr, value)
+            }
+            ast::ExpressionNodeKind::DEREFERENCE { value } => {
+                self.gen_ir_from_unop_expr("*", expr, value)
+            }
 
             // 二項演算
             // 計算結果を格納するTMP変数を返す
-            ast::ExpressionNodeKind::ADD { lhs, rhs } => self.gen_ir_from_binop_expr("+", expr, lhs, rhs),
-            ast::ExpressionNodeKind::SUB { lhs, rhs } => self.gen_ir_from_binop_expr("-", expr, lhs, rhs),
-            ast::ExpressionNodeKind::MUL { lhs, rhs } => self.gen_ir_from_binop_expr("*", expr, lhs, rhs),
-            ast::ExpressionNodeKind::DIV { lhs, rhs } => self.gen_ir_from_binop_expr("/", expr, lhs, rhs),
+            ast::ExpressionNodeKind::ADD { lhs, rhs } => {
+                self.gen_ir_from_binop_expr("+", expr, lhs, rhs)
+            }
+            ast::ExpressionNodeKind::SUB { lhs, rhs } => {
+                self.gen_ir_from_binop_expr("-", expr, lhs, rhs)
+            }
+            ast::ExpressionNodeKind::MUL { lhs, rhs } => {
+                self.gen_ir_from_binop_expr("*", expr, lhs, rhs)
+            }
+            ast::ExpressionNodeKind::DIV { lhs, rhs } => {
+                self.gen_ir_from_binop_expr("/", expr, lhs, rhs)
+            }
             // メンバアクセス式も二項演算のようにしておく
-            ast::ExpressionNodeKind::MEMBER { id, member } => self.gen_ir_from_binop_expr(".", expr, id, member),
+            ast::ExpressionNodeKind::MEMBER { id, member } => {
+                self.gen_ir_from_binop_expr(".", expr, id, member)
+            }
             _ => unimplemented!(),
         }
     }
@@ -166,24 +187,30 @@ impl FunctionTranslator {
 
         // オペランドをIRに変換する
         let v_node = self.expr_arena.lock().unwrap().get(*value).unwrap().clone();
-        let v_id = self.gen_ir_from_expr(
-            &v_node
-        );
+        let v_id = self.gen_ir_from_expr(&v_node);
 
         // 計算結果をTEMP変数に格納するコードを生成
         let result_v = self.value_arena.alloc(tac::Value {
             kind: tac::ValueKind::TEMP {
-                number: self.temp_number
-            }
+                number: self.temp_number,
+            },
         });
-
 
         // 生成するIRの種類を決定
         let code_kind = match operator {
-            "-" => tac::CodeKind::NEG { value: v_id, result: result_v },
-            "&" => tac::CodeKind::ADDRESSOF { value: v_id, result: result_v },
-            "*" => tac::CodeKind::DEREFERENCE { value: v_id, result: result_v },
-            _ => unreachable!()
+            "-" => tac::CodeKind::NEG {
+                value: v_id,
+                result: result_v,
+            },
+            "&" => tac::CodeKind::ADDRESSOF {
+                value: v_id,
+                result: result_v,
+            },
+            "*" => tac::CodeKind::DEREFERENCE {
+                value: v_id,
+                result: result_v,
+            },
+            _ => unreachable!(),
         };
         let code = tac::Code { kind: code_kind };
         let code_id = self.code_arena.alloc(code);
@@ -193,7 +220,6 @@ impl FunctionTranslator {
 
         result_v
     }
-
 
     /// 二項演算のIRを生成する
     fn gen_ir_from_binop_expr(
@@ -210,29 +236,45 @@ impl FunctionTranslator {
 
         // 両方のオペランドをIRに変換する
         let lop_value = self.expr_arena.lock().unwrap().get(*lop).unwrap().clone();
-        let lop_value_id = self.gen_ir_from_expr(
-            &lop_value
-        );
+        let lop_value_id = self.gen_ir_from_expr(&lop_value);
         let rop_value = self.expr_arena.lock().unwrap().get(*rop).unwrap().clone();
-        let rop_value_id = self.gen_ir_from_expr(
-            &rop_value
-        );
+        let rop_value_id = self.gen_ir_from_expr(&rop_value);
 
         // 計算結果をTEMP変数に格納するコードを生成
         let result_v = self.value_arena.alloc(tac::Value {
             kind: tac::ValueKind::TEMP {
-                number: self.temp_number
-            }
+                number: self.temp_number,
+            },
         });
 
         // 生成するIRの種類を決定
         let code_kind = match operator {
-            "+" => tac::CodeKind::ADD { lop: lop_value_id, rop: rop_value_id, result: result_v },
-            "-" => tac::CodeKind::SUB { lop: lop_value_id, rop: rop_value_id, result: result_v },
-            "*" => tac::CodeKind::MUL { lop: lop_value_id, rop: rop_value_id, result: result_v },
-            "/" => tac::CodeKind::DIV { lop: lop_value_id, rop: rop_value_id, result: result_v },
-            "." => tac::CodeKind::MEMBER { id: lop_value_id, member: rop_value_id, result: result_v },
-            _ => unreachable!()
+            "+" => tac::CodeKind::ADD {
+                lop: lop_value_id,
+                rop: rop_value_id,
+                result: result_v,
+            },
+            "-" => tac::CodeKind::SUB {
+                lop: lop_value_id,
+                rop: rop_value_id,
+                result: result_v,
+            },
+            "*" => tac::CodeKind::MUL {
+                lop: lop_value_id,
+                rop: rop_value_id,
+                result: result_v,
+            },
+            "/" => tac::CodeKind::DIV {
+                lop: lop_value_id,
+                rop: rop_value_id,
+                result: result_v,
+            },
+            "." => tac::CodeKind::MEMBER {
+                id: lop_value_id,
+                member: rop_value_id,
+                result: result_v,
+            },
+            _ => unreachable!(),
         };
         let code = tac::Code { kind: code_kind };
         let code_id = self.code_arena.alloc(code);
@@ -292,7 +334,10 @@ mod translate_tests {
     fn gen_ir_from_integer_literal_test(translator: &mut FunctionTranslator) {
         let int_node = ast::ExpressionNode::new_integer(30, Default::default());
         let int_v = translator.gen_ir_from_expr(&int_node);
-        assert_eq!(tac::ValueKind::INTLITERAL { value: 30 }, translator.value_arena.get(int_v).unwrap().kind);
+        assert_eq!(
+            tac::ValueKind::INTLITERAL { value: 30 },
+            translator.value_arena.get(int_v).unwrap().kind
+        );
     }
 
     fn gen_ir_from_add_node_test(translator: &mut FunctionTranslator) {
@@ -313,15 +358,27 @@ mod translate_tests {
 
     fn new_simple_add(expr_arena: ast::ExprArena) -> ast::ExpressionNode {
         // 1 + 2 + 3
-        let one_id = expr_arena.lock().unwrap().alloc(ast::ExpressionNode::new_integer(1, Default::default()));
-        let two_id = expr_arena.lock().unwrap().alloc(ast::ExpressionNode::new_integer(2, Default::default()));
-        let three_id = expr_arena.lock().unwrap().alloc(ast::ExpressionNode::new_integer(3, Default::default()));
-        let add_id = expr_arena.lock().unwrap().alloc(ast::ExpressionNode::new_binop(
-            &token::TokenKind::PLUS,
-            one_id,
-            two_id,
-            Default::default(),
-        ));
+        let one_id = expr_arena
+            .lock()
+            .unwrap()
+            .alloc(ast::ExpressionNode::new_integer(1, Default::default()));
+        let two_id = expr_arena
+            .lock()
+            .unwrap()
+            .alloc(ast::ExpressionNode::new_integer(2, Default::default()));
+        let three_id = expr_arena
+            .lock()
+            .unwrap()
+            .alloc(ast::ExpressionNode::new_integer(3, Default::default()));
+        let add_id = expr_arena
+            .lock()
+            .unwrap()
+            .alloc(ast::ExpressionNode::new_binop(
+                &token::TokenKind::PLUS,
+                one_id,
+                two_id,
+                Default::default(),
+            ));
         ast::ExpressionNode::new_binop(
             &token::TokenKind::PLUS,
             add_id,
@@ -335,9 +392,7 @@ mod translate_tests {
         let expr_id = expr_arena.lock().unwrap().alloc(add_node);
 
         ast::StatementNode::new(
-            ast::StatementNodeKind::RETURN {
-                expr: expr_id,
-            },
+            ast::StatementNodeKind::RETURN { expr: expr_id },
             Default::default(),
         )
     }
@@ -352,7 +407,10 @@ mod translate_tests {
         let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
         let expr_arena: ast::ExprArena = Arc::new(Mutex::new(Arena::new()));
 
-        let return_id = stmt_arena.lock().unwrap().alloc(new_simple_return(expr_arena.clone()));
+        let return_id = stmt_arena
+            .lock()
+            .unwrap()
+            .alloc(new_simple_return(expr_arena.clone()));
 
         ast::Function {
             name: "sample".to_string(),

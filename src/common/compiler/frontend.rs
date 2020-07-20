@@ -1,24 +1,25 @@
 use crate::common::compiler::{analyzer, parser, tld_collector, tokenizer};
-use crate::common::{ast, peachili_type, file_util, module};
+use crate::common::{ast, file_util, module, peachili_type};
 use crate::setup;
-use std::sync::{Mutex, Arc};
 use id_arena::Arena;
 use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 
 /// 字句解析，パース，意味解析等を行う．
 pub fn frontend(
     module_arena: module::ModuleArena,
     main_module_id: module::ModuleId,
-) -> (ast::FnArena, ast::ASTRoot, BTreeMap<String, BTreeMap<String, peachili_type::Type>>) {
+    debug: bool,
+) -> (
+    ast::FnArena,
+    ast::ASTRoot,
+    BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
+) {
     let fn_arena = Arc::new(Mutex::new(Arena::new()));
     let source = read_module_contents(module_arena.clone(), main_module_id);
 
     // 初期値として空のStringを渡しておく
-    let mut base_ast = parse_file(
-        fn_arena.clone(),
-        source,
-        String::new(),
-    );
+    let mut base_ast = parse_file(fn_arena.clone(), source, String::new());
 
     // メインモジュールが参照する各モジュールも同様にパース
     base_ast.absorb(parse_requires(
@@ -33,8 +34,21 @@ pub fn frontend(
 
     // 意味解析
     // 先に型環境を構築してから，型検査を行う
-    let type_env = analyzer::type_resolve_main(fn_arena.clone(), &tld_env, &base_ast, setup::BUILD_OPTION.target);
-    analyzer::type_check_main(fn_arena.clone(), &tld_env, &type_env, &base_ast, setup::BUILD_OPTION.target);
+    let type_env = analyzer::type_resolve_main(
+        fn_arena.clone(),
+        &tld_env,
+        &base_ast,
+        setup::BUILD_OPTION.target,
+    );
+    if debug {
+        analyzer::type_check_main(
+            fn_arena.clone(),
+            &tld_env,
+            &type_env,
+            &base_ast,
+            setup::BUILD_OPTION.target,
+        );
+    }
 
     (fn_arena, base_ast, type_env)
 }
@@ -67,11 +81,7 @@ fn parse_ext_module(
         Default::default()
     } else {
         let source = read_module_contents(module_arena.clone(), ext_id);
-        parse_file(
-            fn_arena.clone(),
-            source,
-            module_name.clone(),
-        )
+        parse_file(fn_arena.clone(), source, module_name.clone())
     };
 
     // 参照･子ノードたちのパース，結合
@@ -81,12 +91,7 @@ fn parse_ext_module(
         ext_id,
         module_name.clone(),
     ));
-    base_ast.absorb(parse_children(
-        module_arena,
-        fn_arena,
-        ext_id,
-        module_name,
-    ));
+    base_ast.absorb(parse_children(module_arena, fn_arena, ext_id, module_name));
 
     base_ast
 }
@@ -152,21 +157,14 @@ fn parse_children(
 }
 
 // 字句解析, 構文解析をして返す
-fn parse_file(
-    fn_arena: ast::FnArena,
-    file_contents: String,
-    module_name: String,
-) -> ast::ASTRoot {
+fn parse_file(fn_arena: ast::FnArena, file_contents: String, module_name: String) -> ast::ASTRoot {
     let tokens = tokenizer::main(file_contents);
 
     parser::main(fn_arena, tokens, module_name)
 }
 
 // モジュールの内容(Peachiliコード)を読み出す
-fn read_module_contents(
-    module_arena: module::ModuleArena,
-    module_id: module::ModuleId,
-) -> String {
+fn read_module_contents(module_arena: module::ModuleArena, module_id: module::ModuleId) -> String {
     if let Ok(arena) = module_arena.lock() {
         let main_module = arena.get(module_id).unwrap();
         let source = file_util::read_program_from_file(main_module.get_path());

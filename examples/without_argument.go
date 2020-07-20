@@ -1,6 +1,5 @@
-require (
-    "std"
-)
+import std;
+
 func foo() Int64 {
 	return 30; 
 }

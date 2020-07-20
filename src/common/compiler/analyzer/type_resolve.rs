@@ -1,8 +1,8 @@
 use crate::common::{ast, error::CompileError, option, peachili_type::Type, tld};
 
+use crate::common::compiler::analyzer::type_util;
 use crate::common::error::TypeErrorKind;
 use std::collections::BTreeMap;
-use crate::common::compiler::analyzer::type_util;
 
 /// 型情報の収集．
 pub fn type_resolve_main(
@@ -31,22 +31,27 @@ pub fn type_resolve_main(
 
     // 関数列を操作し，関数内の識別子に型をつけていく．
     for fn_id in ast_root.funcs.iter() {
+        let mut func_env = BTreeMap::new();
         if let Ok(arena) = fn_arena.lock() {
             let function = arena.get(*fn_id).unwrap();
-            let function_ret_type = resolve_type_string(tld_map, function.return_type.to_string(), target);
+
+            let function_ret_type =
+                resolve_type_string(tld_map, function.return_type.to_string(), target);
             if let Err(e) = function_ret_type {
                 e.output();
                 std::process::exit(1);
             }
-            if let Some(func_env) = type_env.get_mut(&function.name) {
-                func_env.insert(function.name.clone(), function_ret_type.unwrap());
-            }
+
+            func_env.insert(function.name.clone(), function_ret_type.unwrap());
+            assert!(func_env.contains_key(&function.name));
 
 
             if let Err(e) = add_auto_var_to_env(tld_map, &mut type_env, function, target) {
                 e.output();
                 std::process::exit(1);
             }
+
+            type_env.insert(function.name.clone(), func_env);
         }
     }
 
@@ -168,7 +173,8 @@ fn resolve_type_string(
 ) -> Result<Type, CompileError<TypeErrorKind>> {
     if type_name_str.starts_with('*') {
         let pointer_to = resolve_type_string(tld_map, type_name_str[1..].to_string(), target)?;
-        let pointer_size = type_util::resolve_type_size(tld_map, type_util::ForCalcTypeSize::POINTER, target);
+        let pointer_size =
+            type_util::resolve_type_size(tld_map, type_util::ForCalcTypeSize::POINTER, target);
         return Ok(Type::new_pointer(pointer_to, pointer_size));
     }
 
@@ -183,11 +189,21 @@ fn resolve_type_string(
             type_util::ForCalcTypeSize::UINT64,
             target,
         ))),
+        "ConstStr" => Ok(Type::new_const_str(type_util::resolve_type_size(
+            tld_map,
+            type_util::ForCalcTypeSize::UINT64,
+            target,
+        ))),
         "Noreturn" => Ok(Type::new_noreturn()),
         _ => {
             // TopLevelDeclから探す，なかったらいよいよエラー
             if let Some(tld_entry) = tld_map.get(&type_name_str) {
-                return resolve_type_from_tld(type_name_str.to_string(), tld_map, tld_entry, target);
+                return resolve_type_from_tld(
+                    type_name_str.to_string(),
+                    tld_map,
+                    tld_entry,
+                    target,
+                );
             }
 
             Err(CompileError::new(
@@ -230,12 +246,14 @@ fn resolve_type_from_tld(
         tld::TLDKind::FN {
             return_type: _,
             args: _,
-        } => Err(CompileError::new(TypeErrorKind::GOTFUNCTIONNAMEASTYPE {
-            func_name: type_name_str,
-        }, Default::default())),
+        } => Err(CompileError::new(
+            TypeErrorKind::GOTFUNCTIONNAMEASTYPE {
+                func_name: type_name_str,
+            },
+            Default::default(),
+        )),
     }
 }
-
 
 #[cfg(test)]
 mod analyze_tests {

@@ -37,13 +37,19 @@ pub fn create_arg_matches() -> ArgMatches {
             // IRのダンプ
             Arg::with_name("verbose-hir")
                 .long("verbose-hir")
-                .help("dump IR-Module to hir.dot")
+                .help("dump IR-Module to hir.dot"),
+            // debugオプション
+            Arg::with_name("debug").long("debug").help("debug"),
         ])
-        .subcommand(App::new("compile")
-            .version(PEACHILI_VERSION)
-            .author("Drumato <drumato43@gmail.com>"))
-        .subcommand(App::new("translate-c")
-            .version(PEACHILI_VERSION)
-            .author("Drumato <drumato43@gmail.com>"))
+        .subcommand(
+            App::new("compile")
+                .version(PEACHILI_VERSION)
+                .author("Drumato <drumato43@gmail.com>"),
+        )
+        .subcommand(
+            App::new("translate-c")
+                .version(PEACHILI_VERSION)
+                .author("Drumato <drumato43@gmail.com>"),
+        )
         .get_matches()
 }

@@ -1,17 +1,13 @@
 use crate::common::ast::*;
 use crate::common::token::{Token, TokenKind};
 
-use std::collections::BTreeMap;
 use crate::common::compiler::parser::*;
+use std::collections::BTreeMap;
 
-use std::sync::{Arc, Mutex};
 use id_arena::Arena;
+use std::sync::{Arc, Mutex};
 
-pub fn main(
-    fn_arena: FnArena,
-    mut tokens: Vec<Token>,
-    module_name: String,
-) -> ASTRoot {
+pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> ASTRoot {
     let mut ast_root: ASTRoot = Default::default();
 
     // program -> toplevel*
@@ -26,16 +22,20 @@ pub fn main(
                 ast_root.funcs.push(fn_id);
             }
             TokenKind::STRUCT => {
-                let (type_name, struct_def, rest_tokens) = struct_def(tokens);
+                let (type_name, struct_def, rest_tokens) = struct_def(module_name.clone(), tokens);
                 tokens = rest_tokens;
 
-                ast_root.typedefs.insert(format!("{}::{}", module_name, type_name), struct_def);
+                ast_root
+                    .typedefs
+                    .insert(format!("{}::{}", module_name, type_name), struct_def);
             }
             TokenKind::PUBTYPE => {
-                let (alias_name, src_name, rest_tokens) = type_alias(tokens);
+                let (alias_name, src_name, rest_tokens) = type_alias(module_name.clone(), tokens);
                 tokens = rest_tokens;
 
-                ast_root.alias.insert(format!("{}::{}", module_name, alias_name), src_name);
+                ast_root
+                    .alias
+                    .insert(format!("{}::{}", module_name, alias_name), src_name);
             }
             _ => break,
         }
@@ -44,17 +44,17 @@ pub fn main(
     ast_root
 }
 
-fn struct_def(mut tokens: Vec<Token>) -> (String, StructDef, Vec<Token>) {
+fn struct_def(module_name: String, mut tokens: Vec<Token>) -> (String, StructDef, Vec<Token>) {
     parser_util::eat_token(&mut tokens);
 
     let (type_names, rest_tokens) = parser_util::expect_identifier(tokens);
     let type_name = type_names[0].clone();
 
-    let (members, rest_tokens) = member_block(rest_tokens);
+    let (members, rest_tokens) = member_block(module_name, rest_tokens);
     (type_name, StructDef { members }, rest_tokens)
 }
 
-fn member_block(mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
+fn member_block(module_name: String, mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
     let mut members = BTreeMap::new();
     parser_util::expect(TokenKind::LBRACE, &mut tokens);
 
@@ -69,7 +69,7 @@ fn member_block(mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>
         tokens = rest_tokens;
         let member_name = member_names[0].clone();
 
-        let (member_type, rest_tokens) = parser_util::expect_type(tokens);
+        let (member_type, rest_tokens) = parser_util::expect_type(module_name.clone(), tokens);
         tokens = rest_tokens;
 
         members.insert(member_name, member_type);
@@ -78,7 +78,7 @@ fn member_block(mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>
     (members, tokens)
 }
 
-fn type_alias(mut tokens: Vec<Token>) -> (String, String, Vec<Token>) {
+fn type_alias(module_name: String, mut tokens: Vec<Token>) -> (String, String, Vec<Token>) {
     parser_util::eat_token(&mut tokens);
 
     let (alias_names, mut rest_tokens) = parser_util::expect_identifier(tokens);
@@ -86,7 +86,7 @@ fn type_alias(mut tokens: Vec<Token>) -> (String, String, Vec<Token>) {
 
     parser_util::expect(TokenKind::ASSIGN, &mut rest_tokens);
 
-    let (src_name, mut rest_tokens) = parser_util::expect_type(rest_tokens);
+    let (src_name, mut rest_tokens) = parser_util::expect_type(module_name, rest_tokens);
     parser_util::expect(TokenKind::SEMICOLON, &mut rest_tokens);
 
     (alias_name, src_name, rest_tokens)
@@ -102,14 +102,15 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
     let (func_names, rest_tokens) = parser_util::expect_identifier(tokens);
     let func_name = func_names[0].clone();
 
-    let (arg_map, rest_tokens) = arg_list(rest_tokens);
+    let (arg_map, rest_tokens) = arg_list(module_name.clone(), rest_tokens);
 
-    let (return_type, rest_tokens) = parser_util::expect_type(rest_tokens);
+    let (return_type, rest_tokens) = parser_util::expect_type(module_name.clone(), rest_tokens);
 
-    let (stmts, rest_tokens) = parser_util::expect_block(stmt_arena.clone(), expr_arena.clone(), rest_tokens);
+    let (stmts, rest_tokens) =
+        parser_util::expect_block(stmt_arena.clone(), expr_arena.clone(), module_name.clone(), rest_tokens);
 
-    (fn_arena.lock().unwrap().alloc(
-        Function {
+    (
+        fn_arena.lock().unwrap().alloc(Function {
             name: func_name,
             args: arg_map,
             stmts,
@@ -118,11 +119,12 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
             module_name,
             stmt_arena,
             expr_arena,
-        }
-    ), rest_tokens)
+        }),
+        rest_tokens,
+    )
 }
 
-fn arg_list(mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
+fn arg_list(module_name: String, mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
     parser_util::expect(TokenKind::LPAREN, &mut tokens);
 
     let mut arg_map = BTreeMap::new();
@@ -134,11 +136,12 @@ fn arg_list(mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
             parser_util::expect(TokenKind::RPAREN, &mut tokens);
             break;
         }
+
         let (arg_names, rest_tokens) = parser_util::expect_identifier(tokens);
         let arg_name = arg_names[0].clone();
         tokens = rest_tokens;
 
-        let (type_name, rest_tokens) = parser_util::expect_type(tokens);
+        let (type_name, rest_tokens) = parser_util::expect_type(module_name.clone(), tokens);
         tokens = rest_tokens;
 
         parser_util::consume(TokenKind::COMMA, &mut tokens);
@@ -166,10 +169,10 @@ mod toplevel_tests {
             Token::new(TokenKind::SEMICOLON, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
-        let (alias_name, src_name, rest_tokens) = type_alias(tokens);
+        let (alias_name, src_name, rest_tokens) = type_alias(Default::default(), tokens);
 
         assert_eq!("foo", alias_name);
-        assert_eq!("Fizz", src_name);
+        assert_eq!("::Fizz", src_name);
         assert_eq!(1, rest_tokens.len());
     }
 
@@ -188,7 +191,7 @@ mod toplevel_tests {
             Token::new(TokenKind::RBRACE, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
-        let (type_name, struct_def, rest_tokens) = struct_def(tokens);
+        let (type_name, struct_def, rest_tokens) = struct_def(Default::default(), tokens);
 
         assert_eq!("X", type_name);
         assert_eq!(3, struct_def.members.len());
@@ -208,7 +211,7 @@ mod toplevel_tests {
             Token::new(TokenKind::RBRACE, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
-        let (member_map, rest_tokens) = member_block(tokens);
+        let (member_map, rest_tokens) = member_block(Default::default(), tokens);
 
         assert_eq!(3, member_map.len());
         assert_eq!(1, rest_tokens.len());
@@ -229,7 +232,7 @@ mod toplevel_tests {
             Token::new(TokenKind::RPAREN, Default::default()),
             Token::new(TokenKind::EOF, Default::default()),
         ];
-        let (arg_map, rest_tokens) = arg_list(tokens);
+        let (arg_map, rest_tokens) = arg_list(Default::default(), tokens);
 
         assert_eq!(3, arg_map.len());
         assert_eq!(1, rest_tokens.len());

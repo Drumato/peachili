@@ -7,8 +7,9 @@ pub fn compile_main(
     module_arena: module::ModuleArena,
     main_module_id: module::ModuleId,
     verbose_ir: bool,
+    debug: bool,
 ) {
-    let (fn_arena, ast_root, type_env) = compiler::frontend(module_arena, main_module_id);
+    let (fn_arena, ast_root, type_env) = compiler::frontend(module_arena, main_module_id, debug);
     let ir_module = compiler::translate_ir(fn_arena, ast_root, &type_env);
 
     if verbose_ir {

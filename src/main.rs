@@ -5,14 +5,14 @@ extern crate yaml_rust;
 
 use arch::x64;
 use common::option;
-use std::sync::{Arc, Mutex};
 use id_arena::Arena;
+use std::sync::{Arc, Mutex};
 
 mod arch;
 mod bundler;
 mod common;
-mod setup;
 mod debug;
+mod setup;
 
 #[macro_use]
 extern crate lazy_static;
@@ -27,7 +27,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ******************
 
     match setup::BUILD_OPTION.target {
-        option::Target::X86_64 => x64::main(module_arena, main_module, setup::BUILD_OPTION.matches.is_present("verbose-hir"))?,
+        option::Target::X86_64 => x64::main(
+            module_arena,
+            main_module,
+            setup::BUILD_OPTION.matches.is_present("verbose-hir"),
+            setup::BUILD_OPTION.matches.is_present("debug"),
+        )?,
     }
 
     Ok(())
