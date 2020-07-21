@@ -13,6 +13,12 @@ pub enum ValueKind {
     ID {
         name: String,
     },
+    BOOLEANLITERAL {
+        truth: bool,
+    },
+    STRINGLITERAL {
+        contents: String,
+    },
 }
 
 impl ValueKind {
@@ -20,6 +26,9 @@ impl ValueKind {
         match self {
             ValueKind::INTLITERAL { value } => value.to_string(),
             ValueKind::UINTLITERAL { value } => value.to_string(),
+            ValueKind::BOOLEANLITERAL { truth } => truth.to_string(),
+            ValueKind::STRINGLITERAL { contents } => contents.to_string(),
+
             ValueKind::TEMP { number } => format!("temp{}", number),
             ValueKind::ID { name } => name.to_string(),
         }

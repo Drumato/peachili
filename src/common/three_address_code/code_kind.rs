@@ -48,6 +48,13 @@ pub enum CodeKind {
     RETURN {
         value: ValueId,
     },
+    PARAM {
+        value: ValueId,
+    },
+    CALL {
+        name: ValueId,
+        result: ValueId,
+    },
 }
 
 impl CodeKind {
@@ -126,6 +133,25 @@ impl CodeKind {
                     ret_value,
                     ret_value,
                     ret_value
+                )
+            }
+            CodeKind::PARAM { value }=> {
+                let arg_value = value_arena.lock().unwrap().get(*value).unwrap().clone().dump();
+                format!(
+                    "\"param {}\"[shape=\"box\"]\n    {} -> \"param {}\";",
+                    arg_value,
+                    arg_value,
+                    arg_value
+                )
+            }
+            CodeKind::CALL { name, result } => {
+                let result = value_arena.lock().unwrap().get(*result).unwrap().clone().dump();
+                let name = value_arena.lock().unwrap().get(*name).unwrap().clone().dump();
+                format!(
+                    "\"{}\"[label = \"{} <- call {}\", shape=\"box\"]",
+                    result,
+                    result,
+                    name
                 )
             }
         }

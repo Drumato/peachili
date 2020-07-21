@@ -1,6 +1,5 @@
-require (
-    "std"
-)
+import std;
+
 func main() Noreturn {
     varinit x Int64 = 4;
     varinit y *Int64 = &x;

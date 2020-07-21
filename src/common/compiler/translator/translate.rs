@@ -38,14 +38,7 @@ fn gen_ir_fn(
 
     // Statement をループして，それぞれをIRに変換する
     for stmt_id in ast_fn.stmts.iter() {
-        let stmt = function_translator
-            .stmt_arena
-            .lock()
-            .unwrap()
-            .get(*stmt_id)
-            .unwrap()
-            .clone();
-        function_translator.gen_ir_from_stmt(&stmt);
+        function_translator.gen_ir_from_stmt(&stmt_id);
     }
 
     // IRFunctionの生成
@@ -84,10 +77,26 @@ struct FunctionTranslator {
 impl FunctionTranslator {
     /// 文単位でIRに変換する
     #[allow(clippy::single_match)]
-    fn gen_ir_from_stmt(&mut self, stmt: &ast::StatementNode) {
+    fn gen_ir_from_stmt(&mut self, stmt_id: &ast::StNodeId) {
+        let stmt = self
+            .stmt_arena
+            .lock()
+            .unwrap()
+            .get(*stmt_id)
+            .unwrap()
+            .clone();
         match stmt.get_kind() {
             // return v1;
-            ast::StatementNodeKind::RETURN { expr: expr_id } => {
+            ast::StatementNodeKind::RETURN { expr: expr_id } => self.gen_from_return_stmt(expr_id),
+            ast::StatementNodeKind::VARINIT {
+                ident_name, type_name: _, expr
+            } => self.gen_from_varinit_stmt(ident_name.clone(), expr),
+            ast::StatementNodeKind::ASM { stmts } => {
+                for stmt_id in stmts.iter() {
+                    self.gen_ir_from_stmt(stmt_id);
+                }
+            }
+            ast::StatementNodeKind::EXPR { expr: expr_id } => {
                 let expr = self
                     .expr_arena
                     .lock()
@@ -95,14 +104,45 @@ impl FunctionTranslator {
                     .get(*expr_id)
                     .unwrap()
                     .clone();
-                let expr_id = self.gen_ir_from_expr(&expr);
-                let return_code_id = self.code_arena.alloc(tac::Code {
-                    kind: tac::CodeKind::RETURN { value: expr_id },
-                });
-                self.codes.push(return_code_id);
+                self.gen_ir_from_expr(&expr);
             }
-            _ => {}
+            _ => unimplemented!()
         }
+    }
+
+    /// return-statement の変換
+    fn gen_from_return_stmt(&mut self, expr_id: &ast::ExNodeId) {
+        let expr = self
+            .expr_arena
+            .lock()
+            .unwrap()
+            .get(*expr_id)
+            .unwrap()
+            .clone();
+        let expr_id = self.gen_ir_from_expr(&expr);
+        let return_code_id = self.code_arena.alloc(tac::Code {
+            kind: tac::CodeKind::RETURN { value: expr_id },
+        });
+        self.codes.push(return_code_id);
+    }
+
+    /// varinit-statement の変換
+    fn gen_from_varinit_stmt(&mut self, id_name: String, expr_id: &ast::ExNodeId) {
+        let id_value = self.value_arena.alloc(tac::Value {
+            kind: tac::ValueKind::ID { name: id_name }
+        });
+        let expr = self
+            .expr_arena
+            .lock()
+            .unwrap()
+            .get(*expr_id)
+            .unwrap()
+            .clone();
+        let expr_id = self.gen_ir_from_expr(&expr);
+        let assign_code_id = self.code_arena.alloc(tac::Code {
+            kind: tac::CodeKind::ASSIGN { value: expr_id, result: id_value },
+        });
+        self.codes.push(assign_code_id);
     }
 
     // 式単位でIRに変換する
@@ -120,6 +160,12 @@ impl FunctionTranslator {
                 kind: tac::ValueKind::ID {
                     name: names.join("::"),
                 },
+            }),
+            ast::ExpressionNodeKind::BOOLEAN { truth } => self.value_arena.alloc(tac::Value {
+                kind: tac::ValueKind::BOOLEANLITERAL { truth: *truth },
+            }),
+            ast::ExpressionNodeKind::STRING { contents } => self.value_arena.alloc(tac::Value {
+                kind: tac::ValueKind::STRINGLITERAL { contents: contents.clone() },
             }),
 
             // 代入式
@@ -169,8 +215,48 @@ impl FunctionTranslator {
             ast::ExpressionNodeKind::MEMBER { id, member } => {
                 self.gen_ir_from_binop_expr(".", expr, id, member)
             }
-            _ => unimplemented!(),
+            ast::ExpressionNodeKind::CALL { names, args } => {
+                self.gen_ir_from_call_expr(names.join("::"), args)
+            }
+            _ => unimplemented!()
         }
+    }
+
+    /// 呼び出し式のIRを生成する
+    fn gen_ir_from_call_expr(&mut self, name: String, args: &[ast::ExNodeId]) -> tac::ValueId {
+        // 引数を順にIRに変換 -> param {value} を生成
+        for arg_id in args.iter() {
+            let arg = self.expr_arena.lock().unwrap().get(*arg_id).unwrap().clone();
+            let arg_value_id = self.gen_ir_from_expr(&arg);
+            let param_id = self.code_arena.alloc(tac::Code {
+                kind: tac::CodeKind::PARAM {
+                    value: arg_value_id,
+                },
+            });
+            self.codes.push(param_id);
+        }
+
+        // 計算結果をTEMP変数に格納するコードを生成
+        let result_v = self.value_arena.alloc(tac::Value {
+            kind: tac::ValueKind::TEMP {
+                number: self.temp_number,
+            },
+        });
+        self.temp_number += 1;
+
+        let call_id = self.code_arena.alloc(tac::Code {
+            kind: tac::CodeKind::CALL {
+                name: self.value_arena.alloc(tac::Value {
+                    kind: tac::ValueKind::ID {
+                        name
+                    }
+                }),
+                result: result_v,
+            }
+        });
+        self.codes.push(call_id);
+
+        result_v
     }
 
     /// 演算のIRを生成する
@@ -313,9 +399,9 @@ mod translate_tests {
 
         translator.gen_ir_from_stmt(&return_stmt);
 
-        // v0 <- 1 + 2
-        // v1 <- v0 + 3
-        // return v1
+// v0 <- 1 + 2
+// v1 <- v0 + 3
+// return v1
         assert_eq!(3, translator.codes.len());
         assert_eq!(2, translator.temp_number);
         assert_eq!(2, translator.value_cache.len());
@@ -344,8 +430,8 @@ mod translate_tests {
         let add_node = new_simple_add(translator.expr_arena.clone());
         let add_v = translator.gen_ir_from_expr(&add_node);
 
-        // v0 <- 1 + 2
-        // v1 <- v0 + 3
+// v0 <- 1 + 2
+// v1 <- v0 + 3
         assert_eq!(2, translator.codes.len());
         assert_eq!(2, translator.temp_number);
         assert_eq!(2, translator.value_cache.len());
@@ -357,7 +443,7 @@ mod translate_tests {
     }
 
     fn new_simple_add(expr_arena: ast::ExprArena) -> ast::ExpressionNode {
-        // 1 + 2 + 3
+// 1 + 2 + 3
         let one_id = expr_arena
             .lock()
             .unwrap()
@@ -399,10 +485,10 @@ mod translate_tests {
 
     #[allow(dead_code)]
     fn new_simple_fn() -> ast::Function {
-        //
-        // func sample() Noreturn {
-        //   return 1 + 2 + 3;
-        // }
+//
+// func sample() Noreturn {
+//   return 1 + 2 + 3;
+// }
 
         let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
         let expr_arena: ast::ExprArena = Arc::new(Mutex::new(Arena::new()));

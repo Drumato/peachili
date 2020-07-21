@@ -15,6 +15,11 @@ pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> A
         let t = parser_util::head(&tokens);
 
         match t.get_kind() {
+            TokenKind::IMPORT => {
+                parser_util::eat_token(&mut tokens);
+                parser_util::eat_token(&mut tokens);
+                parser_util::eat_token(&mut tokens);
+            },
             TokenKind::FUNC => {
                 let (fn_id, rest_tokens) = func_def(fn_arena.clone(), module_name.clone(), tokens);
                 tokens = rest_tokens;

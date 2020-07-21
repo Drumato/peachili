@@ -19,13 +19,16 @@ impl Default for ASTRoot {
     }
 }
 
-impl ASTRoot{
+impl ASTRoot {
     /// 別モジュールのASTRootを吸収する
     pub fn absorb(&mut self, mut target: Self) {
+        let dst_func_number = self.funcs.len();
+        let src_func_number = target.funcs.len();
         self.funcs.append(&mut target.funcs);
+        assert_eq!(dst_func_number + src_func_number, self.funcs.len());
+
         self.typedefs.append(&mut target.typedefs);
         self.alias.append(&mut target.alias);
-
     }
 }
 

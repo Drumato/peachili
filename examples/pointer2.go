@@ -1,6 +1,4 @@
-require (
-    "std"
-)
+import std;
 
 pubtype PointerToI64 = *Int64;
 

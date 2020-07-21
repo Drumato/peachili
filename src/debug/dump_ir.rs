@@ -32,10 +32,10 @@ impl IRDumper {
 
     fn append_cluster_function(&mut self, func: &tac::IRFunction) {
         self.output += &format!("  subgraph cluster_{} {{\n", func.name);
-        self.output += &format!(" label = \"{}\";
-        labelloc = \"t\";
-        labeljust = \"l\";
-        fillcolor = \"#ababab\";", func.name);
+        self.output += &format!("    label = \"{}\";\n", func.name);
+        self.output += "    labelloc = \"t\"\n";
+        self.output += "    labeljust = \"l\"\n";
+        self.output += "    fillcolor = \"#ababab\";\n";
 
         for code_id in func.codes.iter() {
             let code = func.code_allocator.lock().unwrap().get(*code_id).unwrap().clone();

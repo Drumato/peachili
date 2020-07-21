@@ -1,7 +1,4 @@
-require (
-    "std"
-)
-
+import std;
 func main() Noreturn {
     if (true) {
         std::os::exit_with(15);

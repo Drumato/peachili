@@ -1,6 +1,5 @@
-require (
-    "std"
-)
+import std;
+
 func main() Noreturn {
 	declare x Int64;
 	declare y Int64;

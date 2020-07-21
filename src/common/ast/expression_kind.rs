@@ -37,4 +37,6 @@ pub enum ExpressionNodeKind {
     /// 識別子ノード
     /// std::os::exit_with() みたいなのを["std", "os", "exit_with"] で保持
     IDENTIFIER { names: Vec<String> },
+    /// 呼び出し式ノード
+    CALL { names: Vec<String>, args: Vec<ExNodeId> },
 }

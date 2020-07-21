@@ -42,6 +42,15 @@ impl ExpressionNode {
     pub fn new_boolean(truth: bool, pos: position::Position) -> Self {
         Self::new(ExpressionNodeKind::BOOLEAN { truth }, pos)
     }
+    pub fn new_call(names: Vec<String>, args: Vec<ExNodeId>, pos: position::Position) -> Self {
+        Self::new(
+            ExpressionNodeKind::CALL {
+                names,
+                args,
+            },
+            pos,
+        )
+    }
     pub fn new_if(cond_id: ExNodeId, body: Vec<StNodeId>, alter: Option<Vec<StNodeId>>, pos: position::Position) -> Self {
         Self::new(
             ExpressionNodeKind::IF {

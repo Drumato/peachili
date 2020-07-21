@@ -1,7 +1,4 @@
-require (
-    "std"
-)
-
+import std;
 func main() Noreturn {
 	declare res Int64;
 

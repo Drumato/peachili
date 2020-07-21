@@ -1,6 +1,4 @@
-require (
-    "std"
-)
+import std;
 
 func main() Noreturn {
     varinit x Int64 = 30;

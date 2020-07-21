@@ -182,10 +182,32 @@ fn primary(stmt_arena: StmtArena, expr_arena: ExprArena, module_name: String, mu
             )
         }
         TokenKind::IDENTIFIER { name: _ } => {
-            let (names, tokens) = parser_util::expect_identifier(tokens);
+            let (names, mut tokens) = parser_util::expect_identifier(tokens);
+
+            if !parser_util::consume(TokenKind::LPAREN, &mut tokens) {
+                return (
+                    expr_arena.lock().unwrap().alloc(ExpressionNode::new_identifier(names, pos)),
+                    tokens
+                );
+            }
+
+            // 呼び出し式
+            let mut args = Vec::new();
+
+            loop {
+                if parser_util::consume(TokenKind::RPAREN, &mut tokens) {
+                    break;
+                }
+
+                let (arg_id, rk) = expression(stmt_arena.clone(), expr_arena.clone(), module_name.clone(), tokens);
+                args.push(arg_id);
+                tokens = rk;
+
+                parser_util::consume(TokenKind::COMMA, &mut tokens);
+            }
             (
-                expr_arena.lock().unwrap().alloc(ExpressionNode::new_identifier(names, pos)),
-                tokens,
+                expr_arena.lock().unwrap().alloc(ExpressionNode::new_call(names, args, pos)),
+                tokens
             )
         }
         TokenKind::STRLIT { contents } => {

@@ -1,0 +1,37 @@
+digraph hir_graph {
+  subgraph cluster_foo {
+    label = "foo";
+    labelloc = "t";
+    labeljust = "l";
+    fillcolor = "#ababab";
+    temp0[label = "temp0 <- x + y", shape="box"];
+    "return temp0"[shape="box"];
+    temp0 -> "return temp0";
+  }
+  subgraph cluster_main {
+    label = "main";
+    labelloc = "t";
+    labeljust = "l";
+    fillcolor = "#ababab";
+    "param 10"[shape="box"];
+    10 -> "param 10";
+    "param 20"[shape="box"];
+    20 -> "param 20";
+    "temp0"[label = "temp0 <- call foo", shape="box"];
+    "param temp0"[shape="box"];
+    temp0 -> "param temp0";
+    "temp1"[label = "temp1 <- call std::os::exit_with", shape="box"];
+  }
+  subgraph cluster_exit_with {
+    label = "exit_with";
+    labelloc = "t";
+    labeljust = "l";
+    fillcolor = "#ababab";
+  }
+  subgraph cluster_write {
+    label = "write";
+    labelloc = "t";
+    labeljust = "l";
+    fillcolor = "#ababab";
+  }
+}
