@@ -135,13 +135,11 @@ impl CodeKind {
                     ret_value
                 )
             }
-            CodeKind::PARAM { value }=> {
+            CodeKind::PARAM { value } => {
                 let arg_value = value_arena.lock().unwrap().get(*value).unwrap().clone().dump();
                 format!(
-                    "\"param {}\"[shape=\"box\"]\n    {} -> \"param {}\";",
+                    "\"param {}\"[shape=\"box\"];",
                     arg_value,
-                    arg_value,
-                    arg_value
                 )
             }
             CodeKind::CALL { name, result } => {

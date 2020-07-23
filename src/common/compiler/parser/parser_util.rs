@@ -1,13 +1,13 @@
 use crate::common::ast::*;
-use crate::common::compiler::parser::statement;
 use crate::common::position::Position;
 use crate::common::token::{Token, TokenKind};
 use std::sync::MutexGuard;
 
 use id_arena::Arena;
+use crate::common::compiler::parser::parse_resource::ParseResource;
 
-type ChildParser = fn(StmtArena, ExprArena, String, Vec<Token>) -> (ExNodeId, Vec<Token>);
-type OperatorParser = fn(Vec<Token>) -> (Option<TokenKind>, Vec<Token>);
+type ChildParser = fn(&ParseResource, Vec<Token>) -> (ExNodeId, Vec<Token>);
+type OperatorParser = fn(&ParseResource, Vec<Token>) -> (Option<TokenKind>, Vec<Token>);
 
 pub fn eat_token(tokens: &mut Vec<Token>) {
     if tokens.is_empty() {
@@ -68,24 +68,22 @@ pub fn operator_parser(
 pub fn binary_operation_parser(
     operator_parser: OperatorParser,
     child_parser: ChildParser,
-    stmt_arena: StmtArena,
-    expr_arena: ExprArena,
-    module_name: String,
+    resources: &ParseResource,
     tokens: Vec<Token>,
 ) -> (ExNodeId, Vec<Token>) {
     let (mut lhs_id, mut rest_tokens) =
-        child_parser(stmt_arena.clone(), expr_arena.clone(), module_name.clone(), tokens);
+        child_parser(resources, tokens);
 
     loop {
         let op_pos = current_position(&rest_tokens);
-        let (op, rk) = operator_parser(rest_tokens);
+        let (op, rk) = operator_parser(resources, rest_tokens);
         rest_tokens = rk;
         match op {
             Some(op) => {
                 let (rhs_id, rk) =
-                    child_parser(stmt_arena.clone(), expr_arena.clone(), module_name.clone(), rest_tokens.clone());
+                    child_parser(resources, rest_tokens.clone());
                 rest_tokens = rk;
-                lhs_id = alloc_binop_node(expr_arena.lock().unwrap(), &op, lhs_id, rhs_id, op_pos);
+                lhs_id = alloc_binop_node(resources.expr_arena.lock().unwrap(), &op, lhs_id, rhs_id, op_pos);
             }
             None => break,
         }
@@ -169,9 +167,7 @@ pub fn expect_type(module_name: String, mut tokens: Vec<Token>) -> (String, Vec<
 
 /// block -> `{` statement* `}`
 pub fn expect_block(
-    stmt_arena: StmtArena,
-    expr_arena: ExprArena,
-    module_name: String,
+    resources: &ParseResource,
     mut tokens: Vec<Token>,
 ) -> (Vec<StNodeId>, Vec<Token>) {
     eat_token(&mut tokens);
@@ -186,7 +182,7 @@ pub fn expect_block(
             break;
         }
 
-        let (st_id, rt) = statement::statement(stmt_arena.clone(), expr_arena.clone(), module_name.clone(), tokens);
+        let (st_id, rt) = resources.statement(tokens);
         stmts.push(st_id);
         tokens = rt;
     }
@@ -197,10 +193,6 @@ pub fn expect_block(
 #[cfg(test)]
 mod parser_util_tests {
     use super::*;
-
-    use id_arena::Arena;
-    use std::sync::{Arc, Mutex};
-
     #[test]
     fn expect_identifier_test() {
         let tokens = vec![
@@ -251,16 +243,13 @@ mod parser_util_tests {
             Token::new(TokenKind::EOF, Default::default()),
         ];
 
-        let (stmt_arena, expr_arena) = new_allocators();
-        let (stmts, rest_tokens) = expect_block(stmt_arena, expr_arena, Default::default(), tokens);
+        let resources = new_resources();
+        let (stmts, rest_tokens) = expect_block(&resources, tokens);
         assert_eq!(1, rest_tokens.len());
         assert_eq!(0, stmts.len());
     }
 
-    fn new_allocators() -> (StmtArena, ExprArena) {
-        (
-            Arc::new(Mutex::new(Arena::new())),
-            Arc::new(Mutex::new(Arena::new())),
-        )
+    fn new_resources() -> ParseResource {
+        ParseResource::new(Default::default())
     }
 }

@@ -395,13 +395,13 @@ mod translate_tests {
         let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
         let mut translator = FunctionTranslator::new(expr_arena, stmt_arena);
 
-        let return_stmt = new_simple_return(translator.expr_arena.clone());
+        let return_stmt = new_simple_return(translator.stmt_arena.clone(), translator.expr_arena.clone());
 
         translator.gen_ir_from_stmt(&return_stmt);
 
-// v0 <- 1 + 2
-// v1 <- v0 + 3
-// return v1
+        // v0 <- 1 + 2
+        // v1 <- v0 + 3
+        // return v1
         assert_eq!(3, translator.codes.len());
         assert_eq!(2, translator.temp_number);
         assert_eq!(2, translator.value_cache.len());
@@ -430,8 +430,8 @@ mod translate_tests {
         let add_node = new_simple_add(translator.expr_arena.clone());
         let add_v = translator.gen_ir_from_expr(&add_node);
 
-// v0 <- 1 + 2
-// v1 <- v0 + 3
+        // v0 <- 1 + 2
+        // v1 <- v0 + 3
         assert_eq!(2, translator.codes.len());
         assert_eq!(2, translator.temp_number);
         assert_eq!(2, translator.value_cache.len());
@@ -443,7 +443,7 @@ mod translate_tests {
     }
 
     fn new_simple_add(expr_arena: ast::ExprArena) -> ast::ExpressionNode {
-// 1 + 2 + 3
+        // 1 + 2 + 3
         let one_id = expr_arena
             .lock()
             .unwrap()
@@ -473,30 +473,27 @@ mod translate_tests {
         )
     }
 
-    fn new_simple_return(expr_arena: ast::ExprArena) -> ast::StatementNode {
+    fn new_simple_return(stmt_arena: ast::StmtArena, expr_arena: ast::ExprArena) -> ast::StNodeId {
         let add_node = new_simple_add(expr_arena.clone());
         let expr_id = expr_arena.lock().unwrap().alloc(add_node);
 
-        ast::StatementNode::new(
+        stmt_arena.lock().unwrap().alloc(ast::StatementNode::new(
             ast::StatementNodeKind::RETURN { expr: expr_id },
             Default::default(),
-        )
+        ))
     }
 
     #[allow(dead_code)]
     fn new_simple_fn() -> ast::Function {
-//
-// func sample() Noreturn {
-//   return 1 + 2 + 3;
-// }
+        //
+        // func sample() Noreturn {
+        //   return 1 + 2 + 3;
+        // }
 
         let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
         let expr_arena: ast::ExprArena = Arc::new(Mutex::new(Arena::new()));
 
-        let return_id = stmt_arena
-            .lock()
-            .unwrap()
-            .alloc(new_simple_return(expr_arena.clone()));
+        let return_id = new_simple_return(stmt_arena.clone(), expr_arena.clone());
 
         ast::Function {
             name: "sample".to_string(),

@@ -2,10 +2,8 @@ use crate::common::ast::*;
 use crate::common::token::{Token, TokenKind};
 
 use crate::common::compiler::parser::*;
+use parse_resource::ParseResource;
 use std::collections::BTreeMap;
-
-use id_arena::Arena;
-use std::sync::{Arc, Mutex};
 
 pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> ASTRoot {
     let mut ast_root: ASTRoot = Default::default();
@@ -19,7 +17,7 @@ pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> A
                 parser_util::eat_token(&mut tokens);
                 parser_util::eat_token(&mut tokens);
                 parser_util::eat_token(&mut tokens);
-            },
+            }
             TokenKind::FUNC => {
                 let (fn_id, rest_tokens) = func_def(fn_arena.clone(), module_name.clone(), tokens);
                 tokens = rest_tokens;
@@ -101,18 +99,17 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
     let func_pos = parser_util::current_position(&tokens);
     parser_util::eat_token(&mut tokens);
 
-    let stmt_arena = Arc::new(Mutex::new(Arena::new()));
-    let expr_arena = Arc::new(Mutex::new(Arena::new()));
+    let resources = ParseResource::new(module_name);
 
     let (func_names, rest_tokens) = parser_util::expect_identifier(tokens);
     let func_name = func_names[0].clone();
 
-    let (arg_map, rest_tokens) = arg_list(module_name.clone(), rest_tokens);
+    let (arg_map, rest_tokens) = arg_list(resources.module_name.clone(), rest_tokens);
 
-    let (return_type, rest_tokens) = parser_util::expect_type(module_name.clone(), rest_tokens);
+    let (return_type, rest_tokens) = parser_util::expect_type(resources.module_name.clone(), rest_tokens);
 
     let (stmts, rest_tokens) =
-        parser_util::expect_block(stmt_arena.clone(), expr_arena.clone(), module_name.clone(), rest_tokens);
+        parser_util::expect_block(&resources, rest_tokens);
 
     (
         fn_arena.lock().unwrap().alloc(Function {
@@ -121,9 +118,9 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
             stmts,
             return_type,
             pos: func_pos,
-            module_name,
-            stmt_arena,
-            expr_arena,
+            module_name: resources.module_name.clone(),
+            stmt_arena: resources.stmt_arena.clone(),
+            expr_arena: resources.expr_arena,
         }),
         rest_tokens,
     )
