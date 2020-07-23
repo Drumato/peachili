@@ -55,6 +55,19 @@ pub enum CodeKind {
         name: ValueId,
         result: ValueId,
     },
+    ALLOC {
+        temp: ValueId,
+    },
+    LABEL {
+        name: String,
+    },
+    JUMPIFFALSE {
+        label: String,
+        cond_result: ValueId,
+    },
+    JUMP {
+        label: String,
+    },
 }
 
 impl CodeKind {
@@ -150,6 +163,33 @@ impl CodeKind {
                     result,
                     result,
                     name
+                )
+            }
+            CodeKind::ALLOC { temp } => {
+                let allocated = value_arena.lock().unwrap().get(*temp).unwrap().clone().dump();
+                format!(
+                    "\"alloc {}\"[shape=\"box\"];",
+                    allocated,
+                )
+            }
+            CodeKind::LABEL { name } => {
+                format!(
+                    "\"label {}\"[shape=\"box\"];",
+                    name,
+                )
+            }
+            CodeKind::JUMPIFFALSE { label, cond_result } => {
+                let cond = value_arena.lock().unwrap().get(*cond_result).unwrap().clone().dump();
+                format!(
+                    "\"jump {} if not {}\"[shape=\"box\"];",
+                    label,
+                    cond,
+                )
+            }
+            CodeKind::JUMP { label } => {
+                format!(
+                    "\"jump {}\"[shape=\"box\"];",
+                    label,
                 )
             }
         }

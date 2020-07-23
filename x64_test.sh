@@ -52,5 +52,6 @@ try 30 "varinit.go"
 try 4 "pointer.go"
 try 4 "pointer2.go"
 try 45 "simple_struct.go"
+try 1 "if_expression.go"
 
 echo -e "\n\nOK"
