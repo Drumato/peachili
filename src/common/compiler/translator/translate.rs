@@ -97,7 +97,10 @@ impl FunctionTranslator {
             }
             ast::StatementNodeKind::ASM { stmts } => {
                 for stmt_id in stmts.iter() {
-                    self.gen_ir_from_stmt(stmt_id);
+                    let asm_str = self.gen_ir_from_stmt(stmt_id);
+                    self.add_code_with_allocation(tac::CodeKind::ASM {
+                        value: asm_str.unwrap(),
+                    });
                 }
 
                 None
@@ -110,8 +113,7 @@ impl FunctionTranslator {
                 Some(ex_v)
             }
             ast::StatementNodeKind::EXPR { expr: expr_id } => {
-                self.gen_ir_from_expr(expr_id);
-                None
+                Some(self.gen_ir_from_expr(expr_id))
             }
             ast::StatementNodeKind::DECLARE { ident_name: _, type_name: _ } => None,
             _ => unimplemented!()
@@ -380,16 +382,27 @@ impl FunctionTranslator {
             label: false_label,
             cond_result: cond_v,
         });
+        self.add_code_with_allocation(tac::CodeKind::JUMP {
+            label: true_label.clone(),
+        });
 
         // true_block
         self.add_code_with_allocation(tac::CodeKind::LABEL {
             name: true_label.clone(),
         });
         for st_id in body.iter() {
+            let stmt = self
+                .stmt_arena
+                .lock()
+                .unwrap()
+                .get(*st_id)
+                .unwrap()
+                .clone();
             let result_v = self.gen_ir_from_stmt(st_id);
-            if let Some(v) = result_v {
+
+            if stmt.is_ifret() {
                 self.add_code_with_allocation(tac::CodeKind::ASSIGN {
-                    value: v,
+                    value: result_v.unwrap(),
                     result: ifret_temp,
                 });
             }
@@ -404,10 +417,17 @@ impl FunctionTranslator {
         });
         if let Some(alter) = alter {
             for st_id in alter.iter() {
+                let stmt = self
+                    .stmt_arena
+                    .lock()
+                    .unwrap()
+                    .get(*st_id)
+                    .unwrap()
+                    .clone();
                 let result_v = self.gen_ir_from_stmt(st_id);
-                if let Some(v) = result_v {
+                if stmt.is_ifret() {
                     self.add_code_with_allocation(tac::CodeKind::ASSIGN {
-                        value: v,
+                        value: result_v.unwrap(),
                         result: ifret_temp,
                     });
                 }

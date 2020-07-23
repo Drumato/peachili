@@ -68,6 +68,9 @@ pub enum CodeKind {
     JUMP {
         label: String,
     },
+    ASM {
+        value: ValueId,
+    },
 }
 
 impl CodeKind {
@@ -75,31 +78,14 @@ impl CodeKind {
         let res = value_arena.lock().unwrap().get(*result).unwrap().clone().dump();
         let value = value_arena.lock().unwrap().get(*value).unwrap().clone().dump();
 
-        let code_str = format!("\"{} <- {} {}\"", res, operator, value);
-        let mut node_str = format!("{}[label = {}, shape=\"box\"]", res, code_str);
-
-        if value.starts_with("temp") {
-            node_str += &format!("\n    {} -> {}", value, res);
-        }
-
-        node_str
+        format!("{} <- {} {}", res, operator, value)
     }
     fn binop(operator: &str, result: &ValueId, lop: &ValueId, rop: &ValueId, value_arena: ValueArena) -> String {
         let res = value_arena.lock().unwrap().get(*result).unwrap().clone().dump();
         let lop = value_arena.lock().unwrap().get(*lop).unwrap().clone().dump();
         let rop = value_arena.lock().unwrap().get(*rop).unwrap().clone().dump();
 
-        let code_str = format!("\"{} <- {} {} {}\"", res, lop, operator, rop);
-        let mut node_str = format!("{}[label = {}, shape=\"box\"]", res, code_str);
-
-        if lop.starts_with("temp") {
-            node_str += &format!("\n    {} -> {}", lop, res);
-        }
-        if rop.starts_with("temp") {
-            node_str += &format!("\n    {} -> {}", rop, res);
-        }
-
-        node_str
+        format!("\"{} <- {} {} {}\"", res, lop, operator, rop)
     }
     pub fn dump(&self, value_arena: ValueArena) -> String {
         match self {
@@ -131,66 +117,39 @@ impl CodeKind {
                 let res = value_arena.lock().unwrap().get(*result).unwrap().clone().dump();
                 let id = value_arena.lock().unwrap().get(*id).unwrap().clone().dump();
                 let member = value_arena.lock().unwrap().get(*member).unwrap().clone().dump();
-                format!(
-                    "\"{}\"[label = \"{} <- {}.{}\", shape=\"box\"]",
-                    res,
-                    res,
-                    id,
-                    member,
-                )
+
+                format!("{} <- {}.{}", res, id, member)
             }
             CodeKind::RETURN { value } => {
                 let ret_value = value_arena.lock().unwrap().get(*value).unwrap().clone().dump();
-                format!(
-                    "\"return {}\"[shape=\"box\"]\n    {} -> \"return {}\";",
-                    ret_value,
-                    ret_value,
-                    ret_value
-                )
+                format!("return {}", ret_value)
             }
             CodeKind::PARAM { value } => {
                 let arg_value = value_arena.lock().unwrap().get(*value).unwrap().clone().dump();
-                format!(
-                    "\"param {}\"[shape=\"box\"];",
-                    arg_value,
-                )
+                format!("param {}", arg_value)
             }
             CodeKind::CALL { name, result } => {
                 let result = value_arena.lock().unwrap().get(*result).unwrap().clone().dump();
                 let name = value_arena.lock().unwrap().get(*name).unwrap().clone().dump();
-                format!(
-                    "\"{}\"[label = \"{} <- call {}\", shape=\"box\"]",
-                    result,
-                    result,
-                    name
-                )
+                format!("{} <- call {}", result, name)
             }
             CodeKind::ALLOC { temp } => {
                 let allocated = value_arena.lock().unwrap().get(*temp).unwrap().clone().dump();
-                format!(
-                    "\"alloc {}\"[shape=\"box\"];",
-                    allocated,
-                )
+                format!("alloc {}", allocated, )
             }
             CodeKind::LABEL { name } => {
-                format!(
-                    "\"label {}\"[shape=\"box\"];",
-                    name,
-                )
+                format!("label {}", name, )
             }
             CodeKind::JUMPIFFALSE { label, cond_result } => {
                 let cond = value_arena.lock().unwrap().get(*cond_result).unwrap().clone().dump();
-                format!(
-                    "\"jump {} if not {}\"[shape=\"box\"];",
-                    label,
-                    cond,
-                )
+                format!("jump {} if not {}", label, cond, )
             }
             CodeKind::JUMP { label } => {
-                format!(
-                    "\"jump {}\"[shape=\"box\"];",
-                    label,
-                )
+                format!("jump {}", label, )
+            }
+            CodeKind::ASM { value } => {
+                let v = value_arena.lock().unwrap().get(*value).unwrap().clone().dump();
+                format!("asm {}", v)
             }
         }
     }

@@ -19,4 +19,10 @@ impl StatementNode {
     pub fn get_kind(&self) -> &StatementNodeKind {
         &self.k
     }
+    pub fn is_ifret(&self) -> bool {
+        match self.k {
+            StatementNodeKind::IFRET { expr: _ } => true,
+            _ => false,
+        }
+    }
 }
