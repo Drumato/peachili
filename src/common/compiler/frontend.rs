@@ -1,5 +1,5 @@
 use crate::common::compiler::{analyzer, parser, tld_collector, tokenizer};
-use crate::common::{ast, file_util, module, peachili_type};
+use crate::common::{ast, file_util, module, peachili_type, frame_object};
 use crate::setup;
 use id_arena::Arena;
 use std::collections::BTreeMap;
@@ -21,6 +21,7 @@ pub fn frontend(
     ast::FnArena,
     ast::ASTRoot,
     BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
+    frame_object::StackFrame
 ) {
     let mut manager = FrontendManager {
         module_arena,
@@ -50,6 +51,7 @@ pub fn frontend(
         &manager.full_ast,
         setup::BUILD_OPTION.target,
     );
+
     if debug {
         analyzer::type_check_main(
             manager.fn_arena.clone(),
@@ -60,7 +62,15 @@ pub fn frontend(
         );
     }
 
-    (manager.fn_arena, manager.full_ast, type_env)
+    // スタック割付
+    // 通常はローカル変数をすべてスタックに．
+    // 最適化を有効化にしたらレジスタ割付したい
+    let func_frame = analyzer::allocate_stack_frame(
+        &tld_env,
+        &type_env,
+    );
+
+    (manager.fn_arena, manager.full_ast, type_env, func_frame)
 }
 
 impl FrontendManager {

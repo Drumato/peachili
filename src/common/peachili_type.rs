@@ -11,6 +11,16 @@ pub struct Type {
 }
 
 impl Type {
+    /// 関数型サイズ
+    pub fn new_function(ret_ty: Type) -> Self {
+        Self {
+            kind: TypeKind::FUNCTION {
+                return_type: Box::new(ret_ty),
+            },
+            size: 0,
+        }
+    }
+
     /// Int64型サイズ
     pub fn int64_size(target: Target) -> usize {
         match target {
@@ -140,5 +150,10 @@ pub enum TypeKind {
     STRUCT {
         /// member_name -> (member_type, member_offset)
         members: BTreeMap<String, (Box<Type>, usize)>
+    },
+    /// 関数型
+    FUNCTION {
+        return_type: Box<Type>,
+        // args
     },
 }

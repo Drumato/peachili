@@ -42,7 +42,7 @@ pub fn type_resolve_main(
                 std::process::exit(1);
             }
 
-            func_env.insert(function.name.clone(), function_ret_type.unwrap());
+            func_env.insert(function.name.clone(), Type::new_function(function_ret_type.unwrap()));
             assert!(func_env.contains_key(&function.name));
 
 

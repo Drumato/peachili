@@ -9,7 +9,7 @@ pub fn compile_main(
     verbose_ir: bool,
     debug: bool,
 ) {
-    let (fn_arena, ast_root, type_env) = compiler::frontend(module_arena, main_module_id, debug);
+    let (fn_arena, ast_root, type_env, _stack_frame) = compiler::frontend(module_arena, main_module_id, debug);
     let ir_module = compiler::translate_ir(fn_arena, ast_root, &type_env);
 
     if verbose_ir {
