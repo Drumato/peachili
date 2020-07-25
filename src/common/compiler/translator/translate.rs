@@ -92,9 +92,11 @@ impl FunctionTranslator {
         match stmt.get_kind() {
             // return v1;
             ast::StatementNodeKind::RETURN { expr: expr_id } => self.gen_from_return_stmt(expr_id),
-            ast::StatementNodeKind::VARINIT { ident_name, type_name: _, expr } => {
-                self.gen_from_varinit_stmt(ident_name.clone(), expr)
-            }
+            ast::StatementNodeKind::VARINIT {
+                ident_name,
+                type_name: _,
+                expr,
+            } => self.gen_from_varinit_stmt(ident_name.clone(), expr),
             ast::StatementNodeKind::ASM { stmts } => {
                 for stmt_id in stmts.iter() {
                     let asm_str = self.gen_ir_from_stmt(stmt_id);
@@ -105,18 +107,21 @@ impl FunctionTranslator {
 
                 None
             }
-            ast::StatementNodeKind::CONST { ident_name, type_name: _, expr } => {
-                self.gen_from_varinit_stmt(ident_name.clone(), expr)
-            }
+            ast::StatementNodeKind::CONST {
+                ident_name,
+                type_name: _,
+                expr,
+            } => self.gen_from_varinit_stmt(ident_name.clone(), expr),
             ast::StatementNodeKind::IFRET { expr: expr_id } => {
                 let ex_v = self.gen_ir_from_expr(expr_id);
                 Some(ex_v)
             }
-            ast::StatementNodeKind::EXPR { expr: expr_id } => {
-                Some(self.gen_ir_from_expr(expr_id))
-            }
-            ast::StatementNodeKind::DECLARE { ident_name: _, type_name: _ } => None,
-            _ => unimplemented!()
+            ast::StatementNodeKind::EXPR { expr: expr_id } => Some(self.gen_ir_from_expr(expr_id)),
+            ast::StatementNodeKind::DECLARE {
+                ident_name: _,
+                type_name: _,
+            } => None,
+            _ => unimplemented!(),
         }
     }
 
@@ -130,12 +135,19 @@ impl FunctionTranslator {
     }
 
     /// varinit-statement の変換
-    fn gen_from_varinit_stmt(&mut self, id_name: String, expr_id: &ast::ExNodeId) -> Option<tac::ValueId> {
+    fn gen_from_varinit_stmt(
+        &mut self,
+        id_name: String,
+        expr_id: &ast::ExNodeId,
+    ) -> Option<tac::ValueId> {
         let id_value = self.value_arena.alloc(tac::Value {
-            kind: tac::ValueKind::ID { name: id_name }
+            kind: tac::ValueKind::ID { name: id_name },
         });
         let expr_id = self.gen_ir_from_expr(expr_id);
-        self.add_code_with_allocation(tac::CodeKind::ASSIGN { value: expr_id, result: id_value });
+        self.add_code_with_allocation(tac::CodeKind::ASSIGN {
+            value: expr_id,
+            result: id_value,
+        });
 
         None
     }
@@ -167,7 +179,9 @@ impl FunctionTranslator {
                 kind: tac::ValueKind::BOOLEANLITERAL { truth: *truth },
             }),
             ast::ExpressionNodeKind::STRING { contents } => self.value_arena.alloc(tac::Value {
-                kind: tac::ValueKind::STRINGLITERAL { contents: contents.clone() },
+                kind: tac::ValueKind::STRINGLITERAL {
+                    contents: contents.clone(),
+                },
             }),
 
             // 代入式
@@ -215,9 +229,11 @@ impl FunctionTranslator {
             ast::ExpressionNodeKind::CALL { names, args } => {
                 self.gen_ir_from_call_expr(names.join("::"), args)
             }
-            ast::ExpressionNodeKind::IF { cond_ex, body, alter } => {
-                self.gen_ir_from_if_expr(cond_ex, body, alter)
-            }
+            ast::ExpressionNodeKind::IF {
+                cond_ex,
+                body,
+                alter,
+            } => self.gen_ir_from_if_expr(cond_ex, body, alter),
         }
     }
 
@@ -232,9 +248,7 @@ impl FunctionTranslator {
         // call funcの生成
         let call_kind = tac::CodeKind::CALL {
             name: self.value_arena.alloc(tac::Value {
-                kind: tac::ValueKind::ID {
-                    name
-                }
+                kind: tac::ValueKind::ID { name },
             }),
             result: result_v,
         };
@@ -368,18 +382,15 @@ impl FunctionTranslator {
         // next_label    -> | next_code
         //
         let ifret_temp = self.gen_result_temp();
-        self.add_code_with_allocation(tac::CodeKind::ALLOC {
-            temp: ifret_temp
-        });
+        self.add_code_with_allocation(tac::CodeKind::ALLOC { temp: ifret_temp });
 
         let false_label = self.gen_label_without_increment("FALSE");
         let true_label = self.gen_label_without_increment("TRUE");
         let next_label = self.gen_label("NEXT");
 
-
         let cond_v = self.gen_ir_from_expr(cond_id);
         self.add_code_with_allocation(tac::CodeKind::JUMPIFFALSE {
-            label: false_label,
+            label: false_label.clone(),
             cond_result: cond_v,
         });
         self.add_code_with_allocation(tac::CodeKind::JUMP {
@@ -387,17 +398,9 @@ impl FunctionTranslator {
         });
 
         // true_block
-        self.add_code_with_allocation(tac::CodeKind::LABEL {
-            name: true_label.clone(),
-        });
+        self.add_code_with_allocation(tac::CodeKind::LABEL { name: true_label });
         for st_id in body.iter() {
-            let stmt = self
-                .stmt_arena
-                .lock()
-                .unwrap()
-                .get(*st_id)
-                .unwrap()
-                .clone();
+            let stmt = self.stmt_arena.lock().unwrap().get(*st_id).unwrap().clone();
             let result_v = self.gen_ir_from_stmt(st_id);
 
             if stmt.is_ifret() {
@@ -412,18 +415,10 @@ impl FunctionTranslator {
         });
 
         // false_block
-        self.add_code_with_allocation(tac::CodeKind::LABEL {
-            name: true_label,
-        });
+        self.add_code_with_allocation(tac::CodeKind::LABEL { name: false_label });
         if let Some(alter) = alter {
             for st_id in alter.iter() {
-                let stmt = self
-                    .stmt_arena
-                    .lock()
-                    .unwrap()
-                    .get(*st_id)
-                    .unwrap()
-                    .clone();
+                let stmt = self.stmt_arena.lock().unwrap().get(*st_id).unwrap().clone();
                 let result_v = self.gen_ir_from_stmt(st_id);
                 if stmt.is_ifret() {
                     self.add_code_with_allocation(tac::CodeKind::ASSIGN {
@@ -438,9 +433,7 @@ impl FunctionTranslator {
         });
 
         // next_block
-        self.add_code_with_allocation(tac::CodeKind::LABEL {
-            name: next_label,
-        });
+        self.add_code_with_allocation(tac::CodeKind::LABEL { name: next_label });
         ifret_temp
     }
 
@@ -499,7 +492,8 @@ mod translate_tests {
         let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
         let mut translator = FunctionTranslator::new(expr_arena, stmt_arena);
 
-        let return_stmt = new_simple_return(translator.stmt_arena.clone(), translator.expr_arena.clone());
+        let return_stmt =
+            new_simple_return(translator.stmt_arena.clone(), translator.expr_arena.clone());
 
         translator.gen_ir_from_stmt(&return_stmt);
 
@@ -522,7 +516,11 @@ mod translate_tests {
     }
 
     fn gen_ir_from_integer_literal_test(translator: &mut FunctionTranslator) {
-        let int_node = translator.expr_arena.lock().unwrap().alloc(ast::ExpressionNode::new_integer(30, Default::default()));
+        let int_node = translator
+            .expr_arena
+            .lock()
+            .unwrap()
+            .alloc(ast::ExpressionNode::new_integer(30, Default::default()));
         let int_v = translator.gen_ir_from_expr(&int_node);
         assert_eq!(
             tac::ValueKind::INTLITERAL { value: 30 },

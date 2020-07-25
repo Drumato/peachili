@@ -4,3 +4,5 @@
 /cmake-build-debug
 /cmake-build-debug/*
 *hir_dump*
+*.dot*
+*.png*

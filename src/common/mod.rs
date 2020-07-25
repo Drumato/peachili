@@ -11,3 +11,4 @@ pub mod variable;
 pub mod peachili_type;
 pub mod three_address_code;
 pub mod frame_object;
+pub mod cfg;

@@ -13,7 +13,7 @@ pub fn read_program_from_file(path: &str) -> Option<String> {
     Some(result_contents.unwrap())
 }
 
-/// pathに対してprogramを書き込む
+/// path で新規にファイルを作成し，programを書き込む
 pub fn write_program_into(path: &str, program: String) {
     let mut file = fs::File::create(path).unwrap();
     file.write_all(program.as_bytes()).unwrap();
