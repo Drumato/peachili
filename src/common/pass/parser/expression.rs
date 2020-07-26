@@ -3,8 +3,8 @@ use crate::common::{
     token::{Token, TokenKind},
 };
 
-use crate::common::compiler::parser::parser_util;
-use crate::common::compiler::parser::parse_resource::ParseResource;
+use crate::common::pass::parser::parser_util;
+use crate::common::pass::parser::parse_resource::ParseResource;
 
 impl ParseResource {
     /// expression -> if_expression | assignment

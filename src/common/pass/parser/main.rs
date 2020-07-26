@@ -1,7 +1,9 @@
-use crate::common::ast::*;
+use crate::common::ast::{
+    FnArena, ASTRoot, StructDef, Function, FnId,
+};
 use crate::common::token::{Token, TokenKind};
 
-use crate::common::compiler::parser::*;
+use crate::common::pass::parser::*;
 use parse_resource::ParseResource;
 use std::collections::BTreeMap;
 

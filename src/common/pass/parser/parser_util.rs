@@ -1,10 +1,12 @@
-use crate::common::ast::*;
+use crate::common::ast::{
+    ExNodeId, ExpressionNode, StNodeId,
+};
 use crate::common::position::Position;
 use crate::common::token::{Token, TokenKind};
 use std::sync::MutexGuard;
 
 use id_arena::Arena;
-use crate::common::compiler::parser::parse_resource::ParseResource;
+use crate::common::pass::parser::parse_resource::ParseResource;
 
 type ChildParser = fn(&ParseResource, Vec<Token>) -> (ExNodeId, Vec<Token>);
 type OperatorParser = fn(&ParseResource, Vec<Token>) -> (Option<TokenKind>, Vec<Token>);
@@ -193,6 +195,7 @@ pub fn expect_block(
 #[cfg(test)]
 mod parser_util_tests {
     use super::*;
+
     #[test]
     fn expect_identifier_test() {
         let tokens = vec![

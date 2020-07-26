@@ -1,4 +1,4 @@
-use crate::common::compiler::{analyzer, parser, tld_collector, tokenizer};
+use crate::common::pass::{analyzer, parser, tld_collector, tokenizer};
 use crate::common::{ast, file_util, module, peachili_type, frame_object};
 use crate::setup;
 use id_arena::Arena;

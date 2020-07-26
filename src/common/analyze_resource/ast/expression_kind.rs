@@ -1,4 +1,6 @@
-use crate::common::ast::*;
+use crate::common::ast::{
+    ExNodeId, StNodeId,
+};
 
 /// 式ノードの種類
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]

@@ -1,6 +1,6 @@
 use crate::common::{ast, error::CompileError, option, peachili_type::Type, tld};
 
-use crate::common::compiler::analyzer::type_util;
+use crate::common::pass::analyzer::type_util;
 use crate::common::error::TypeErrorKind;
 use crate::common::peachili_type::TypeKind;
 use std::collections::BTreeMap;

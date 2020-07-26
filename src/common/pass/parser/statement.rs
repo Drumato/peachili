@@ -1,10 +1,10 @@
-use crate::common::compiler::parser::{parser_util};
+use crate::common::pass::parser::{parser_util};
 use crate::common::{
     ast::{ExNodeId, StNodeId, StatementNode, StatementNodeKind},
     token::{Token, TokenKind},
 };
 
-use crate::common::compiler::parser::parse_resource::ParseResource;
+use crate::common::pass::parser::parse_resource::ParseResource;
 
 impl ParseResource {
     /// statement -> return_st | ifret_st | declare_st | countup_st| block_st | asm_st
