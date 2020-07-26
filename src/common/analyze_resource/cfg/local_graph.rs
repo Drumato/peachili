@@ -7,10 +7,6 @@ pub struct LocalControlFlowGraph {
     pub predecessors: BTreeMap<tac::CodeId, BTreeSet<tac::CodeId>>,
     /// あるノードから伸びる後続節
     pub successors: BTreeMap<tac::CodeId, BTreeSet<tac::CodeId>>,
-    /// あるノードで定義される変数の集合
-    pub defs: BTreeMap<tac::CodeId, BTreeSet<tac::ValueId>>,
-    /// あるノードで使用される変数の集合
-    pub uses: BTreeMap<tac::CodeId, BTreeSet<tac::ValueId>>,
 }
 
 impl LocalControlFlowGraph {
@@ -30,8 +26,6 @@ impl Default for LocalControlFlowGraph {
         Self {
             predecessors: BTreeMap::new(),
             successors: BTreeMap::new(),
-            defs: BTreeMap::new(),
-            uses: BTreeMap::new(),
         }
     }
 }

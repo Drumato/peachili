@@ -39,4 +39,7 @@ pub fn compile_main(
         debug::dump_local_cfg("local_cfg.dot", &ir_module, &local_cfg);
         eprintln!("{}", "done!".bold().blue());
     }
+
+    // BasicBlockのない，ローカルなグラフを作成する
+    let _liveness_info = common::pass::liveness_analysis(&ir_module);
 }
