@@ -16,7 +16,7 @@ pub struct IRFunction {
 
     pub value_allocator: ValueArena,
     pub code_allocator: CodeArena,
-
+    pub args: Vec<String>,
     // ベーシックブロック系の情報も持たせる
 }
 
@@ -28,5 +28,9 @@ impl IRFunction {
 
     pub fn get_code(&self, c_id: CodeId) -> Code {
         self.code_allocator.lock().unwrap().get(c_id).unwrap().clone()
+    }
+
+    pub fn get_called_name(&self, v_id: ValueId) -> String {
+        self.get_value(v_id).copy_contents()
     }
 }

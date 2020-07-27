@@ -45,16 +45,17 @@ fn gen_ir_fn(
 
     // IRFunctionの生成
     tac::IRFunction {
-        name: ast_fn.name.clone(),
+        name: ast_fn.full_path(),
         code_allocator: Arc::new(Mutex::new(function_translator.code_arena)),
         value_allocator: Arc::new(Mutex::new(function_translator.value_arena)),
         codes: function_translator.codes,
         return_type: type_env
-            .get(&ast_fn.name)
+            .get(&ast_fn.full_path())
             .unwrap()
-            .get(&ast_fn.name)
+            .get(&ast_fn.full_path())
             .unwrap()
             .clone(),
+        args: ast_fn.args.keys().map(|name| name.to_string() ).collect(),
     }
 }
 

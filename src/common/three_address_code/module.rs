@@ -15,3 +15,9 @@ impl Default for IRModule {
         }
     }
 }
+
+impl IRModule {
+    pub fn get_fn(&self, fn_id: &function::IRFunctionId) -> &function::IRFunction {
+        self.fn_allocator.get(*fn_id).unwrap()
+    }
+}

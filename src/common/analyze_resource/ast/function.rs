@@ -30,3 +30,13 @@ pub struct Function {
     pub stmt_arena: StmtArena,
     pub expr_arena: ExprArena,
 }
+
+impl Function {
+    pub fn full_path(&self) -> String {
+        if self.module_name.is_empty() {
+            return self.name.to_string();
+        }
+
+        format!("{}::{}", self.module_name, self.name)
+    }
+}

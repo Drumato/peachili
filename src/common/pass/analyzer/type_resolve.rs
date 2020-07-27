@@ -35,6 +35,7 @@ pub fn type_resolve_main(
         if let Ok(arena) = fn_arena.lock() {
             let function = arena.get(*fn_id).unwrap();
 
+            // 関数自体の型格納
             let function_ret_type =
                 resolve_type_string(tld_map, function.return_type.to_string(), target);
             if let Err(e) = function_ret_type {
@@ -42,8 +43,7 @@ pub fn type_resolve_main(
                 std::process::exit(1);
             }
 
-            func_env.insert(function.name.clone(), Type::new_function(function_ret_type.unwrap()));
-            assert!(func_env.contains_key(&function.name));
+            func_env.insert(function.full_path(), Type::new_function(function_ret_type.unwrap()));
 
 
             if let Err(e) = add_auto_var_to_env(tld_map, &mut type_env, function, target) {
@@ -51,7 +51,55 @@ pub fn type_resolve_main(
                 std::process::exit(1);
             }
 
-            type_env.insert(function.name.clone(), func_env);
+            // 自動変数の型格納
+            for (arg_name, arg_type_str) in function.args.iter() {
+                let var_type = resolve_type_string(tld_map, arg_type_str.clone(), target);
+                if let Err(e) = var_type {
+                    e.output();
+                    std::process::exit(1);
+                }
+
+                func_env.insert(arg_name.clone(), var_type.unwrap());
+            }
+
+            for stmt_id in function.stmts.iter() {
+                if let Ok(stmt_arena) = function.stmt_arena.lock() {
+                    let stmt = stmt_arena.get(*stmt_id).unwrap();
+
+                    match stmt.get_kind() {
+                        ast::StatementNodeKind::DECLARE { ident_name, type_name } => {
+                            let var_type = resolve_type_string(tld_map, type_name.clone(), target);
+                            if let Err(e) = var_type {
+                                e.output();
+                                std::process::exit(1);
+                            }
+
+                            func_env.insert(ident_name.clone(), var_type.unwrap());
+                        }
+                        ast::StatementNodeKind::VARINIT { ident_name, type_name, expr: _ } => {
+                            let var_type = resolve_type_string(tld_map, type_name.clone(), target);
+                            if let Err(e) = var_type {
+                                e.output();
+                                std::process::exit(1);
+                            }
+
+                            func_env.insert(ident_name.clone(), var_type.unwrap());
+                        }
+                        ast::StatementNodeKind::CONST { ident_name, type_name, expr: _ } => {
+                            let var_type = resolve_type_string(tld_map, type_name.clone(), target);
+                            if let Err(e) = var_type {
+                                e.output();
+                                std::process::exit(1);
+                            }
+
+                            func_env.insert(ident_name.clone(), var_type.unwrap());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            type_env.insert(function.full_path(), func_env);
         }
     }
 

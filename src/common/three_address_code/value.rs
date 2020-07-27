@@ -20,4 +20,19 @@ impl Value {
             _ => false,
         }
     }
+
+    pub fn copy_contents(&self) -> String {
+        match &self.kind {
+            value_kind::ValueKind::STRINGLITERAL { contents } => contents.clone(),
+            value_kind::ValueKind::ID { name } => name.clone(),
+            _ => String::new(),
+        }
+    }
+
+    pub fn get_virt_number(&self) -> usize {
+        match &self.kind {
+            value_kind::ValueKind::TEMP { number } => *number,
+            _ => 0,
+        }
+    }
 }

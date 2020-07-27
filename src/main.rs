@@ -18,6 +18,14 @@ mod setup;
 extern crate lazy_static;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    match setup::BUILD_OPTION.matches.subcommand() {
+        ("compile", Some(_compile_m)) => {}
+        _ => {
+            eprintln!("please specify a subcommand. see --help.");
+            std::process::exit(1);
+        }
+    }
+
     let module_arena: common::module::ModuleArena = Arc::new(Mutex::new(Arena::new()));
     let source = setup::BUILD_OPTION.get_source();
     let main_module = bundler::resolve_main(module_arena.clone(), source);
@@ -30,8 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         option::Target::X86_64 => x64::main(
             module_arena,
             main_module,
-            setup::BUILD_OPTION.matches.is_present("verbose-hir"),
-            setup::BUILD_OPTION.matches.is_present("debug"),
+            &setup::BUILD_OPTION.matches,
         )?,
     }
 

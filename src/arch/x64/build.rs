@@ -1,4 +1,5 @@
 use crate::common;
+use crate::arch::x64;
 use colored::*;
 use crate::debug;
 
@@ -6,11 +7,20 @@ use crate::debug;
 pub fn main(
     module_arena: common::module::ModuleArena,
     main_module_id: common::module::ModuleId,
-    verbose_ir: bool,
-    debug: bool,
+    matches: &clap::ArgMatches,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    compile_main(module_arena, main_module_id, verbose_ir, debug);
+    match matches.subcommand() {
+        ("compile", Some(compile_m)) => {
+            let x64_module = compile_main(
+                module_arena,
+                main_module_id,
+                compile_m.is_present("verbose-hir"),
+                compile_m.is_present("debug"));
 
+            common::file_util::write_program_into("asm.s", x64_module.to_atandt());
+        }
+        _ => eprintln!("please specify a subcommand. see --help."),
+    }
     Ok(())
 }
 
@@ -21,8 +31,8 @@ pub fn compile_main(
     main_module_id: common::module::ModuleId,
     verbose_ir: bool,
     debug: bool,
-) {
-    let (fn_arena, ast_root, type_env, _stack_frame) = common::pass::frontend(module_arena, main_module_id, debug);
+) -> x64::ir::Module {
+    let (fn_arena, ast_root, type_env, stack_frame) = common::pass::frontend(module_arena, main_module_id, debug);
     let ir_module = common::pass::translate_ir(fn_arena, ast_root, &type_env);
 
     if verbose_ir {
@@ -39,4 +49,6 @@ pub fn compile_main(
         debug::dump_local_cfg("local_cfg.dot", &ir_module, &local_cfg);
         eprintln!("{}", "done!".bold().blue());
     }
+
+    x64::pass::codegen_main(ir_module, stack_frame)
 }
