@@ -19,3 +19,9 @@ pub struct IRFunction {
 
     // ベーシックブロック系の情報も持たせる
 }
+
+impl IRFunction {
+    pub fn get_value(&self, v_id: ValueId) -> Value {
+        self.value_allocator.lock().unwrap().get(v_id).unwrap().clone()
+    }
+}

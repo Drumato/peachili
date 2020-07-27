@@ -41,5 +41,11 @@ pub fn compile_main(
     }
 
     // BasicBlockのない，ローカルなグラフを作成する
-    let _liveness_info = common::pass::liveness_analysis(&ir_module);
+    let liveness_info = common::pass::liveness_analysis(&ir_module, &local_cfg);
+
+    if verbose_ir {
+        eprintln!("{}", "dump CFG to 'liveness_info.dot' ...".bold().blue());
+        debug::dump_local_cfg_with_liveness("liveness_info.dot", &ir_module, &local_cfg, &liveness_info);
+        eprintln!("{}", "done!".bold().blue());
+    }
 }

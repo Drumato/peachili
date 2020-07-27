@@ -24,6 +24,9 @@ fn build_graph_in_func(ir_fn: &tac::IRFunction) -> LocalControlFlowGraph {
     let mut jmp_to_label: BTreeMap<String, BTreeSet<tac::CodeId>> = BTreeMap::new();
 
     for (idx, code_id) in ir_fn.codes.iter().enumerate() {
+        graph.successors.insert(*code_id, BTreeSet::new());
+        graph.predecessors.insert(*code_id, BTreeSet::new());
+
         if let Ok(arena) = ir_fn.code_allocator.lock() {
             let code = arena.get(*code_id).unwrap();
 

@@ -19,6 +19,10 @@ impl LocalControlFlowGraph {
         self.successors.entry(src).or_insert_with(BTreeSet::new);
         self.successors.get_mut(&src).unwrap().insert(dst);
     }
+
+    pub fn get_successors(&self, code_id: &tac::CodeId) -> &BTreeSet<tac::CodeId> {
+        self.predecessors.get(code_id).unwrap()
+    }
 }
 
 impl Default for LocalControlFlowGraph {

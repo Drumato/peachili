@@ -85,7 +85,7 @@ impl CodeKind {
         let lop = value_arena.lock().unwrap().get(*lop).unwrap().clone().dump();
         let rop = value_arena.lock().unwrap().get(*rop).unwrap().clone().dump();
 
-        format!("\"{} <- {} {} {}\"", res, lop, operator, rop)
+        format!("{} <- {} {} {}", res, lop, operator, rop)
     }
     pub fn dump(&self, value_arena: ValueArena) -> String {
         match self {

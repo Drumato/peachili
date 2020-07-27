@@ -8,8 +8,15 @@ pub struct Value {
     pub kind: value_kind::ValueKind,
 }
 
-impl Value{
-    pub fn dump(&self) -> String{
+impl Value {
+    pub fn dump(&self) -> String {
         self.kind.dump()
+    }
+
+    pub fn is_temp(&self) -> bool {
+        match &self.kind {
+            value_kind::ValueKind::TEMP { number: _ } => true,
+            _ => false,
+        }
     }
 }
