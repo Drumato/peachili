@@ -20,8 +20,13 @@ pub struct IRFunction {
     // ベーシックブロック系の情報も持たせる
 }
 
+#[allow(dead_code)]
 impl IRFunction {
     pub fn get_value(&self, v_id: ValueId) -> Value {
         self.value_allocator.lock().unwrap().get(v_id).unwrap().clone()
+    }
+
+    pub fn get_code(&self, c_id: CodeId) -> Code {
+        self.code_allocator.lock().unwrap().get(c_id).unwrap().clone()
     }
 }

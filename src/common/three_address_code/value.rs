@@ -8,6 +8,7 @@ pub struct Value {
     pub kind: value_kind::ValueKind,
 }
 
+#[allow(dead_code)]
 impl Value {
     pub fn dump(&self) -> String {
         self.kind.dump()

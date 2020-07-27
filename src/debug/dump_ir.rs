@@ -32,7 +32,7 @@ impl IRDumper {
         self.output += &format!("  {}:\n", func.name);
 
         for code_id in func.codes.iter() {
-            let code = func.code_allocator.lock().unwrap().get(*code_id).unwrap().clone();
+            let code = func.get_code(*code_id);
             self.output += &format!("    {}\n", code.dump(func.value_allocator.clone()));
         }
     }
