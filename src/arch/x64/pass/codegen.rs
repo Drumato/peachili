@@ -19,71 +19,13 @@ fn gen_x64_fn(tac_fn: &tac::IRFunction, stack_frame: &StackFrame) -> lir::Functi
     let mut x64_fn = lir::Function::new(&tac_fn.name);
     x64_fn.push_block("entry");
 
-    let mut generator = FunctionGenerator {
-        f: x64_fn,
-        param_count: 0,
-        virt_to_phys: BTreeMap::new(),
-        frame: stack_frame,
-    };
+    let mut generator = FunctionGenerator::new(x64_fn, stack_frame);
 
     // prologue
-    generator
-        .f
-        .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::PUSH {
-            operand_size: lir::OperandSize::QWORD,
-            value: lir::Operand::new(lir::OperandKind::REGISTER {
-                reg: lir::Register::RBP,
-            }),
-        }));
-    generator
-        .f
-        .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-            operand_size: lir::OperandSize::QWORD,
-            src: lir::Operand::new(lir::OperandKind::REGISTER {
-                reg: lir::Register::RSP,
-            }),
-            dst: lir::Operand::new(lir::OperandKind::REGISTER {
-                reg: lir::Register::RBP,
-            }),
-        }));
-    generator
-        .f
-        .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::SUB {
-            operand_size: lir::OperandSize::QWORD,
-            src: lir::Operand::new(lir::OperandKind::IMMEDIATE {
-                value: generator
-                    .frame
-                    .get(generator.f.get_name())
-                    .unwrap()
-                    .get(generator.f.get_name())
-                    .unwrap()
-                    .offset as i64,
-            }),
-            dst: lir::Operand::new(lir::OperandKind::REGISTER {
-                reg: lir::Register::RSP,
-            }),
-        }));
+    generator.gen_function_prologue();
 
-    // 引数定義があったらその分moveする
-    for (arg_idx, arg_name) in tac_fn.args.iter().enumerate() {
-        let param_reg = generator.get_param_register(arg_idx);
-        generator
-            .f
-            .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                operand_size: lir::OperandSize::QWORD,
-                dst: lir::Operand::new(lir::OperandKind::MEMORY {
-                    base: lir::Register::RBP,
-                    offset: generator
-                        .frame
-                        .get(generator.f.get_name())
-                        .unwrap()
-                        .get(arg_name)
-                        .unwrap()
-                        .offset,
-                }),
-                src: param_reg,
-            }));
-    }
+    // 引数定義があったらその分storeする
+    generator.gen_arguments_to_stack(tac_fn);
 
     for code_id in tac_fn.codes.iter() {
         let code = tac_fn.get_code(*code_id);
@@ -108,37 +50,7 @@ impl<'a> FunctionGenerator<'a> {
             }
             tac::CodeKind::RETURN { value } => {
                 let value = tac_fn.get_value(value);
-                let value = self.operand_from_value(value);
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: value,
-                        dst: lir::Operand::new(lir::OperandKind::REGISTER {
-                            reg: lir::Register::RAX,
-                        }),
-                    }));
-
-                // epilogue
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        dst: lir::Operand::new(lir::OperandKind::REGISTER {
-                            reg: lir::Register::RSP,
-                        }),
-                        src: lir::Operand::new(lir::OperandKind::REGISTER {
-                            reg: lir::Register::RBP,
-                        }),
-                    }));
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::POP {
-                        operand_size: lir::OperandSize::QWORD,
-                        value: lir::Operand::new(lir::OperandKind::REGISTER {
-                            reg: lir::Register::RBP,
-                        }),
-                    }));
-
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::RET));
+                self.gen_return_inst(value);
             }
             tac::CodeKind::ADD { lop, rop, result } => {
                 let lop_value = tac_fn.get_value(lop);
@@ -149,10 +61,9 @@ impl<'a> FunctionGenerator<'a> {
 
             tac::CodeKind::ASM { value } => {
                 let asm_value = tac_fn.get_value(value);
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::INLINEASM {
-                        contents: asm_value.copy_contents(),
-                    }));
+                self.add_inst_to_last_bb(lir::InstKind::INLINEASM {
+                    contents: asm_value.copy_contents(),
+                });
             }
 
             tac::CodeKind::PARAM { value } => {
@@ -164,26 +75,33 @@ impl<'a> FunctionGenerator<'a> {
 
             tac::CodeKind::CALL { name, result } => {
                 let called_name = tac_fn.get_called_name(name);
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::CALL {
-                        name: called_name,
-                    }));
                 let result_value = tac_fn.get_value(result);
-                let result = self.operand_from_value(result_value);
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        dst: result,
-                        src: lir::Operand::new(lir::OperandKind::REGISTER {
-                            reg: lir::Register::RAX,
-                        }),
-                    }));
+
+                self.gen_call_inst(called_name, result_value);
 
                 self.param_count = 0;
             }
 
             _ => eprintln!("unimplemented {:?}", code.kind),
         }
+    }
+
+    fn gen_return_inst(&mut self, value: tac::Value) {
+        let value = self.operand_from_value(value);
+        self.moveq_reg_to_reg_inst(value, self.new_reg_operand(lir::Register::RAX));
+
+        // epilogue
+        self.gen_function_epilogue();
+
+        self.add_inst_to_last_bb(lir::InstKind::RET);
+    }
+
+    fn gen_call_inst(&mut self, called_name: String, result_value: tac::Value) {
+        self.add_inst_to_last_bb(lir::InstKind::CALL { name: called_name });
+
+        let result = self.operand_from_value(result_value);
+        let returned_reg = self.new_reg_operand(lir::Register::RAX);
+        self.moveq_reg_to_reg_inst(returned_reg, result);
     }
 
     fn gen_add_inst(&mut self, lop: tac::Value, rop: tac::Value, result: tac::Value) {
@@ -194,50 +112,18 @@ impl<'a> FunctionGenerator<'a> {
         match lop.get_kind() {
             // resultにmoveしてからplus
             lir::OperandKind::IMMEDIATE { value: _ } => {
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: lop,
-                        dst: result_reg,
-                    }));
-
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::ADD {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: rop,
-                        dst: result_reg,
-                    }));
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.addq_reg_and_reg(rop, result_reg);
             }
             // lopにplusしてresultに格納
             lir::OperandKind::REGISTER { reg: _ } => {
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::ADD {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: rop,
-                        dst: lop,
-                    }));
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: lop,
-                        dst: result_reg,
-                    }));
+                self.addq_reg_and_reg(rop, lop);
+                self.moveq_reg_to_reg_inst(lop, result_reg);
             }
             // resultにmoveしてからplus
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: lop,
-                        dst: result_reg,
-                    }));
-
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::ADD {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: rop,
-                        dst: result_reg,
-                    }));
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.addq_reg_and_reg(rop, result_reg);
             }
         }
     }
@@ -248,16 +134,10 @@ impl<'a> FunctionGenerator<'a> {
             tac::ValueKind::INTLITERAL { value } => {
                 lir::Operand::new(lir::OperandKind::IMMEDIATE { value })
             }
-            tac::ValueKind::ID { name } => lir::Operand::new(lir::OperandKind::MEMORY {
-                base: lir::Register::RBP,
-                offset: self
-                    .frame
-                    .get(self.f.get_name())
-                    .unwrap()
-                    .get(&name)
-                    .unwrap()
-                    .offset,
-            }),
+            tac::ValueKind::ID { name } => {
+                let id_offset = self.get_local_var_offset(&name);
+                self.new_memory_operand(lir::Register::RBP, id_offset)
+            }
             _ => unreachable!(),
         }
     }
@@ -305,7 +185,7 @@ impl<'a> FunctionGenerator<'a> {
             _ => panic!("callee register exhausted"),
         };
 
-        lir::Operand::new(lir::OperandKind::REGISTER { reg })
+        self.new_reg_operand(reg)
     }
 
     fn gen_phys_reg(&mut self, virt_num: usize) -> lir::Operand {
@@ -313,7 +193,7 @@ impl<'a> FunctionGenerator<'a> {
             kind: tac::ValueKind::TEMP { number: virt_num },
         };
         if let Some(phys_reg) = self.virt_to_phys.get(&virt_reg) {
-            return lir::Operand::new(lir::OperandKind::REGISTER { reg: *phys_reg });
+            return self.new_reg_operand(*phys_reg);
         }
 
         let reg = match virt_num % lir::Register::AVAILABLES {
@@ -328,12 +208,12 @@ impl<'a> FunctionGenerator<'a> {
 
         self.virt_to_phys.insert(virt_reg, reg);
 
-        lir::Operand::new(lir::OperandKind::REGISTER { reg })
+        self.new_reg_operand(reg)
     }
 
     fn gen_phys_reg_from(&mut self, v: tac::Value) -> lir::Operand {
         if let Some(phys_reg) = self.virt_to_phys.get(&v) {
-            return lir::Operand::new(lir::OperandKind::REGISTER { reg: *phys_reg });
+            return self.new_reg_operand(*phys_reg);
         }
 
         let reg = match v.get_virt_number() % lir::Register::AVAILABLES {
@@ -348,6 +228,120 @@ impl<'a> FunctionGenerator<'a> {
 
         self.virt_to_phys.insert(v, reg);
 
-        lir::Operand::new(lir::OperandKind::REGISTER { reg })
+        self.new_reg_operand(reg)
+    }
+
+    fn new_reg_operand(&self, reg: lir::Register) -> lir::Operand {
+        lir::Operand::new(lir::OperandKind::REGISTER {
+            reg
+        })
+    }
+    fn new_memory_operand(&self, base: lir::Register, offset: usize) -> lir::Operand {
+        lir::Operand::new(lir::OperandKind::MEMORY {
+            base,
+            offset,
+        })
+    }
+
+    fn gen_function_prologue(&mut self) {
+        self.pushq_reg_inst(lir::Register::RBP);
+        self.moveq_reg_to_reg_inst(self.new_reg_operand(lir::Register::RSP), self.new_reg_operand(lir::Register::RBP));
+        self.subq_reg_by_imm_inst(self.get_function_frame_size(), lir::Register::RSP);
+    }
+
+    fn gen_function_epilogue(&mut self) {
+        self.moveq_reg_to_reg_inst(self.new_reg_operand(lir::Register::RBP), self.new_reg_operand(lir::Register::RSP));
+        self.popq_reg_inst(lir::Register::RBP);
+    }
+
+    fn pushq_reg_inst(&mut self, reg: lir::Register) {
+        self.add_inst_to_last_bb(lir::InstKind::PUSH {
+            operand_size: lir::OperandSize::QWORD,
+            value: self.new_reg_operand(reg),
+        });
+    }
+    fn popq_reg_inst(&mut self, reg: lir::Register) {
+        self.add_inst_to_last_bb(lir::InstKind::POP {
+            operand_size: lir::OperandSize::QWORD,
+            value: self.new_reg_operand(reg),
+        });
+    }
+
+    fn subq_reg_by_imm_inst(&mut self, value: lir::Operand, dst: lir::Register) {
+        self.add_inst_to_last_bb(lir::InstKind::SUB {
+            operand_size: lir::OperandSize::QWORD,
+            src: value,
+            dst: self.new_reg_operand(dst),
+        });
+    }
+
+    fn moveq_reg_to_reg_inst(&mut self, src: lir::Operand, dst: lir::Operand) {
+        self.add_inst_to_last_bb(lir::InstKind::MOV {
+            operand_size: lir::OperandSize::QWORD,
+            src,
+            dst: dst,
+        });
+    }
+    fn addq_reg_and_reg(&mut self, src: lir::Operand, dst: lir::Operand) {
+        self.add_inst_to_last_bb(lir::InstKind::ADD {
+            operand_size: lir::OperandSize::QWORD,
+            src,
+            dst,
+        });
+    }
+
+    fn add_inst_to_last_bb(&mut self, inst_kind: lir::InstKind) {
+        self.f.add_inst_to_last_bb(lir::Instruction::new(inst_kind));
+    }
+
+    fn storeq_to_mem(&mut self, src: lir::Operand, dst: lir::Operand) {
+        self.add_inst_to_last_bb(lir::InstKind::MOV {
+            operand_size: lir::OperandSize::QWORD,
+            dst,
+            src,
+        });
+    }
+
+    fn gen_arguments_to_stack(&mut self, tac_fn: &tac::IRFunction) {
+        for (arg_idx, arg_name) in tac_fn.args.iter().enumerate() {
+            let param_reg = self.get_param_register(arg_idx);
+            let memory_op = self.new_memory_operand(
+                lir::Register::RBP,
+                self.get_local_var_offset(arg_name),
+            );
+
+            self.storeq_to_mem(param_reg, memory_op);
+        }
+    }
+
+    fn get_local_var_offset(&self, var_name: &str) -> usize {
+        self
+            .frame
+            .get(self.f.get_name())
+            .unwrap()
+            .get(var_name)
+            .unwrap()
+            .offset
+    }
+
+    fn get_function_frame_size(&self) -> lir::Operand {
+        lir::Operand::new(lir::OperandKind::IMMEDIATE {
+            value: self
+                .frame
+                .get(self.f.get_name())
+                .unwrap()
+                .get(self.f.get_name())
+                .unwrap()
+                .offset as i64,
+        })
+    }
+
+    fn new(x64_fn: lir::Function, stack_frame: &'a StackFrame) -> Self {
+        Self {
+            f: x64_fn,
+            param_count: 0,
+            virt_to_phys: Default::default(),
+            frame: stack_frame,
+        }
     }
 }
