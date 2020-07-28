@@ -58,6 +58,51 @@ impl<'a> FunctionGenerator<'a> {
                 let result = tac_fn.get_value(result);
                 self.gen_add_inst(lop_value, rop_value, result);
             }
+            tac::CodeKind::SUB { lop, rop, result } => {
+                let lop_value = tac_fn.get_value(lop);
+                let rop_value = tac_fn.get_value(rop);
+                let result = tac_fn.get_value(result);
+                self.gen_sub_inst(lop_value, rop_value, result);
+            }
+            tac::CodeKind::MUL { lop, rop, result } => {
+                let lop_value = tac_fn.get_value(lop);
+                let rop_value = tac_fn.get_value(rop);
+                let result = tac_fn.get_value(result);
+                self.gen_mul_inst(lop_value, rop_value, result);
+            }
+            tac::CodeKind::DIV { lop, rop, result } => {
+                let lop_value = tac_fn.get_value(lop);
+                let rop_value = tac_fn.get_value(rop);
+                let result = tac_fn.get_value(result);
+                self.gen_div_inst(lop_value, rop_value, result);
+            }
+            tac::CodeKind::ASSIGN { value, result } => {
+                let value = tac_fn.get_value(value);
+                let value_op = self.operand_from_value(value);
+                let result = tac_fn.get_value(result);
+                let result = self.operand_from_value(result);
+
+                self.add_inst_to_last_bb(lir::InstKind::MOV {
+                    operand_size: lir::OperandSize::QWORD,
+                    src: value_op,
+                    dst: result,
+                });
+            }
+            tac::CodeKind::NEG { value, result } => {
+                let value = tac_fn.get_value(value);
+                let result = tac_fn.get_value(result);
+                self.gen_neg_inst(value, result);
+            }
+            tac::CodeKind::ADDRESSOF { value, result } => {
+                let value = tac_fn.get_value(value);
+                let result = tac_fn.get_value(result);
+                self.gen_address_inst(value, result);
+            }
+            tac::CodeKind::DEREFERENCE { value, result } => {
+                let value = tac_fn.get_value(value);
+                let result = tac_fn.get_value(result);
+                self.gen_deref_inst(value, result);
+            }
 
             tac::CodeKind::ASM { value } => {
                 let asm_value = tac_fn.get_value(value);
@@ -82,6 +127,26 @@ impl<'a> FunctionGenerator<'a> {
                 self.param_count = 0;
             }
 
+            tac::CodeKind::JUMP { label } => {
+                self.add_inst_to_last_bb(lir::InstKind::JMP {
+                    label: format!("{}_{}", self.f.get_name(), label),
+                });
+            }
+            tac::CodeKind::JUMPIFFALSE { label, cond_result } => {
+                let value = tac_fn.get_value(cond_result);
+                let value_op = self.operand_from_value(value);
+
+                self.add_inst_to_last_bb(lir::InstKind::CMP {
+                    operand_size: lir::OperandSize::QWORD,
+                    src: lir::Operand::new(lir::OperandKind::IMMEDIATE { value: 0 }),
+                    dst: value_op,
+                });
+                self.add_inst_to_last_bb(lir::InstKind::JE {
+                    label: format!("{}_{}", self.f.get_name(), label),
+                });
+            }
+
+            tac::CodeKind::ALLOC { temp: _ } => {}
             _ => eprintln!("unimplemented {:?}", code.kind),
         }
     }
@@ -127,6 +192,116 @@ impl<'a> FunctionGenerator<'a> {
             }
         }
     }
+    fn gen_sub_inst(&mut self, lop: tac::Value, rop: tac::Value, result: tac::Value) {
+        let result_reg = self.gen_phys_reg_from(result);
+        let lop = self.operand_from_value(lop);
+        let rop = self.operand_from_value(rop);
+
+        match lop.get_kind() {
+            // resultにmoveしてからplus
+            lir::OperandKind::IMMEDIATE { value: _ } => {
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.subq_reg_and_reg(rop, result_reg);
+            }
+            // lopにplusしてresultに格納
+            lir::OperandKind::REGISTER { reg: _ } => {
+                self.subq_reg_and_reg(rop, lop);
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+            }
+            // resultにmoveしてからplus
+            lir::OperandKind::MEMORY { base: _, offset: _ } => {
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.subq_reg_and_reg(rop, result_reg);
+            }
+        }
+    }
+    fn gen_mul_inst(&mut self, lop: tac::Value, rop: tac::Value, result: tac::Value) {
+        let result_reg = self.gen_phys_reg_from(result);
+        let lop = self.operand_from_value(lop);
+        let rop = self.operand_from_value(rop);
+
+        match lop.get_kind() {
+            // resultにmoveしてからplus
+            lir::OperandKind::IMMEDIATE { value: _ } => {
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.imulq_reg_and_reg(rop, result_reg);
+            }
+            // lopにplusしてresultに格納
+            lir::OperandKind::REGISTER { reg: _ } => {
+                self.imulq_reg_and_reg(rop, lop);
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+            }
+            // resultにmoveしてからplus
+            lir::OperandKind::MEMORY { base: _, offset: _ } => {
+                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.imulq_reg_and_reg(rop, result_reg);
+            }
+        }
+    }
+
+    fn gen_div_inst(&mut self, lop: tac::Value, rop: tac::Value, result: tac::Value) {
+        let result_reg = self.gen_phys_reg_from(result);
+        let lop = self.operand_from_value(lop);
+        let rop = self.operand_from_value(rop);
+
+        // とりあえずスタック使う
+        // rdiを引数レジスタとして使っているかもしれないから保存
+        self.pushq_reg_inst(lir::Register::RDI);
+        self.moveq_reg_to_reg_inst(lop, self.new_reg_operand(lir::Register::RAX));
+        self.moveq_reg_to_reg_inst(rop, self.new_reg_operand(lir::Register::RDI));
+        self.add_inst_to_last_bb(lir::InstKind::CLTD);
+        self.idivq_rax_by_reg(lir::Register::RDI);
+        self.moveq_reg_to_reg_inst(self.new_reg_operand(lir::Register::RAX), result_reg);
+        self.popq_reg_inst(lir::Register::RDI);
+    }
+
+    fn gen_neg_inst(&mut self, value: tac::Value, result: tac::Value) {
+        let result_reg = self.gen_phys_reg_from(result);
+        let value_op = self.operand_from_value(value);
+
+        match value_op.get_kind() {
+            // resultにmoveしてからplus
+            lir::OperandKind::IMMEDIATE { value: _ } => {
+                self.moveq_reg_to_reg_inst(value_op, result_reg);
+                self.negq_reg(result_reg);
+            }
+            // lopにplusしてresultに格納
+            lir::OperandKind::REGISTER { reg: _ } => {
+                self.negq_reg(value_op);
+                self.moveq_reg_to_reg_inst(value_op, result_reg);
+            }
+            // resultにmoveしてからplus
+            lir::OperandKind::MEMORY { base: _, offset: _ } => {
+                self.negq_reg(value_op);
+                self.moveq_reg_to_reg_inst(value_op, result_reg);
+            }
+        }
+    }
+    fn gen_address_inst(&mut self, value: tac::Value, result: tac::Value) {
+        let result_reg = self.gen_phys_reg_from(result);
+        let value_op = self.operand_from_value(value);
+
+        match value_op.get_kind() {
+            lir::OperandKind::IMMEDIATE { value: _ } => unreachable!(),
+            lir::OperandKind::REGISTER { reg: _ } => unreachable!(),
+            lir::OperandKind::MEMORY { base: _, offset: _ } => {
+                self.leaq_memory_to_reg(value_op, result_reg);
+            }
+        }
+    }
+    fn gen_deref_inst(&mut self, value: tac::Value, result: tac::Value) {
+        let result_reg = self.gen_phys_reg_from(result);
+        let value_op = self.operand_from_value(value);
+
+        match value_op.get_kind() {
+            lir::OperandKind::IMMEDIATE { value: _ } => unreachable!(),
+            lir::OperandKind::REGISTER { reg: _ } => unreachable!(),
+            lir::OperandKind::MEMORY { base: _, offset: _ } => {
+                self.storeq_to_mem(value_op, result_reg);
+                self.storeq_to_mem(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
+            }
+        }
+    }
 
     fn operand_from_value(&mut self, v: tac::Value) -> lir::Operand {
         match v.kind {
@@ -137,6 +312,18 @@ impl<'a> FunctionGenerator<'a> {
             tac::ValueKind::ID { name } => {
                 let id_offset = self.get_local_var_offset(&name);
                 self.new_memory_operand(lir::Register::RBP, id_offset)
+            }
+            tac::ValueKind::BOOLEANLITERAL { truth } => {
+                if truth {
+                    lir::Operand::new(lir::OperandKind::IMMEDIATE { value: 1 })
+                } else {
+                    lir::Operand::new(lir::OperandKind::IMMEDIATE { value: 0 })
+                }
+            }
+            tac::ValueKind::UINTLITERAL { value } => {
+                lir::Operand::new(lir::OperandKind::IMMEDIATE {
+                    value: value as i64,
+                })
             }
             _ => unreachable!(),
         }
@@ -232,25 +419,26 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     fn new_reg_operand(&self, reg: lir::Register) -> lir::Operand {
-        lir::Operand::new(lir::OperandKind::REGISTER {
-            reg
-        })
+        lir::Operand::new(lir::OperandKind::REGISTER { reg })
     }
     fn new_memory_operand(&self, base: lir::Register, offset: usize) -> lir::Operand {
-        lir::Operand::new(lir::OperandKind::MEMORY {
-            base,
-            offset,
-        })
+        lir::Operand::new(lir::OperandKind::MEMORY { base, offset })
     }
 
     fn gen_function_prologue(&mut self) {
         self.pushq_reg_inst(lir::Register::RBP);
-        self.moveq_reg_to_reg_inst(self.new_reg_operand(lir::Register::RSP), self.new_reg_operand(lir::Register::RBP));
+        self.moveq_reg_to_reg_inst(
+            self.new_reg_operand(lir::Register::RSP),
+            self.new_reg_operand(lir::Register::RBP),
+        );
         self.subq_reg_by_imm_inst(self.get_function_frame_size(), lir::Register::RSP);
     }
 
     fn gen_function_epilogue(&mut self) {
-        self.moveq_reg_to_reg_inst(self.new_reg_operand(lir::Register::RBP), self.new_reg_operand(lir::Register::RSP));
+        self.moveq_reg_to_reg_inst(
+            self.new_reg_operand(lir::Register::RBP),
+            self.new_reg_operand(lir::Register::RSP),
+        );
         self.popq_reg_inst(lir::Register::RBP);
     }
 
@@ -266,6 +454,12 @@ impl<'a> FunctionGenerator<'a> {
             value: self.new_reg_operand(reg),
         });
     }
+    fn negq_reg(&mut self, reg: lir::Operand) {
+        self.add_inst_to_last_bb(lir::InstKind::NEG {
+            operand_size: lir::OperandSize::QWORD,
+            value: reg,
+        });
+    }
 
     fn subq_reg_by_imm_inst(&mut self, value: lir::Operand, dst: lir::Register) {
         self.add_inst_to_last_bb(lir::InstKind::SUB {
@@ -279,11 +473,38 @@ impl<'a> FunctionGenerator<'a> {
         self.add_inst_to_last_bb(lir::InstKind::MOV {
             operand_size: lir::OperandSize::QWORD,
             src,
-            dst: dst,
+            dst,
         });
     }
     fn addq_reg_and_reg(&mut self, src: lir::Operand, dst: lir::Operand) {
         self.add_inst_to_last_bb(lir::InstKind::ADD {
+            operand_size: lir::OperandSize::QWORD,
+            src,
+            dst,
+        });
+    }
+    fn subq_reg_and_reg(&mut self, src: lir::Operand, dst: lir::Operand) {
+        self.add_inst_to_last_bb(lir::InstKind::SUB {
+            operand_size: lir::OperandSize::QWORD,
+            src,
+            dst,
+        });
+    }
+    fn imulq_reg_and_reg(&mut self, src: lir::Operand, dst: lir::Operand) {
+        self.add_inst_to_last_bb(lir::InstKind::IMUL {
+            operand_size: lir::OperandSize::QWORD,
+            src,
+            dst,
+        });
+    }
+    fn idivq_rax_by_reg(&mut self, reg: lir::Register) {
+        self.add_inst_to_last_bb(lir::InstKind::IDIV {
+            operand_size: lir::OperandSize::QWORD,
+            value: self.new_reg_operand(reg),
+        });
+    }
+    fn leaq_memory_to_reg(&mut self, src: lir::Operand, dst: lir::Operand) {
+        self.add_inst_to_last_bb(lir::InstKind::LEA {
             operand_size: lir::OperandSize::QWORD,
             src,
             dst,
@@ -305,18 +526,15 @@ impl<'a> FunctionGenerator<'a> {
     fn gen_arguments_to_stack(&mut self, tac_fn: &tac::IRFunction) {
         for (arg_idx, arg_name) in tac_fn.args.iter().enumerate() {
             let param_reg = self.get_param_register(arg_idx);
-            let memory_op = self.new_memory_operand(
-                lir::Register::RBP,
-                self.get_local_var_offset(arg_name),
-            );
+            let memory_op =
+                self.new_memory_operand(lir::Register::RBP, self.get_local_var_offset(arg_name));
 
             self.storeq_to_mem(param_reg, memory_op);
         }
     }
 
     fn get_local_var_offset(&self, var_name: &str) -> usize {
-        self
-            .frame
+        self.frame
             .get(self.f.get_name())
             .unwrap()
             .get(var_name)

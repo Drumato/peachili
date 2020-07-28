@@ -390,9 +390,11 @@ impl FunctionTranslator {
         let next_label = self.gen_label("NEXT");
 
         let cond_v = self.gen_ir_from_expr(cond_id);
+        let cond_result_tmp = self.gen_result_temp();
+        self.add_code_with_allocation(tac::CodeKind::ASSIGN { value: cond_v, result: cond_result_tmp });
         self.add_code_with_allocation(tac::CodeKind::JUMPIFFALSE {
             label: false_label.clone(),
-            cond_result: cond_v,
+            cond_result: cond_result_tmp,
         });
         self.add_code_with_allocation(tac::CodeKind::JUMP {
             label: true_label.clone(),

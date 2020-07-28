@@ -19,6 +19,12 @@ impl Operand {
             },
         }
     }
+    pub fn get_reg(&self) -> Register{
+        match &self.kind{
+            OperandKind::REGISTER {reg} => *reg,
+            _ => unreachable!(),
+        }
+    }
 
     pub fn new(kind: OperandKind) -> Self {
         Self {

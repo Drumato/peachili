@@ -118,6 +118,13 @@ impl Type {
             _ => false,
         }
     }
+    /// 関数型であるか
+    pub fn is_function(&self) -> bool {
+        match &self.kind {
+            TypeKind::FUNCTION { return_type: _ } => true,
+            _ => false,
+        }
+    }
 
     /// 構造体型であると解釈し, メンバを取り出す
     pub fn get_members(&self) -> &BTreeMap<String, (Box<Type>, usize)> {

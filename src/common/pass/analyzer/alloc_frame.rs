@@ -11,7 +11,24 @@ pub fn allocate_stack_frame(
         let mut frame_in_func = BTreeMap::new();
 
         let mut total_offset_in_func = 0;
+        // 先に関数以外をすべて回したあと，関数を回す
+        // すべてのローカル変数のサイズを合計しないといけないため
         for (entry_name, entry) in func_env {
+            if entry.is_function() {
+                continue;
+            }
+            total_offset_in_func += entry.size;
+            frame_in_func.insert(entry_name.to_string(), frame_object::FrameObject {
+                offset: total_offset_in_func,
+            });
+        }
+
+        // 先に関数以外をすべて回したあと，関数を回す
+        // すべてのローカル変数のサイズを合計しないといけないため
+        for (entry_name, entry) in func_env {
+            if !entry.is_function() {
+                continue;
+            }
             total_offset_in_func += entry.size;
             frame_in_func.insert(entry_name.to_string(), frame_object::FrameObject {
                 offset: total_offset_in_func,
