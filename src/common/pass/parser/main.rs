@@ -1,5 +1,5 @@
 use crate::common::ast::{
-    FnArena, ASTRoot, StructDef, Function, FnId,
+    FnArena, ASTRoot, StructDef, Function, FnId, FunctionTypeDef,
 };
 use crate::common::token::{Token, TokenKind};
 
@@ -116,9 +116,8 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
     (
         fn_arena.lock().unwrap().alloc(Function {
             name: func_name,
-            args: arg_map,
+            fn_type:FunctionTypeDef::new(return_type, arg_map),
             stmts,
-            return_type,
             pos: func_pos,
             module_name: resources.module_name.clone(),
             stmt_arena: resources.stmt_arena.clone(),
@@ -128,10 +127,10 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
     )
 }
 
-fn arg_list(module_name: String, mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
+fn arg_list(module_name: String, mut tokens: Vec<Token>) -> (Vec<(String, String)>, Vec<Token>) {
     parser_util::expect(TokenKind::LPAREN, &mut tokens);
 
-    let mut arg_map = BTreeMap::new();
+    let mut args = Vec::new();
 
     loop {
         let t = parser_util::head(&tokens);
@@ -150,10 +149,10 @@ fn arg_list(module_name: String, mut tokens: Vec<Token>) -> (BTreeMap<String, St
 
         parser_util::consume(TokenKind::COMMA, &mut tokens);
 
-        arg_map.insert(arg_name, type_name);
+        args.push((arg_name, type_name));
     }
 
-    (arg_map, tokens)
+    (args, tokens)
 }
 
 #[cfg(test)]

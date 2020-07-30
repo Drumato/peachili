@@ -1,6 +1,5 @@
 use crate::common::{ast, error::CompileError, option, peachili_type::Type, tld};
 
-use crate::common::pass::analyzer::type_util;
 use crate::common::error::TypeErrorKind;
 use crate::common::peachili_type::TypeKind;
 use std::collections::BTreeMap;
@@ -53,7 +52,7 @@ fn type_check_main_fn(
     // - 引数が空になっているか
     // - 返り値の方がNoreturnになっているか
 
-    if !function.args.is_empty() {
+    if !function.get_parameters().is_empty() {
         return Err(CompileError::new(
             TypeErrorKind::MAINFUNCMUSTNOTHAVEANYARGUMENTS,
             function.pos,
@@ -171,22 +170,14 @@ fn type_check_expr(
     target: option::Target,
 ) -> Result<Type, CompileError<TypeErrorKind>> {
     match expr.get_kind() {
-        ast::ExpressionNodeKind::INTEGER { value: _ } => Ok(Type::new_int64(
-            type_util::resolve_type_size(tld_env, type_util::ForCalcTypeSize::INT64, target),
-        )),
-        ast::ExpressionNodeKind::UINTEGER { value: _ } => Ok(Type::new_uint64(
-            type_util::resolve_type_size(tld_env, type_util::ForCalcTypeSize::UINT64, target),
-        )),
+        ast::ExpressionNodeKind::INTEGER { value: _ } => Ok(Type::new_int64(target)),
+        ast::ExpressionNodeKind::UINTEGER { value: _ } => Ok(Type::new_uint64(target)),
         ast::ExpressionNodeKind::IDENTIFIER { names } => {
             let full_path = names.join("::");
             Ok(type_env.get(&full_path).unwrap().clone())
         }
-        ast::ExpressionNodeKind::BOOLEAN { truth: _ } => Ok(Type::new_boolean(
-            type_util::resolve_type_size(tld_env, type_util::ForCalcTypeSize::BOOLEAN, target),
-        )),
-        ast::ExpressionNodeKind::STRING { contents: _ } => Ok(Type::new_const_str(
-            type_util::resolve_type_size(tld_env, type_util::ForCalcTypeSize::CONSTSTR, target),
-        )),
+        ast::ExpressionNodeKind::BOOLEAN { truth: _ } => Ok(Type::new_boolean(target)),
+        ast::ExpressionNodeKind::STRING { contents: _ } => Ok(Type::new_const_str(target)),
         ast::ExpressionNodeKind::MEMBER {
             id: st_id,
             member: member_id,
@@ -266,6 +257,8 @@ mod type_check_tests {
     use crate::common::token::TokenKind;
     use id_arena::Arena;
     use std::sync::{Arc, Mutex};
+    use crate::common::option::Target;
+    use crate::common::analyze_resource::ast::FunctionTypeDef;
 
     #[test]
     fn type_check_main_fn_with_invalid_return_type_test() {
@@ -424,7 +417,7 @@ mod type_check_tests {
             option::Target::X86_64,
         );
         assert!(int_type.is_ok());
-        assert_eq!(Type::new_int64(8), int_type.unwrap());
+        assert_eq!(Type::new_int64(Target::X86_64), int_type.unwrap());
 
         // identifier-literal
         let uint_ex = ast::ExpressionNode::new_uinteger(30, Default::default());
@@ -436,7 +429,7 @@ mod type_check_tests {
             option::Target::X86_64,
         );
         assert!(uint_type.is_ok());
-        assert_eq!(Type::new_uint64(8), uint_type.unwrap());
+        assert_eq!(Type::new_uint64(Target::X86_64), uint_type.unwrap());
 
         // boolean-literal
         let bool_ex = ast::ExpressionNode::new_boolean(true, Default::default());
@@ -448,7 +441,7 @@ mod type_check_tests {
             option::Target::X86_64,
         );
         assert!(bool_type.is_ok());
-        assert_eq!(Type::new_boolean(8), bool_type.unwrap());
+        assert_eq!(Type::new_boolean(Target::X86_64), bool_type.unwrap());
 
         // identifier
         let ident_ex =
@@ -461,7 +454,7 @@ mod type_check_tests {
             option::Target::X86_64,
         );
         assert!(ident_type.is_ok());
-        assert_eq!(Type::new_int64(8), ident_type.unwrap());
+        assert_eq!(Type::new_int64(Target::X86_64), ident_type.unwrap());
 
         // string-literal
         let strlit_ex =
@@ -474,7 +467,7 @@ mod type_check_tests {
             option::Target::X86_64,
         );
         assert!(strlit_type.is_ok());
-        assert_eq!(Type::new_const_str(8), strlit_type.unwrap());
+        assert_eq!(Type::new_const_str(Target::X86_64), strlit_type.unwrap());
 
         // member_expr
         let member_ex = new_member_node(
@@ -490,7 +483,7 @@ mod type_check_tests {
             option::Target::X86_64,
         );
         assert!(member_type.is_ok());
-        assert_eq!(Type::new_int64(8), member_type.unwrap());
+        assert_eq!(Type::new_int64(Target::X86_64), member_type.unwrap());
     }
 
     fn new_member_node(
@@ -507,8 +500,10 @@ mod type_check_tests {
         ast::Function {
             name,
             stmts: vec![],
-            return_type: "".to_string(),
-            args,
+            fn_type: FunctionTypeDef {
+                return_type: "Noreturn".to_string(),
+                args: Vec::new(),
+            },
             pos: Default::default(),
             module_name: "".to_string(),
             stmt_arena: Arc::new(Mutex::new(Default::default())),
@@ -527,10 +522,10 @@ mod type_check_tests {
     fn new_func_env() -> BTreeMap<String, Type> {
         let mut func_env = BTreeMap::new();
         // invalidなmain関数の型
-        func_env.insert("main".to_string(), Type::new_int64(8));
+        func_env.insert("main".to_string(), Type::new_int64(Target::X86_64));
 
         // なんてことない変数
-        func_env.insert("x".to_string(), Type::new_int64(8));
+        func_env.insert("x".to_string(), Type::new_int64(Target::X86_64));
 
         // 構造体変数
         func_env.insert(
@@ -538,9 +533,9 @@ mod type_check_tests {
             Type::new_struct(
                 {
                     let mut members = BTreeMap::new();
-                    members.insert("foo".to_string(), (Box::new(Type::new_int64(8)), 0));
+                    members.insert("foo".to_string(), (Box::new(Type::new_int64(Target::X86_64)), 0));
 
-                    members.insert("bar".to_string(), (Box::new(Type::new_int64(8)), 8));
+                    members.insert("bar".to_string(), (Box::new(Type::new_int64(Target::X86_64)), 8));
                     members
                 },
                 16,

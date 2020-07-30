@@ -1,6 +1,5 @@
 use crate::common::{ast, error::CompileError, option, peachili_type::Type, tld};
 
-use crate::common::pass::analyzer::type_util;
 use crate::common::error::TypeErrorKind;
 use std::collections::BTreeMap;
 
@@ -37,7 +36,7 @@ pub fn type_resolve_main(
 
             // 関数自体の型格納
             let function_ret_type =
-                resolve_type_string(tld_map, function.return_type.to_string(), target);
+                resolve_type_string(tld_map, function.copy_return_type(), target);
             if let Err(e) = function_ret_type {
                 e.output();
                 std::process::exit(1);
@@ -52,7 +51,7 @@ pub fn type_resolve_main(
             }
 
             // 自動変数の型格納
-            for (arg_name, arg_type_str) in function.args.iter() {
+            for (arg_name, arg_type_str) in function.get_parameters().iter() {
                 let var_type = resolve_type_string(tld_map, arg_type_str.clone(), target);
                 if let Err(e) = var_type {
                     e.output();
@@ -116,7 +115,7 @@ fn add_auto_var_to_env(
     type_env.insert(func_name.to_string(), BTreeMap::new());
 
     // 引数のデータ格納
-    for (arg_name, arg_type_str) in function.args.iter() {
+    for (arg_name, arg_type_str) in function.get_parameters().iter() {
         if let Some(locals) = type_env.get_mut(&func_name) {
             let arg_type = resolve_type_string(tld_map, arg_type_str.to_string(), target)?;
             locals.insert(arg_name.to_string(), arg_type);
@@ -221,27 +220,13 @@ fn resolve_type_string(
 ) -> Result<Type, CompileError<TypeErrorKind>> {
     if type_name_str.starts_with('*') {
         let pointer_to = resolve_type_string(tld_map, type_name_str[1..].to_string(), target)?;
-        let pointer_size =
-            type_util::resolve_type_size(tld_map, type_util::ForCalcTypeSize::POINTER, target);
-        return Ok(Type::new_pointer(pointer_to, pointer_size));
+        return Ok(Type::new_pointer(pointer_to, target));
     }
 
     match type_name_str.as_str() {
-        "Int64" => Ok(Type::new_int64(type_util::resolve_type_size(
-            tld_map,
-            type_util::ForCalcTypeSize::INT64,
-            target,
-        ))),
-        "Uint64" => Ok(Type::new_uint64(type_util::resolve_type_size(
-            tld_map,
-            type_util::ForCalcTypeSize::UINT64,
-            target,
-        ))),
-        "ConstStr" => Ok(Type::new_const_str(type_util::resolve_type_size(
-            tld_map,
-            type_util::ForCalcTypeSize::UINT64,
-            target,
-        ))),
+        "Int64" => Ok(Type::new_int64(target)),
+        "Uint64" => Ok(Type::new_uint64(target)),
+        "ConstStr" => Ok(Type::new_const_str(target)),
         "Noreturn" => Ok(Type::new_noreturn()),
         _ => {
             // TopLevelDeclから探す，なかったらいよいよエラー
@@ -307,28 +292,29 @@ fn resolve_type_from_tld(
 mod analyze_tests {
     use super::*;
     use crate::common::tld::{TLDKind, TopLevelDecl};
+    use crate::common::option::Target;
 
     #[test]
     fn resolve_type_string_in_x64_test() {
         let m = new_tld();
 
         check_types(Type::new_noreturn(), &m, "Noreturn", option::Target::X86_64);
-        check_types(Type::new_int64(8), &m, "Int64", option::Target::X86_64);
-        check_types(Type::new_uint64(8), &m, "Uint64", option::Target::X86_64);
+        check_types(Type::new_int64(Target::X86_64), &m, "Int64", option::Target::X86_64);
+        check_types(Type::new_uint64(Target::X86_64), &m, "Uint64", option::Target::X86_64);
         check_types(
-            Type::new_pointer(Type::new_int64(8), 8),
+            Type::new_pointer(Type::new_int64(Target::X86_64), Target::X86_64),
             &m,
             "*Int64",
             option::Target::X86_64,
         );
 
-        check_types(Type::new_int64(8), &m, "T1", option::Target::X86_64);
+        check_types(Type::new_int64(Target::X86_64), &m, "T1", option::Target::X86_64);
         check_types(
             Type::new_struct(
                 {
                     let mut mm = BTreeMap::new();
-                    mm.insert("m1".to_string(), (Box::new(Type::new_int64(8)), 0));
-                    mm.insert("m2".to_string(), (Box::new(Type::new_uint64(8)), 8));
+                    mm.insert("m1".to_string(), (Box::new(Type::new_int64(Target::X86_64)), 0));
+                    mm.insert("m2".to_string(), (Box::new(Type::new_uint64(Target::X86_64)), 8));
                     mm
                 },
                 16,

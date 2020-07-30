@@ -11,6 +11,26 @@ pub struct Type {
 }
 
 impl Type {
+    pub fn dump(&self) -> String {
+        match &self.kind {
+            TypeKind::BOOLEAN => "Boolean".to_string(),
+            TypeKind::CONSTSTR => "ConstStr".to_string(),
+            TypeKind::INT64 => "Int64".to_string(),
+            TypeKind::UINT64 => "Uint64".to_string(),
+            TypeKind::NORETURN => "Noreturn".to_string(),
+            TypeKind::FUNCTION { return_type } => format!("func() {}", return_type.dump()),
+            TypeKind::POINTER { to } => format!("*{}", to.dump()),
+            TypeKind::STRUCT { members } => {
+                let mut type_strs = Vec::new();
+
+                for (member_name, (member_type, _offset)) in members.iter() {
+                    type_strs.push(format!("{}: {}", member_name, member_type.dump()));
+                }
+
+                format!("{{ {} }}", type_strs.join(", "))
+            }
+        }
+    }
     /// 関数型サイズ
     pub fn new_function(ret_ty: Type) -> Self {
         Self {
@@ -55,25 +75,25 @@ impl Type {
     }
 
     /// Int64型を新たに割り当てる
-    pub fn new_int64(size: usize) -> Self {
+    pub fn new_int64(target: Target) -> Self {
         Self {
             kind: TypeKind::INT64,
-            size,
+            size: Self::int64_size(target),
         }
     }
 
     /// Uint64型を新たに割り当てる
-    pub fn new_uint64(size: usize) -> Self {
+    pub fn new_uint64(target: Target) -> Self {
         Self {
             kind: TypeKind::UINT64,
-            size,
+            size: Self::uint64_size(target),
         }
     }
     /// Boolean型を新たに割り当てる
-    pub fn new_boolean(size: usize) -> Self {
+    pub fn new_boolean(target: Target) -> Self {
         Self {
             kind: TypeKind::BOOLEAN,
-            size,
+            size: Self::boolean_size(target),
         }
     }
     /// Noreturn型
@@ -84,20 +104,20 @@ impl Type {
         }
     }
     /// ConstStr
-    pub fn new_const_str(size: usize) -> Self {
+    pub fn new_const_str(target: Target) -> Self {
         Self {
             kind: TypeKind::CONSTSTR,
-            size,
+            size: Self::conststr_size(target),
         }
     }
 
     /// ポインタ型を新たに割り当てる
-    pub fn new_pointer(to: Self, size: usize) -> Self {
+    pub fn new_pointer(to: Self, target: Target) -> Self {
         Self {
             kind: TypeKind::POINTER {
                 to: Box::new(to),
             },
-            size,
+            size: Self::pointer_size(target),
         }
     }
 
@@ -123,6 +143,13 @@ impl Type {
         match &self.kind {
             TypeKind::FUNCTION { return_type: _ } => true,
             _ => false,
+        }
+    }
+    /// ポインタ型であると解釈し, 指す型を取り出す
+    pub fn pointer_to(&self) -> &Type {
+        match &self.kind {
+            TypeKind::POINTER { to } => to,
+            _ => panic!("cannot call pointer_to() with not a pointer"),
         }
     }
 

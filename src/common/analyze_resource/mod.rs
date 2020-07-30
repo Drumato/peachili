@@ -4,4 +4,3 @@ pub mod ast;
 pub mod cfg;
 pub mod tld;
 pub mod token;
-pub mod variable;

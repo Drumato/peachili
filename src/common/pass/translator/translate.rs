@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use id_arena::Arena;
 
+use crate::common::option;
 use crate::common::{ast, peachili_type, three_address_code as tac};
+use crate::common::analyze_resource::peachili_type::Type;
 
 type ValueCache = BTreeMap<ast::ExpressionNode, tac::ValueId>;
 
@@ -12,6 +14,7 @@ pub fn translate_ir(
     fn_arena: ast::FnArena,
     ast_root: ast::ASTRoot,
     type_env: &BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
+    target: option::Target,
 ) -> tac::IRModule {
     let mut ir_module: tac::IRModule = Default::default();
 
@@ -19,7 +22,7 @@ pub fn translate_ir(
     for fn_id in ast_root.funcs.iter() {
         if let Ok(fn_arena) = fn_arena.lock() {
             if let Some(ast_fn) = fn_arena.get(*fn_id) {
-                let ir_fn = gen_ir_fn(ast_fn, type_env);
+                let ir_fn = gen_ir_fn(ast_fn, type_env, target);
                 let ir_fn_id = ir_module.fn_allocator.alloc(ir_fn);
                 ir_module.funcs.push(ir_fn_id);
             }
@@ -33,10 +36,16 @@ pub fn translate_ir(
 fn gen_ir_fn(
     ast_fn: &ast::Function,
     type_env: &BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
+    target: option::Target,
 ) -> tac::IRFunction {
     // コード生成に必要な情報が多いので，構造体にまとめてメンバでやり取りする
     let mut function_translator =
-        FunctionTranslator::new(ast_fn.expr_arena.clone(), ast_fn.stmt_arena.clone());
+        FunctionTranslator::new(
+            ast_fn.expr_arena.clone(),
+            ast_fn.stmt_arena.clone(),
+            type_env,
+            ast_fn.name.clone(),
+            target);
 
     // Statement をループして，それぞれをIRに変換する
     for stmt_id in ast_fn.stmts.iter() {
@@ -55,12 +64,12 @@ fn gen_ir_fn(
             .get(&ast_fn.full_path())
             .unwrap()
             .clone(),
-        args: ast_fn.args.keys().map(|name| name.to_string() ).collect(),
+        args: ast_fn.get_parameters().iter().map(|(name, _)| name.to_string()).collect(),
     }
 }
 
 /// IR生成に必要な情報をまとめあげた構造体
-struct FunctionTranslator {
+struct FunctionTranslator<'a> {
     /// IRの最小単位のアロケータ
     code_arena: Arena<tac::Code>,
     /// IRで用いられるValue構造体のアロケータ
@@ -75,11 +84,14 @@ struct FunctionTranslator {
     value_cache: ValueCache,
     /// IR列
     codes: Vec<tac::CodeId>,
+    fn_name: String,
     expr_arena: ast::ExprArena,
     stmt_arena: ast::StmtArena,
+    type_env: &'a BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
+    target: option::Target,
 }
 
-impl FunctionTranslator {
+impl<'a> FunctionTranslator<'a> {
     /// 文単位でIRに変換する
     #[allow(clippy::single_match)]
     fn gen_ir_from_stmt(&mut self, stmt_id: &ast::StNodeId) -> Option<tac::ValueId> {
@@ -141,8 +153,10 @@ impl FunctionTranslator {
         id_name: String,
         expr_id: &ast::ExNodeId,
     ) -> Option<tac::ValueId> {
+        let id_type = self.copy_type_in_cur_func(&id_name);
         let id_value = self.value_arena.alloc(tac::Value {
             kind: tac::ValueKind::ID { name: id_name },
+            ty: id_type,
         });
         let expr_id = self.gen_ir_from_expr(expr_id);
         self.add_code_with_allocation(tac::CodeKind::ASSIGN {
@@ -153,46 +167,60 @@ impl FunctionTranslator {
         None
     }
 
-    // 式単位でIRに変換する
+    fn gen_lvalue(&mut self, expr_id: &ast::ExNodeId) -> tac::ValueId {
+        let expr = self.copy_ast_expr(expr_id);
+
+        match expr.get_kind() {
+            ast::ExpressionNodeKind::IDENTIFIER { names: _ } => {
+                self.gen_ir_from_unop_expr("&", &expr, expr_id)
+            }
+            ast::ExpressionNodeKind::DEREFERENCE { value } => {
+                let inner_v = self.gen_lvalue(value);
+                let result_v = self.gen_result_temp(self.value_arena.get(inner_v).unwrap().ty.pointer_to().clone());
+                self.add_code_with_allocation(tac::CodeKind::DEREFERENCE {
+                    value: inner_v,
+                    result: result_v,
+                });
+                result_v
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    /// 式単位でIRに変換する
     fn gen_ir_from_expr(&mut self, expr_id: &ast::ExNodeId) -> tac::ValueId {
-        let expr = self
-            .expr_arena
-            .lock()
-            .unwrap()
-            .get(*expr_id)
-            .unwrap()
-            .clone();
+        let expr = self.copy_ast_expr(expr_id);
         match expr.get_kind() {
             // PRIMARY
             // これらはcacheしなくて良い
-            ast::ExpressionNodeKind::INTEGER { value } => self.value_arena.alloc(tac::Value {
-                kind: tac::ValueKind::INTLITERAL { value: *value },
-            }),
-            ast::ExpressionNodeKind::UINTEGER { value } => self.value_arena.alloc(tac::Value {
-                kind: tac::ValueKind::UINTLITERAL { value: *value },
-            }),
-            ast::ExpressionNodeKind::IDENTIFIER { names } => self.value_arena.alloc(tac::Value {
-                kind: tac::ValueKind::ID {
-                    name: names.join("::"),
-                },
-            }),
-            ast::ExpressionNodeKind::BOOLEAN { truth } => self.value_arena.alloc(tac::Value {
-                kind: tac::ValueKind::BOOLEANLITERAL { truth: *truth },
-            }),
-            ast::ExpressionNodeKind::STRING { contents } => self.value_arena.alloc(tac::Value {
-                kind: tac::ValueKind::STRINGLITERAL {
-                    contents: contents.clone(),
-                },
-            }),
+            ast::ExpressionNodeKind::INTEGER { value } => {
+                self.value_arena.alloc(tac::Value::new_int64(*value, self.target))
+            }
+            ast::ExpressionNodeKind::UINTEGER { value } => {
+                self.value_arena.alloc(tac::Value::new_uint64(*value, self.target))
+            }
+            ast::ExpressionNodeKind::IDENTIFIER { names } => {
+                self.value_arena.alloc(tac::Value::new(
+                    tac::ValueKind::ID {
+                        name: names.join("::"),
+                    },
+                    self.copy_type_in_cur_func(&names.join("::")),
+                ))
+            }
+            ast::ExpressionNodeKind::BOOLEAN { truth } => {
+                self.value_arena.alloc(tac::Value::new_boolean(*truth, self.target))
+            }
+            ast::ExpressionNodeKind::STRING { contents } => {
+                self.value_arena.alloc(tac::Value::new_string_literal(contents.to_string(), self.target))
+            }
 
             // 代入式
             ast::ExpressionNodeKind::ASSIGN { lhs, rhs } => {
                 // オペランドをIRに変換する
-                let ident_id = self.gen_ir_from_expr(lhs);
+                let ident_id = self.gen_lvalue(lhs);
                 let value_id = self.gen_ir_from_expr(rhs);
 
-                // 生成結果を変数に格納する
-                self.add_code_with_allocation(tac::CodeKind::ASSIGN {
+                self.add_code_with_allocation(tac::CodeKind::STORE {
                     value: value_id,
                     result: ident_id,
                 });
@@ -244,12 +272,14 @@ impl FunctionTranslator {
         self.gen_parameters(args);
 
         // 計算結果をTEMP変数に格納するコードを生成
-        let result_v = self.gen_result_temp();
+        let call_fn_type = self.copy_type_in_called_func(&name, &name);
+        let result_v = self.gen_result_temp(call_fn_type.clone());
 
         // call funcの生成
         let call_kind = tac::CodeKind::CALL {
             name: self.value_arena.alloc(tac::Value {
                 kind: tac::ValueKind::ID { name },
+                ty: call_fn_type,
             }),
             result: result_v,
         };
@@ -284,7 +314,13 @@ impl FunctionTranslator {
         let v_id = self.gen_ir_from_expr(value_id);
 
         // 計算結果をTEMP変数に格納するコードを生成
-        let result_v = self.gen_result_temp();
+        let result_v_ty = match operator {
+            "-" => self.value_arena.get(v_id).unwrap().ty.clone(),
+            "&" => Type::new_pointer(self.value_arena.get(v_id).unwrap().ty.clone(), self.target),
+            "*" => self.value_arena.get(v_id).unwrap().ty.pointer_to().clone(),
+            _ => unreachable!(),
+        };
+        let result_v = self.gen_result_temp(result_v_ty);
 
         // 生成するIRの種類を決定
         let code_kind = match operator {
@@ -302,6 +338,7 @@ impl FunctionTranslator {
             },
             _ => unreachable!(),
         };
+
 
         self.add_code_with_allocation(code_kind);
         self.value_cache.insert(expr.clone(), result_v);
@@ -327,7 +364,7 @@ impl FunctionTranslator {
         let rop_value_id = self.gen_ir_from_expr(rop_id);
 
         // 計算結果をTEMP変数に格納するコードを生成
-        let result_v = self.gen_result_temp();
+        let result_v = self.gen_result_temp(self.value_arena.get(lop_value_id).unwrap().ty.clone());
 
         // 生成するIRの種類を決定
         let code_kind = match operator {
@@ -382,7 +419,7 @@ impl FunctionTranslator {
         //                  ---------------------------------
         // next_label    -> | next_code
         //
-        let ifret_temp = self.gen_result_temp();
+        let ifret_temp = self.gen_result_temp(Type::new_int64(self.target));
         self.add_code_with_allocation(tac::CodeKind::ALLOC { temp: ifret_temp });
 
         let false_label = self.gen_label_without_increment("FALSE");
@@ -390,7 +427,7 @@ impl FunctionTranslator {
         let next_label = self.gen_label("NEXT");
 
         let cond_v = self.gen_ir_from_expr(cond_id);
-        let cond_result_tmp = self.gen_result_temp();
+        let cond_result_tmp = self.gen_result_temp(self.value_arena.get(cond_v).unwrap().ty.clone());
         self.add_code_with_allocation(tac::CodeKind::ASSIGN { value: cond_v, result: cond_result_tmp });
         self.add_code_with_allocation(tac::CodeKind::JUMPIFFALSE {
             label: false_label.clone(),
@@ -449,12 +486,8 @@ impl FunctionTranslator {
     }
 
     /// 計算結果を格納するTEMP変数のalloc
-    fn gen_result_temp(&mut self) -> tac::ValueId {
-        let result_v = self.value_arena.alloc(tac::Value {
-            kind: tac::ValueKind::TEMP {
-                number: self.temp_number,
-            },
-        });
+    fn gen_result_temp(&mut self, ty: peachili_type::Type) -> tac::ValueId {
+        let result_v = self.value_arena.alloc(tac::Value::new_temp(self.temp_number, ty));
         self.temp_number += 1;
         result_v
     }
@@ -469,7 +502,29 @@ impl FunctionTranslator {
         format!("L{}_{}", prefix, self.label_number)
     }
 
-    fn new(expr_arena: ast::ExprArena, stmt_arena: ast::StmtArena) -> Self {
+    fn copy_type_in_cur_func(&self, id_name: &str) -> Type {
+        self.type_env.get(&self.fn_name).unwrap().get(id_name).unwrap().clone()
+    }
+    fn copy_type_in_called_func(&self, called_fn: &str, id_name: &str) -> Type {
+        self.type_env.get(called_fn).unwrap().get(id_name).unwrap().clone()
+    }
+    fn copy_ast_expr(&self, expr_id: &ast::ExNodeId) -> ast::ExpressionNode {
+        self
+            .expr_arena
+            .lock()
+            .unwrap()
+            .get(*expr_id)
+            .unwrap()
+            .clone()
+    }
+
+    fn new(
+        expr_arena: ast::ExprArena,
+        stmt_arena: ast::StmtArena,
+        type_env: &'a BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
+        fn_name: String,
+        target: option::Target,
+    ) -> Self {
         Self {
             code_arena: Arena::new(),
             value_arena: Arena::new(),
@@ -479,137 +534,12 @@ impl FunctionTranslator {
             codes: Vec::new(),
             expr_arena,
             stmt_arena,
+            type_env,
+            fn_name,
+            target,
         }
     }
 }
 
 #[cfg(test)]
-mod translate_tests {
-    use crate::common::token;
-
-    use super::*;
-
-    #[test]
-    fn gen_ir_from_stmt_test() {
-        let expr_arena: ast::ExprArena = Arc::new(Mutex::new(Arena::new()));
-        let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
-        let mut translator = FunctionTranslator::new(expr_arena, stmt_arena);
-
-        let return_stmt =
-            new_simple_return(translator.stmt_arena.clone(), translator.expr_arena.clone());
-
-        translator.gen_ir_from_stmt(&return_stmt);
-
-        // v0 <- 1 + 2
-        // v1 <- v0 + 3
-        // return v1
-        assert_eq!(3, translator.codes.len());
-        assert_eq!(2, translator.temp_number);
-        assert_eq!(2, translator.value_cache.len());
-    }
-
-    #[test]
-    fn gen_ir_from_expr_test() {
-        let expr_arena: ast::ExprArena = Arc::new(Mutex::new(Arena::new()));
-        let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
-        let mut translator = FunctionTranslator::new(expr_arena, stmt_arena);
-
-        gen_ir_from_integer_literal_test(&mut translator);
-        gen_ir_from_add_node_test(&mut translator);
-    }
-
-    fn gen_ir_from_integer_literal_test(translator: &mut FunctionTranslator) {
-        let int_node = translator
-            .expr_arena
-            .lock()
-            .unwrap()
-            .alloc(ast::ExpressionNode::new_integer(30, Default::default()));
-        let int_v = translator.gen_ir_from_expr(&int_node);
-        assert_eq!(
-            tac::ValueKind::INTLITERAL { value: 30 },
-            translator.value_arena.get(int_v).unwrap().kind
-        );
-    }
-
-    fn gen_ir_from_add_node_test(translator: &mut FunctionTranslator) {
-        let add_node = new_simple_add(translator.expr_arena.clone());
-        let add_node_id = translator.expr_arena.lock().unwrap().alloc(add_node);
-        let add_v = translator.gen_ir_from_expr(&add_node_id);
-
-        // v0 <- 1 + 2
-        // v1 <- v0 + 3
-        assert_eq!(2, translator.codes.len());
-        assert_eq!(2, translator.temp_number);
-        assert_eq!(2, translator.value_cache.len());
-
-        let add_result = translator.value_arena.get(add_v);
-        assert!(add_result.is_some());
-        let add_result = add_result.unwrap();
-        assert_eq!(tac::ValueKind::TEMP { number: 1 }, add_result.kind);
-    }
-
-    fn new_simple_add(expr_arena: ast::ExprArena) -> ast::ExpressionNode {
-        // 1 + 2 + 3
-        let one_id = expr_arena
-            .lock()
-            .unwrap()
-            .alloc(ast::ExpressionNode::new_integer(1, Default::default()));
-        let two_id = expr_arena
-            .lock()
-            .unwrap()
-            .alloc(ast::ExpressionNode::new_integer(2, Default::default()));
-        let three_id = expr_arena
-            .lock()
-            .unwrap()
-            .alloc(ast::ExpressionNode::new_integer(3, Default::default()));
-        let add_id = expr_arena
-            .lock()
-            .unwrap()
-            .alloc(ast::ExpressionNode::new_binop(
-                &token::TokenKind::PLUS,
-                one_id,
-                two_id,
-                Default::default(),
-            ));
-        ast::ExpressionNode::new_binop(
-            &token::TokenKind::PLUS,
-            add_id,
-            three_id,
-            Default::default(),
-        )
-    }
-
-    fn new_simple_return(stmt_arena: ast::StmtArena, expr_arena: ast::ExprArena) -> ast::StNodeId {
-        let add_node = new_simple_add(expr_arena.clone());
-        let expr_id = expr_arena.lock().unwrap().alloc(add_node);
-
-        stmt_arena.lock().unwrap().alloc(ast::StatementNode::new(
-            ast::StatementNodeKind::RETURN { expr: expr_id },
-            Default::default(),
-        ))
-    }
-
-    #[allow(dead_code)]
-    fn new_simple_fn() -> ast::Function {
-        //
-        // func sample() Noreturn {
-        //   return 1 + 2 + 3;
-        // }
-
-        let stmt_arena: ast::StmtArena = Arc::new(Mutex::new(Arena::new()));
-        let expr_arena: ast::ExprArena = Arc::new(Mutex::new(Arena::new()));
-
-        let return_id = new_simple_return(stmt_arena.clone(), expr_arena.clone());
-
-        ast::Function {
-            name: "sample".to_string(),
-            stmts: vec![return_id],
-            return_type: "Noreturn".to_string(),
-            args: Default::default(),
-            pos: Default::default(),
-            module_name: "translate_tests".to_string(),
-            stmt_arena,
-            expr_arena: Arc::new(Mutex::new(Arena::new())),
-        }
-    }
-}
+mod translate_tests {}

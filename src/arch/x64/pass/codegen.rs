@@ -2,6 +2,7 @@ use crate::arch::x64::ir as lir;
 use crate::common::analyze_resource::frame_object::StackFrame;
 use crate::common::three_address_code as tac;
 use std::collections::BTreeMap;
+use crate::common::analyze_resource::peachili_type::Type;
 
 pub fn codegen_main(ir_module: tac::IRModule, stack_frame: StackFrame) -> lir::Module {
     let mut x64_module: lir::Module = Default::default();
@@ -131,6 +132,17 @@ impl<'a> FunctionGenerator<'a> {
                 self.add_inst_to_last_bb(lir::InstKind::JMP {
                     label: format!("{}_{}", self.f.get_name(), label),
                 });
+            }
+            tac::CodeKind::STORE { value, result } => {
+                let value = tac_fn.get_value(value);
+                let value_op = self.operand_from_value(value);
+                let result = tac_fn.get_value(result);
+                let result_op = self.operand_from_value(result);
+
+                self.storeq(
+                    value_op,
+                    self.new_memory_operand(result_op.get_reg(), 0),
+                );
             }
             tac::CodeKind::JUMPIFFALSE { label, cond_result } => {
                 let value = tac_fn.get_value(cond_result);
@@ -295,17 +307,20 @@ impl<'a> FunctionGenerator<'a> {
 
         match value_op.get_kind() {
             lir::OperandKind::IMMEDIATE { value: _ } => unreachable!(),
-            lir::OperandKind::REGISTER { reg: _ } => unreachable!(),
+            lir::OperandKind::REGISTER { reg: _ } => {
+                self.storeq(value_op, result_reg);
+                self.storeq(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
+            },
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.storeq_to_mem(value_op, result_reg);
-                self.storeq_to_mem(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
+                self.storeq(value_op, result_reg);
+                self.storeq(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
             }
         }
     }
 
     fn operand_from_value(&mut self, v: tac::Value) -> lir::Operand {
         match v.kind {
-            tac::ValueKind::TEMP { number } => self.gen_phys_reg(number),
+            tac::ValueKind::TEMP { number } => self.gen_phys_reg(number, v.ty),
             tac::ValueKind::INTLITERAL { value } => {
                 lir::Operand::new(lir::OperandKind::IMMEDIATE { value })
             }
@@ -375,10 +390,8 @@ impl<'a> FunctionGenerator<'a> {
         self.new_reg_operand(reg)
     }
 
-    fn gen_phys_reg(&mut self, virt_num: usize) -> lir::Operand {
-        let virt_reg = tac::Value {
-            kind: tac::ValueKind::TEMP { number: virt_num },
-        };
+    fn gen_phys_reg(&mut self, virt_num: usize, ty: Type) -> lir::Operand {
+        let virt_reg = tac::Value::new_temp(virt_num, ty);
         if let Some(phys_reg) = self.virt_to_phys.get(&virt_reg) {
             return self.new_reg_operand(*phys_reg);
         }
@@ -515,7 +528,7 @@ impl<'a> FunctionGenerator<'a> {
         self.f.add_inst_to_last_bb(lir::Instruction::new(inst_kind));
     }
 
-    fn storeq_to_mem(&mut self, src: lir::Operand, dst: lir::Operand) {
+    fn storeq(&mut self, src: lir::Operand, dst: lir::Operand) {
         self.add_inst_to_last_bb(lir::InstKind::MOV {
             operand_size: lir::OperandSize::QWORD,
             dst,
@@ -529,7 +542,7 @@ impl<'a> FunctionGenerator<'a> {
             let memory_op =
                 self.new_memory_operand(lir::Register::RBP, self.get_local_var_offset(arg_name));
 
-            self.storeq_to_mem(param_reg, memory_op);
+            self.storeq(param_reg, memory_op);
         }
     }
 

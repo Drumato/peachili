@@ -2,6 +2,7 @@ use crate::common;
 use crate::arch::x64;
 use colored::*;
 use crate::debug;
+use crate::setup;
 
 /// x64アーキテクチャ向けのビルドルーチン
 pub fn main(
@@ -33,7 +34,7 @@ pub fn compile_main(
     debug: bool,
 ) -> x64::ir::Module {
     let (fn_arena, ast_root, type_env, stack_frame) = common::pass::frontend(module_arena, main_module_id, debug);
-    let ir_module = common::pass::translate_ir(fn_arena, ast_root, &type_env);
+    let ir_module = common::pass::translate_ir(fn_arena, ast_root, &type_env, setup::BUILD_OPTION.target);
 
     if verbose_ir {
         eprintln!("{}", "dump HIR to 'hir_dump'...".bold().blue());

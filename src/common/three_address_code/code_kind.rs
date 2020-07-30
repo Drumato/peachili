@@ -28,6 +28,10 @@ pub enum CodeKind {
         value: ValueId,
         result: ValueId,
     },
+    STORE {
+        value: ValueId,
+        result: ValueId,
+    },
     NEG {
         value: ValueId,
         result: ValueId,
@@ -103,6 +107,11 @@ impl CodeKind {
             }
             CodeKind::ASSIGN { value, result } => {
                 Self::unop("", result, value, value_arena)
+            }
+            CodeKind::STORE { value, result } => {
+                let result = value_arena.lock().unwrap().get(*result).unwrap().clone().dump();
+                let value = value_arena.lock().unwrap().get(*value).unwrap().clone().dump();
+                format!("store {} into {}", value, result)
             }
             CodeKind::NEG { value, result } => {
                 Self::unop("-", result, value, value_arena)
