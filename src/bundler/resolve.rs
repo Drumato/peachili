@@ -242,6 +242,7 @@ fn try_to_get_file_contents(source_name: &str) -> String {
 fn setup_startup_routine() -> String {
     match setup::BUILD_OPTION.target {
         opt::Target::X86_64 => format!("{}startup_x64.go", get_lib_path()),
+        opt::Target::AARCH64 => format!("{}startup_aarch64.go", get_lib_path()),
     }
 }
 

@@ -45,6 +45,7 @@ impl Type {
     pub fn int64_size(target: Target) -> usize {
         match target {
             Target::X86_64 => 8,
+            Target::AARCH64 => 8,
         }
     }
 
@@ -52,6 +53,7 @@ impl Type {
     pub fn uint64_size(target: Target) -> usize {
         match target {
             Target::X86_64 => 8,
+            Target::AARCH64 => 8,
         }
     }
 
@@ -59,18 +61,21 @@ impl Type {
     pub fn pointer_size(target: Target) -> usize {
         match target {
             Target::X86_64 => 8,
+            Target::AARCH64 => 8,
         }
     }
     /// Boolean型サイズ
     pub fn boolean_size(target: Target) -> usize {
         match target {
             Target::X86_64 => 8,
+            Target::AARCH64 => 8,
         }
     }
     /// ConstStr
     pub fn conststr_size(target: Target) -> usize {
         match target {
             Target::X86_64 => 8,
+            Target::AARCH64 => 8,
         }
     }
 

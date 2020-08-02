@@ -17,11 +17,11 @@ impl BuildOption {
     pub fn get_source(&self) -> String {
         match self.matches.subcommand() {
             ("compile", Some(compile_m)) => {
-                match compile_m.value_of("source"){
+                match compile_m.value_of("source") {
                     Some(s) => s.to_string(),
                     None => panic!("source file must be specified"),
                 }
-            },
+            }
             _ => {
                 panic!("source file must be specified")
             }
@@ -32,12 +32,14 @@ impl BuildOption {
 #[derive(Copy, Clone)]
 pub enum Target {
     X86_64,
+    AARCH64,
 }
 
 impl Target {
     pub fn new(target_str: &str) -> Self {
         match target_str {
             "x86_64" => Target::X86_64,
+            "aarch64" => Target::AARCH64,
             _ => panic!("unsupported target -> {}", target_str),
         }
     }

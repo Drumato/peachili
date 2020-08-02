@@ -3,7 +3,7 @@ extern crate id_arena;
 extern crate x64_asm;
 extern crate yaml_rust;
 
-use arch::x64;
+use arch::{x64, aarch64};
 use common::option;
 use id_arena::Arena;
 use std::sync::{Arc, Mutex};
@@ -36,6 +36,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match setup::BUILD_OPTION.target {
         option::Target::X86_64 => x64::main(
+            module_arena,
+            main_module,
+            &setup::BUILD_OPTION.matches,
+        )?,
+        option::Target::AARCH64 => aarch64::main(
             module_arena,
             main_module,
             &setup::BUILD_OPTION.matches,

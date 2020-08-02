@@ -6,3 +6,4 @@
 *hir_dump*
 *.dot*
 *.png*
+*.gdb_history*

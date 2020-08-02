@@ -310,7 +310,7 @@ impl<'a> FunctionGenerator<'a> {
             lir::OperandKind::REGISTER { reg: _ } => {
                 self.storeq(value_op, result_reg);
                 self.storeq(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
-            },
+            }
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
                 self.storeq(value_op, result_reg);
                 self.storeq(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
@@ -348,32 +348,11 @@ impl<'a> FunctionGenerator<'a> {
         let param_value = self.operand_from_value(param_value);
 
         let param_reg = self.get_param_register(self.param_count);
-        match param_value.get_kind() {
-            lir::OperandKind::IMMEDIATE { value: _ } => {
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: param_value,
-                        dst: param_reg,
-                    }));
-            }
-            lir::OperandKind::REGISTER { reg: _ } => {
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: param_value,
-                        dst: param_reg,
-                    }));
-            }
-            lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.f
-                    .add_inst_to_last_bb(lir::Instruction::new(lir::InstKind::MOV {
-                        operand_size: lir::OperandSize::QWORD,
-                        src: param_value,
-                        dst: param_reg,
-                    }));
-            }
-        }
+        self.add_inst_to_last_bb(lir::InstKind::MOV {
+            operand_size: lir::OperandSize::QWORD,
+            src: param_value,
+            dst: param_reg,
+        });
     }
 
     fn get_param_register(&mut self, param_idx: usize) -> lir::Operand {
@@ -439,6 +418,7 @@ impl<'a> FunctionGenerator<'a> {
     }
 
     fn gen_function_prologue(&mut self) {
+        // RBPのセーブ, RBPの押し上げ，関数フレームの確保
         self.pushq_reg_inst(lir::Register::RBP);
         self.moveq_reg_to_reg_inst(
             self.new_reg_operand(lir::Register::RSP),
