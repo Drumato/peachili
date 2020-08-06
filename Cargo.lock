@@ -131,15 +131,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae91b68aebc4ddb91978b11a1b02ddd8602a05ec19002801c5666000e05e0f83"
 
 [[package]]
-name = "llvm-scratch"
-version = "0.1.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40e9cf9e80e517436c43c7a462035fea8577198d2e429a699513e3cfeed59a7b"
-dependencies = [
- "id-arena",
-]
-
-[[package]]
 name = "peachili"
 version = "0.1.0"
 dependencies = [
@@ -148,7 +139,7 @@ dependencies = [
  "elf-utilities",
  "id-arena",
  "indexmap",
- "llvm-scratch",
+ "lazy_static",
  "x64_asm",
  "yaml-rust",
 ]

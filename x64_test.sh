@@ -1,7 +1,7 @@
 #!/bin/bash
 build_peachili_executable() {
   input="$1"
-  ../target/debug/peachili "$input"
+  ../../target/debug/peachili compile "$input"
   rustc_actual="$?"
   if [ $rustc_actual -ne 0 ]; then
     echo -e "\e[31mbuilding an executable binary failed!\e[m"
@@ -16,6 +16,7 @@ try() {
   # テストファイルのコンパイル
   build_peachili_executable $input
 
+  gcc asm.s 
   ./a.out
   actual="$?"
   rm a.out
@@ -30,9 +31,9 @@ try() {
 
 echo -e "start to test normal program...\n\n"
 
-cd examples
+cd examples/x64
 
-try 0 "empty_main.go"
+# try 0 "empty_main.go"
 try 0 "intlit.go"
 try 9 "four_arith.go"
 try 9 "unary_minus.go"
@@ -43,14 +44,17 @@ try 9 "declare_twovar.go"
 try 30 "with_argument.go"
 try 30 "without_argument.go"
 try 3 "exit.go"
-try 0 "hello_world.go"
 try 15 "boolean_1.go"
 try 30 "boolean_2.go"
 try 30 "type_alias.go"
 try 1 "unsigned_int.go"
 try 30 "varinit.go"
 try 4 "pointer.go"
+try 4 "six_times_deref.go"
 try 4 "pointer2.go"
+try 4 "six_pointer.go"
 try 45 "simple_struct.go"
+try 1 "if_expression.go"
+try 0 "hello_world.go"
 
 echo -e "\n\nOK"

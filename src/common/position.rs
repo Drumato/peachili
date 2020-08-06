@@ -1,43 +1,33 @@
-type Column = usize;
-type Row = usize;
+use std::fmt::{Display, Formatter, Result as FR};
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+/// ソースコード上の位置を保持する構造体
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
 pub struct Position {
-    column: usize,
+    // 行情報
     row: usize,
+    // 列情報
+    column: usize,
 }
 
 impl Default for Position {
     fn default() -> Self {
-        Self { column: 0, row: 0 }
+        Self { row: 0, column: 0 }
     }
 }
 
-#[allow(dead_code)]
 impl Position {
-    pub fn new(r: usize, c: usize) -> Self {
-        Self { column: c, row: r }
+    pub fn new(row: usize, column: usize) -> Self {
+        Self { row, column }
     }
-
-    pub fn get_pos(&self) -> (Row, Column) {
+    /// 内部情報の取得
+    pub fn get_info(&self) -> (usize, usize) {
         (self.row, self.column)
     }
-
-    pub fn add_col(&mut self, ex: usize) {
-        self.column += ex;
-    }
-
-    pub fn add_row(&mut self, ex: usize) {
-        self.row += ex;
-    }
-
-    pub fn set_col(&mut self, col: usize) {
-        self.column = col;
-    }
 }
 
-impl std::fmt::Display for Position {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "({}, {})", self.row, self.column)
+impl Display for Position {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FR {
+        let (r, c) = self.get_info();
+        write!(f, "({}, {})", r, c)
     }
 }

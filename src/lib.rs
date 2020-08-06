@@ -1,8 +1,9 @@
-pub mod assembler;
+pub mod arch;
 pub mod bundler;
 pub mod common;
-pub mod compiler;
-pub mod x64_main;
-pub mod linker;
+pub mod setup;
+pub mod debug;
 
-extern crate x64_asm;
+
+#[macro_use]
+extern crate lazy_static;

@@ -3,3 +3,7 @@
 /.idea/*
 /cmake-build-debug
 /cmake-build-debug/*
+*hir_dump*
+*.dot*
+*.png*
+*.gdb_history*
