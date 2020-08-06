@@ -278,11 +278,7 @@ mod type_check_tests {
 
     #[test]
     fn type_check_main_fn_with_invalid_args_test() {
-        let invalid_args_func = new_func("main".to_string(), {
-            let mut args = BTreeMap::new();
-            args.insert("foo".to_string(), "Int64".to_string());
-            args
-        });
+        let invalid_args_func = new_func("main".to_string(), vec![("foo".to_string(), "Int64".to_string())]);
         let tld_env = new_tld();
         let env = type_env();
 
@@ -496,13 +492,13 @@ mod type_check_tests {
         ast::ExpressionNode::new_postfix_op(&TokenKind::DOT, st_id, mem_id, Default::default())
     }
 
-    fn new_func(name: String, args: BTreeMap<String, String>) -> ast::Function {
+    fn new_func(name: String, args: Vec<(String, String)>) -> ast::Function {
         ast::Function {
             name,
             stmts: vec![],
             fn_type: FunctionTypeDef {
                 return_type: "Noreturn".to_string(),
-                args: Vec::new(),
+                args,
             },
             pos: Default::default(),
             module_name: "".to_string(),

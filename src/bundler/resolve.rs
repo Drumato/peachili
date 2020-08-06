@@ -300,7 +300,7 @@ mod resolve_tests {
 
     #[test]
     fn search_peachili_program_test() {
-        let file = search_peachili_program("examples/empty_main.go".to_string());
+        let file = search_peachili_program("examples/x64/empty_main.go".to_string());
         assert!(file.is_some());
     }
 
@@ -309,7 +309,7 @@ mod resolve_tests {
         let dir = search_module("examples".to_string());
         assert!(dir.is_some());
 
-        let file = search_module("examples/empty_main.go".to_string());
+        let file = search_module("examples/x64/empty_main.go".to_string());
         assert!(file.is_some());
 
         let invalid = search_module("invalid".to_string());
