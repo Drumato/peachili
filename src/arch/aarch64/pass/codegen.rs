@@ -137,14 +137,14 @@ impl<'a> FunctionGenerator<'a> {
         });
     }
 
-    /// w0/x0 は返り値として用いるため+1
+    /// (w0/x0 は返り値として用いるため)
     fn get_param_register(&mut self, param_idx: usize) -> lir::Operand {
         if 6 < param_idx + 1 {
             panic!("callee register exhausted");
         }
 
         self.new_reg_operand(lir::Register::GPR {
-            number: param_idx + 1,
+            number: param_idx,
         })
     }
     fn gen_phys_reg(&mut self, virt_num: usize, ty: Type) -> lir::Operand {

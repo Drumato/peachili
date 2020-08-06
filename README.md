@@ -22,11 +22,24 @@ cargo test
 ### Integration tests on x86_64
 
 ```
+cargo build
 ./x64_test.sh
 ```
 
 ### Integration tests on Arm64
 
 ```
+cargo build
 ./aarch64_test.sh
+```
+
+## Debug
+
+```
+# x64
+
+# aarch64
+qemu-aarch64-static -g <port> a.out
+gdb-multiarch a.out
+target remote :<port>
 ```

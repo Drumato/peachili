@@ -16,7 +16,7 @@ try() {
   # テストファイルのコンパイル
   build_peachili_executable $input
 
-  aarch64-linux-gnu-gcc asm.s -static
+  clang-10 asm.s --target=aarch64-linux-gnu -static
   ./a.out
   actual="$?"
   rm a.out
@@ -33,6 +33,6 @@ echo -e "start to test normal program...\n\n"
 
 cd examples/aarch64
 
-try 0 "intlit.go"
+try 42 "intlit.go"
 
 echo -e "\n\nOK"
