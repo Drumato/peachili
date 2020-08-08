@@ -15,6 +15,13 @@ pub enum InstKind {
         lop: ir::Operand,
         rop: ir::Operand,
     },
+    /// Mul
+    MUL {
+        operand_size: ir::OperandSize,
+        dst: ir::Operand,
+        lop: ir::Operand,
+        rop: ir::Operand,
+    },
     /// Move
     MOV {
         operand_size: ir::OperandSize,

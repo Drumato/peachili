@@ -1,4 +1,4 @@
-use id_arena::{Id, Arena};
+use id_arena::{Arena, Id};
 use std::sync::{Arc, Mutex};
 
 /// 各ファイル(パッケージ)を表す構造体

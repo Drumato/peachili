@@ -1,6 +1,4 @@
-use crate::common::ast::{
-    FnArena, ASTRoot, StructDef, Function, FnId, FunctionTypeDef,
-};
+use crate::common::ast::{ASTRoot, FnArena, FnId, Function, FunctionTypeDef, StructDef};
 use crate::common::token::{Token, TokenKind};
 
 use crate::common::pass::parser::*;
@@ -59,7 +57,10 @@ fn struct_def(module_name: String, mut tokens: Vec<Token>) -> (String, StructDef
     (type_name, StructDef { members }, rest_tokens)
 }
 
-fn member_block(module_name: String, mut tokens: Vec<Token>) -> (BTreeMap<String, String>, Vec<Token>) {
+fn member_block(
+    module_name: String,
+    mut tokens: Vec<Token>,
+) -> (BTreeMap<String, String>, Vec<Token>) {
     let mut members = BTreeMap::new();
     parser_util::expect(TokenKind::LBRACE, &mut tokens);
 
@@ -108,15 +109,15 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
 
     let (arg_map, rest_tokens) = arg_list(resources.module_name.clone(), rest_tokens);
 
-    let (return_type, rest_tokens) = parser_util::expect_type(resources.module_name.clone(), rest_tokens);
+    let (return_type, rest_tokens) =
+        parser_util::expect_type(resources.module_name.clone(), rest_tokens);
 
-    let (stmts, rest_tokens) =
-        parser_util::expect_block(&resources, rest_tokens);
+    let (stmts, rest_tokens) = parser_util::expect_block(&resources, rest_tokens);
 
     (
         fn_arena.lock().unwrap().alloc(Function {
             name: func_name,
-            fn_type:FunctionTypeDef::new(return_type, arg_map),
+            fn_type: FunctionTypeDef::new(return_type, arg_map),
             stmts,
             pos: func_pos,
             module_name: resources.module_name.clone(),

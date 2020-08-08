@@ -3,8 +3,8 @@ use crate::common::{
     token::{Token, TokenKind},
 };
 
-use crate::common::pass::parser::parser_util;
 use crate::common::pass::parser::parse_resource::ParseResource;
+use crate::common::pass::parser::parser_util;
 
 impl ParseResource {
     /// expression -> if_expression | assignment
@@ -18,7 +18,6 @@ impl ParseResource {
         }
     }
 
-
     /// if_expression -> "if" paren_expr block ("else" block)?
     fn if_expression(&self, mut tokens: Vec<Token>) -> (ExNodeId, Vec<Token>) {
         let expr_pos = parser_util::current_position(&tokens);
@@ -30,10 +29,11 @@ impl ParseResource {
         let t = parser_util::head(&rest_tokens);
         if t.get_kind() != &TokenKind::ELSE {
             return (
-                self.expr_arena.lock().unwrap().alloc(
-                    ExpressionNode::new_if(cond_id, stmts, None, expr_pos),
-                ),
-                rest_tokens
+                self.expr_arena
+                    .lock()
+                    .unwrap()
+                    .alloc(ExpressionNode::new_if(cond_id, stmts, None, expr_pos)),
+                rest_tokens,
             );
         }
 
@@ -41,10 +41,16 @@ impl ParseResource {
         let (alter, rest_tokens) = parser_util::expect_block(self, rest_tokens);
 
         (
-            self.expr_arena.lock().unwrap().alloc(
-                ExpressionNode::new_if(cond_id, stmts, Some(alter), expr_pos),
-            ),
-            rest_tokens
+            self.expr_arena
+                .lock()
+                .unwrap()
+                .alloc(ExpressionNode::new_if(
+                    cond_id,
+                    stmts,
+                    Some(alter),
+                    expr_pos,
+                )),
+            rest_tokens,
         )
     }
 
@@ -109,7 +115,14 @@ impl ParseResource {
                 parser_util::eat_token(&mut tokens);
                 let (value, rest_tokens) = self.prefix(tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_prefix_op(&TokenKind::MINUS, value, prefix_pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_prefix_op(
+                            &TokenKind::MINUS,
+                            value,
+                            prefix_pos,
+                        )),
                     rest_tokens,
                 )
             }
@@ -117,7 +130,14 @@ impl ParseResource {
                 parser_util::eat_token(&mut tokens);
                 let (value, rest_tokens) = self.prefix(tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_prefix_op(&TokenKind::AMPERSAND, value, prefix_pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_prefix_op(
+                            &TokenKind::AMPERSAND,
+                            value,
+                            prefix_pos,
+                        )),
                     rest_tokens,
                 )
             }
@@ -125,7 +145,14 @@ impl ParseResource {
                 parser_util::eat_token(&mut tokens);
                 let (value, rest_tokens) = self.prefix(tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_prefix_op(&TokenKind::ASTERISK, value, prefix_pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_prefix_op(
+                            &TokenKind::ASTERISK,
+                            value,
+                            prefix_pos,
+                        )),
                     rest_tokens,
                 )
             }
@@ -148,8 +175,16 @@ impl ParseResource {
                     let (v, rk) = self.postfix(rest_tokens);
                     rest_tokens = rk;
 
-                    value =
-                        self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_postfix_op(&TokenKind::DOT, value, v, postfix_pos));
+                    value = self
+                        .expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_postfix_op(
+                            &TokenKind::DOT,
+                            value,
+                            v,
+                            postfix_pos,
+                        ));
                 }
                 _ => break,
             }
@@ -167,14 +202,20 @@ impl ParseResource {
             TokenKind::INTEGER { value } => {
                 parser_util::eat_token(&mut tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_integer(*value, pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_integer(*value, pos)),
                     tokens,
                 )
             }
             TokenKind::UNSIGNEDINTEGER { value } => {
                 parser_util::eat_token(&mut tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_uinteger(*value, pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_uinteger(*value, pos)),
                     tokens,
                 )
             }
@@ -183,8 +224,11 @@ impl ParseResource {
 
                 if !parser_util::consume(TokenKind::LPAREN, &mut tokens) {
                     return (
-                        self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_identifier(names, pos)),
-                        tokens
+                        self.expr_arena
+                            .lock()
+                            .unwrap()
+                            .alloc(ExpressionNode::new_identifier(names, pos)),
+                        tokens,
                     );
                 }
 
@@ -203,28 +247,43 @@ impl ParseResource {
                     parser_util::consume(TokenKind::COMMA, &mut tokens);
                 }
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_call(names, args, pos)),
-                    tokens
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_call(names, args, pos)),
+                    tokens,
                 )
             }
             TokenKind::STRLIT { contents } => {
                 parser_util::eat_token(&mut tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_string_literal(contents.to_string(), pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_string_literal(
+                            contents.to_string(),
+                            pos,
+                        )),
                     tokens,
                 )
             }
             TokenKind::TRUE => {
                 parser_util::eat_token(&mut tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_boolean(true, pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_boolean(true, pos)),
                     tokens,
                 )
             }
             TokenKind::FALSE => {
                 parser_util::eat_token(&mut tokens);
                 (
-                    self.expr_arena.lock().unwrap().alloc(ExpressionNode::new_boolean(false, pos)),
+                    self.expr_arena
+                        .lock()
+                        .unwrap()
+                        .alloc(ExpressionNode::new_boolean(false, pos)),
                     tokens,
                 )
             }
@@ -243,17 +302,17 @@ impl ParseResource {
     }
 }
 
-
 #[cfg(test)]
 mod expression_tests {
     use super::*;
 
-    fn helper(expr_f: fn(&ParseResource, Vec<Token>) -> (ExNodeId, Vec<Token>), tokens: Vec<Token>, rest_tokens_number: usize) {
+    fn helper(
+        expr_f: fn(&ParseResource, Vec<Token>) -> (ExNodeId, Vec<Token>),
+        tokens: Vec<Token>,
+        rest_tokens_number: usize,
+    ) {
         let resources = new_resources();
-        let (node_id, rest_tokens) = expr_f(
-            &resources,
-            tokens,
-        );
+        let (node_id, rest_tokens) = expr_f(&resources, tokens);
 
         assert_eq!(rest_tokens_number, rest_tokens.len());
 
@@ -301,7 +360,6 @@ mod expression_tests {
         ];
         helper(ParseResource::if_expression, tokens, 0);
     }
-
 
     #[test]
     fn primary_identifier_test() {

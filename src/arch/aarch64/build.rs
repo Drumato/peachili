@@ -34,8 +34,13 @@ pub fn compile_main(
 ) -> aarch64::ir::Module {
     let (fn_arena, ast_root, type_env, stack_frame) =
         common::pass::frontend(module_arena, main_module_id, debug);
-    let (ir_module, _local_cfg) =
-        common::pass::backend(fn_arena, ast_root, &type_env, setup::BUILD_OPTION.target, verbose_ir);
+    let (ir_module, _local_cfg) = common::pass::backend(
+        fn_arena,
+        ast_root,
+        &type_env,
+        setup::BUILD_OPTION.target,
+        verbose_ir,
+    );
 
     aarch64::pass::codegen_main(ir_module, stack_frame)
 }

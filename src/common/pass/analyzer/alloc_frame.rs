@@ -1,4 +1,4 @@
-use crate::common::{tld, peachili_type, frame_object};
+use crate::common::{frame_object, peachili_type, tld};
 use std::collections::BTreeMap;
 
 pub fn allocate_stack_frame(
@@ -18,9 +18,12 @@ pub fn allocate_stack_frame(
                 continue;
             }
             total_offset_in_func += entry.size;
-            frame_in_func.insert(entry_name.to_string(), frame_object::FrameObject {
-                offset: total_offset_in_func,
-            });
+            frame_in_func.insert(
+                entry_name.to_string(),
+                frame_object::FrameObject {
+                    offset: total_offset_in_func,
+                },
+            );
         }
 
         // 先に関数以外をすべて回したあと，関数を回す
@@ -30,9 +33,12 @@ pub fn allocate_stack_frame(
                 continue;
             }
             total_offset_in_func += entry.size;
-            frame_in_func.insert(entry_name.to_string(), frame_object::FrameObject {
-                offset: total_offset_in_func,
-            });
+            frame_in_func.insert(
+                entry_name.to_string(),
+                frame_object::FrameObject {
+                    offset: total_offset_in_func,
+                },
+            );
         }
 
         stack_frame.insert(scope_name.clone(), frame_in_func);

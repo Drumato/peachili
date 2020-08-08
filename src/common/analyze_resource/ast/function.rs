@@ -1,10 +1,8 @@
 use crate::common::{
-    ast::{
-        StNodeId, StatementNode, ExpressionNode,
-    },
+    ast::{ExpressionNode, StNodeId, StatementNode},
     position,
 };
-use id_arena::{Id, Arena};
+use id_arena::{Arena, Id};
 use std::sync::{Arc, Mutex};
 
 pub type FnId = Id<Function>;
@@ -38,7 +36,7 @@ impl Function {
         format!("{}::{}", self.module_name, self.name)
     }
 
-    pub fn copy_return_type(&self) -> String{
+    pub fn copy_return_type(&self) -> String {
         self.fn_type.return_type.clone()
     }
 
@@ -58,9 +56,6 @@ pub struct FunctionTypeDef {
 
 impl FunctionTypeDef {
     pub fn new(return_type: String, args: Vec<(String, String)>) -> Self {
-        Self {
-            return_type,
-            args,
-        }
+        Self { return_type, args }
     }
 }

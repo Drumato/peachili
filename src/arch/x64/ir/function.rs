@@ -18,7 +18,8 @@ impl Function {
     }
 
     pub fn push_block(&mut self, name: &str) {
-        self.blocks.push(ir::BasicBlock::new(&format!("{}_{}", self.name, name)));
+        self.blocks
+            .push(ir::BasicBlock::new(&format!("{}_{}", self.name, name)));
     }
 
     pub fn add_inst_to_last_bb(&mut self, inst: ir::Instruction) {

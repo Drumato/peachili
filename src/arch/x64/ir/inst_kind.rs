@@ -70,4 +70,3 @@ pub enum InstKind {
         label: String,
     },
 }
-

@@ -1,12 +1,14 @@
-use crate::common::ast::{
-    ExNodeId, StNodeId,
-};
+use crate::common::ast::{ExNodeId, StNodeId};
 
 /// 式ノードの種類
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum ExpressionNodeKind {
     /// IF式ノード
-    IF { cond_ex: ExNodeId, body: Vec<StNodeId>, alter: Option<Vec<StNodeId>> },
+    IF {
+        cond_ex: ExNodeId,
+        body: Vec<StNodeId>,
+        alter: Option<Vec<StNodeId>>,
+    },
 
     /// 加算ノード
     ADD { lhs: ExNodeId, rhs: ExNodeId },
@@ -40,5 +42,8 @@ pub enum ExpressionNodeKind {
     /// std::os::exit_with() みたいなのを["std", "os", "exit_with"] で保持
     IDENTIFIER { names: Vec<String> },
     /// 呼び出し式ノード
-    CALL { names: Vec<String>, args: Vec<ExNodeId> },
+    CALL {
+        names: Vec<String>,
+        args: Vec<ExNodeId>,
+    },
 }

@@ -254,11 +254,11 @@ fn type_check_member_expression(
 #[cfg(test)]
 mod type_check_tests {
     use super::*;
+    use crate::common::analyze_resource::ast::FunctionTypeDef;
+    use crate::common::option::Target;
     use crate::common::token::TokenKind;
     use id_arena::Arena;
     use std::sync::{Arc, Mutex};
-    use crate::common::option::Target;
-    use crate::common::analyze_resource::ast::FunctionTypeDef;
 
     #[test]
     fn type_check_main_fn_with_invalid_return_type_test() {
@@ -278,7 +278,10 @@ mod type_check_tests {
 
     #[test]
     fn type_check_main_fn_with_invalid_args_test() {
-        let invalid_args_func = new_func("main".to_string(), vec![("foo".to_string(), "Int64".to_string())]);
+        let invalid_args_func = new_func(
+            "main".to_string(),
+            vec![("foo".to_string(), "Int64".to_string())],
+        );
         let tld_env = new_tld();
         let env = type_env();
 
@@ -529,9 +532,15 @@ mod type_check_tests {
             Type::new_struct(
                 {
                     let mut members = BTreeMap::new();
-                    members.insert("foo".to_string(), (Box::new(Type::new_int64(Target::X86_64)), 0));
+                    members.insert(
+                        "foo".to_string(),
+                        (Box::new(Type::new_int64(Target::X86_64)), 0),
+                    );
 
-                    members.insert("bar".to_string(), (Box::new(Type::new_int64(Target::X86_64)), 8));
+                    members.insert(
+                        "bar".to_string(),
+                        (Box::new(Type::new_int64(Target::X86_64)), 8),
+                    );
                     members
                 },
                 16,

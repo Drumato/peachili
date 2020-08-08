@@ -43,15 +43,14 @@ impl ExpressionNode {
         Self::new(ExpressionNodeKind::BOOLEAN { truth }, pos)
     }
     pub fn new_call(names: Vec<String>, args: Vec<ExNodeId>, pos: position::Position) -> Self {
-        Self::new(
-            ExpressionNodeKind::CALL {
-                names,
-                args,
-            },
-            pos,
-        )
+        Self::new(ExpressionNodeKind::CALL { names, args }, pos)
     }
-    pub fn new_if(cond_id: ExNodeId, body: Vec<StNodeId>, alter: Option<Vec<StNodeId>>, pos: position::Position) -> Self {
+    pub fn new_if(
+        cond_id: ExNodeId,
+        body: Vec<StNodeId>,
+        alter: Option<Vec<StNodeId>>,
+        pos: position::Position,
+    ) -> Self {
         Self::new(
             ExpressionNodeKind::IF {
                 cond_ex: cond_id,
@@ -70,7 +69,12 @@ impl ExpressionNode {
         };
         Self::new(nk, pos)
     }
-    pub fn new_postfix_op(operator: &TokenKind, id: ExNodeId, member: ExNodeId, pos: position::Position) -> Self {
+    pub fn new_postfix_op(
+        operator: &TokenKind,
+        id: ExNodeId,
+        member: ExNodeId,
+        pos: position::Position,
+    ) -> Self {
         let nk = match operator {
             TokenKind::DOT => ExpressionNodeKind::MEMBER { id, member },
             _ => panic!("cannot create postfix-operation from {}", operator),
@@ -103,7 +107,7 @@ impl ExpressionNode {
     pub fn is_identifier(&self) -> bool {
         match self.get_kind() {
             ExpressionNodeKind::IDENTIFIER { names: _ } => true,
-            _ => false
+            _ => false,
         }
     }
 }

@@ -233,7 +233,7 @@ fn try_to_get_file_contents(source_name: &str) -> String {
                 },
                 Default::default(),
             )
-                .output();
+            .output();
             std::process::exit(1);
         }
     }

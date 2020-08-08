@@ -1,6 +1,6 @@
 use crate::common::ast;
-use std::sync::{Arc, Mutex};
 use id_arena::Arena;
+use std::sync::{Arc, Mutex};
 
 /// パーサの必要な資源の集約
 /// トークン列を持たせると読みづらくなるので，持たせない．

@@ -119,9 +119,7 @@ impl Type {
     /// ポインタ型を新たに割り当てる
     pub fn new_pointer(to: Self, target: Target) -> Self {
         Self {
-            kind: TypeKind::POINTER {
-                to: Box::new(to),
-            },
+            kind: TypeKind::POINTER { to: Box::new(to) },
             size: Self::pointer_size(target),
         }
     }
@@ -129,9 +127,7 @@ impl Type {
     /// 構造体型型を新たに割り当てる
     pub fn new_struct(members: BTreeMap<String, (Box<Type>, usize)>, total_size: usize) -> Self {
         Self {
-            kind: TypeKind::STRUCT {
-                members
-            },
+            kind: TypeKind::STRUCT { members },
             size: total_size,
         }
     }
@@ -167,7 +163,6 @@ impl Type {
     }
 }
 
-
 /// 型の種類
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum TypeKind {
@@ -176,9 +171,7 @@ pub enum TypeKind {
     /// 64bit非符号付き整数
     UINT64,
     /// ポインタ
-    POINTER {
-        to: Box<Type>,
-    },
+    POINTER { to: Box<Type> },
     /// ConstStr
     CONSTSTR,
     /// Boolean
@@ -188,7 +181,7 @@ pub enum TypeKind {
     /// 構造体型
     STRUCT {
         /// member_name -> (member_type, member_offset)
-        members: BTreeMap<String, (Box<Type>, usize)>
+        members: BTreeMap<String, (Box<Type>, usize)>,
     },
     /// 関数型
     FUNCTION {

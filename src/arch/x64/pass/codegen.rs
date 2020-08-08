@@ -1,8 +1,8 @@
 use crate::arch::x64::ir as lir;
 use crate::common::analyze_resource::frame_object::StackFrame;
+use crate::common::analyze_resource::peachili_type::Type;
 use crate::common::three_address_code as tac;
 use std::collections::BTreeMap;
-use crate::common::analyze_resource::peachili_type::Type;
 
 pub fn codegen_main(ir_module: tac::IRModule, stack_frame: StackFrame) -> lir::Module {
     let mut x64_module: lir::Module = Default::default();
@@ -139,10 +139,7 @@ impl<'a> FunctionGenerator<'a> {
                 let result = tac_fn.get_value(result);
                 let result_op = self.operand_from_value(result);
 
-                self.storeq(
-                    value_op,
-                    self.new_memory_operand(result_op.get_reg(), 0),
-                );
+                self.storeq(value_op, self.new_memory_operand(result_op.get_reg(), 0));
             }
             tac::CodeKind::JUMPIFFALSE { label, cond_result } => {
                 let value = tac_fn.get_value(cond_result);

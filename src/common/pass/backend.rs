@@ -1,4 +1,4 @@
-use crate::common::{pass, analyze_resource as ar, three_address_code as tac, option};
+use crate::common::{analyze_resource as ar, option, pass, three_address_code as tac};
 use crate::debug;
 use colored::*;
 
@@ -11,9 +11,11 @@ pub fn backend(
     type_env: &BTreeMap<String, BTreeMap<String, ar::peachili_type::Type>>,
     target: option::Target,
     verbose_ir: bool,
-) -> (tac::IRModule, BTreeMap<tac::IRFunctionId, ar::cfg::LocalControlFlowGraph>) {
-    let ir_module =
-        pass::translate_ir(fn_arena, ast_root, type_env, target);
+) -> (
+    tac::IRModule,
+    BTreeMap<tac::IRFunctionId, ar::cfg::LocalControlFlowGraph>,
+) {
+    let ir_module = pass::translate_ir(fn_arena, ast_root, type_env, target);
 
     if verbose_ir {
         eprintln!("{}", "dump HIR to 'hir_dump'...".bold().blue());

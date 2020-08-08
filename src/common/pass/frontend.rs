@@ -1,5 +1,5 @@
 use crate::common::pass::{analyzer, parser, tld_collector, tokenizer};
-use crate::common::{ast, file_util, module, peachili_type, frame_object};
+use crate::common::{ast, file_util, frame_object, module, peachili_type};
 use crate::setup;
 use id_arena::Arena;
 use std::collections::BTreeMap;
@@ -21,7 +21,7 @@ pub fn frontend(
     ast::FnArena,
     ast::ASTRoot,
     BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
-    frame_object::StackFrame
+    frame_object::StackFrame,
 ) {
     let mut manager = FrontendManager {
         module_arena,
@@ -35,10 +35,7 @@ pub fn frontend(
     manager.parse_file(source, String::new());
 
     // メインモジュールが参照する各モジュールも同様にパース
-    manager.parse_requires(
-        main_module_id,
-        String::new(),
-    );
+    manager.parse_requires(main_module_id, String::new());
 
     // TLD解析
     let tld_env = tld_collector::main(manager.fn_arena.clone(), &manager.full_ast);
@@ -65,10 +62,7 @@ pub fn frontend(
     // スタック割付
     // 通常はローカル変数をすべてスタックに．
     // 最適化を有効化にしたらレジスタ割付したい
-    let func_frame = analyzer::allocate_stack_frame(
-        &tld_env,
-        &type_env,
-    );
+    let func_frame = analyzer::allocate_stack_frame(&tld_env, &type_env);
 
     (manager.fn_arena, manager.full_ast, type_env, func_frame)
 }
@@ -93,18 +87,15 @@ impl FrontendManager {
     fn parse_file(&mut self, file_contents: String, module_name: String) {
         let tokens = tokenizer::main(file_contents);
 
-        self.full_ast.absorb(parser::main(self.fn_arena.clone(), tokens, module_name));
+        self.full_ast
+            .absorb(parser::main(self.fn_arena.clone(), tokens, module_name));
     }
 
-
     /// mod_idのモジュールが参照するすべてのモジュールをパースし，結合
-    fn parse_requires(
-        &mut self,
-        mod_id: module::ModuleId,
-        module_name: String,
-    ) {
+    fn parse_requires(&mut self, mod_id: module::ModuleId, module_name: String) {
         // 参照ノードをすべて取得
-        let requires = self.module_arena
+        let requires = self
+            .module_arena
             .lock()
             .unwrap()
             .get(mod_id)
@@ -112,21 +103,15 @@ impl FrontendManager {
             .refs
             .clone();
         for req_id in requires.lock().unwrap().iter() {
-            self.parse_ext_module(
-                *req_id,
-                module_name.clone(),
-            );
+            self.parse_ext_module(*req_id, module_name.clone());
         }
     }
 
     /// 再帰呼出しされる，外部モジュールの組み立て関数
     /// 本体 -> 参照 -> 子の順にパースし，すべてを結合して返す
-    fn parse_ext_module(
-        &mut self,
-        ext_id: module::ModuleId,
-        mut module_name: String,
-    ) {
-        let is_dir_module = self.module_arena
+    fn parse_ext_module(&mut self, ext_id: module::ModuleId, mut module_name: String) {
+        let is_dir_module = self
+            .module_arena
             .lock()
             .unwrap()
             .get(ext_id)
@@ -134,7 +119,8 @@ impl FrontendManager {
             .child_count()
             != 0;
         // モジュール名を構築．
-        let this_module_name = self.module_arena
+        let this_module_name = self
+            .module_arena
             .lock()
             .unwrap()
             .get(ext_id)
@@ -148,21 +134,15 @@ impl FrontendManager {
         }
 
         // 参照･子ノードたちのパース，結合
-        self.parse_requires(
-            ext_id,
-            module_name.clone(),
-        );
+        self.parse_requires(ext_id, module_name.clone());
         self.parse_children(ext_id, module_name);
     }
 
     /// mod_idのモジュール以下のすべてのモジュールをパースし，結合
-    fn parse_children(
-        &mut self,
-        mod_id: module::ModuleId,
-        module_name: String,
-    ) {
+    fn parse_children(&mut self, mod_id: module::ModuleId, module_name: String) {
         // 参照ノードをすべて取得
-        let children = self.module_arena
+        let children = self
+            .module_arena
             .lock()
             .unwrap()
             .get(mod_id)
@@ -174,7 +154,6 @@ impl FrontendManager {
         }
     }
 }
-
 
 // トップのモジュールなら `std` のように
 // それ以降なら `std::os` のようにつなげる

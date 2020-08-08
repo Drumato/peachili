@@ -1,12 +1,10 @@
-use crate::common::ast::{
-    ExNodeId, ExpressionNode, StNodeId,
-};
+use crate::common::ast::{ExNodeId, ExpressionNode, StNodeId};
 use crate::common::position::Position;
 use crate::common::token::{Token, TokenKind};
 use std::sync::MutexGuard;
 
-use id_arena::Arena;
 use crate::common::pass::parser::parse_resource::ParseResource;
+use id_arena::Arena;
 
 type ChildParser = fn(&ParseResource, Vec<Token>) -> (ExNodeId, Vec<Token>);
 type OperatorParser = fn(&ParseResource, Vec<Token>) -> (Option<TokenKind>, Vec<Token>);
@@ -73,8 +71,7 @@ pub fn binary_operation_parser(
     resources: &ParseResource,
     tokens: Vec<Token>,
 ) -> (ExNodeId, Vec<Token>) {
-    let (mut lhs_id, mut rest_tokens) =
-        child_parser(resources, tokens);
+    let (mut lhs_id, mut rest_tokens) = child_parser(resources, tokens);
 
     loop {
         let op_pos = current_position(&rest_tokens);
@@ -82,10 +79,15 @@ pub fn binary_operation_parser(
         rest_tokens = rk;
         match op {
             Some(op) => {
-                let (rhs_id, rk) =
-                    child_parser(resources, rest_tokens.clone());
+                let (rhs_id, rk) = child_parser(resources, rest_tokens.clone());
                 rest_tokens = rk;
-                lhs_id = alloc_binop_node(resources.expr_arena.lock().unwrap(), &op, lhs_id, rhs_id, op_pos);
+                lhs_id = alloc_binop_node(
+                    resources.expr_arena.lock().unwrap(),
+                    &op,
+                    lhs_id,
+                    rhs_id,
+                    op_pos,
+                );
             }
             None => break,
         }
@@ -161,7 +163,10 @@ pub fn expect_type(module_name: String, mut tokens: Vec<Token>) -> (String, Vec<
         }
         TokenKind::IDENTIFIER { name: _ } => {
             let (names, rest_tokens) = expect_identifier(tokens);
-            (format!("{}::{}", module_name, names.join("::")), rest_tokens)
+            (
+                format!("{}::{}", module_name, names.join("::")),
+                rest_tokens,
+            )
         }
         _ => panic!("TODO we must compile error when got difference token in expect_type()"),
     }

@@ -1,6 +1,6 @@
-use crate::common::three_address_code as tac;
 use crate::common::cfg::LocalControlFlowGraph;
 use crate::common::file_util;
+use crate::common::three_address_code as tac;
 use std::collections::BTreeMap;
 
 struct CFGDumper {
@@ -29,10 +29,14 @@ pub fn dump_local_cfg(
     cfg_dumper.to_file();
 }
 
-
 impl CFGDumper {
     /// サブグラフの定義
-    fn append_function_cluster(&mut self, ir_module: &tac::IRModule, ir_fn_id: &tac::IRFunctionId, local_cfg: &BTreeMap<tac::IRFunctionId, LocalControlFlowGraph>) {
+    fn append_function_cluster(
+        &mut self,
+        ir_module: &tac::IRModule,
+        ir_fn_id: &tac::IRFunctionId,
+        local_cfg: &BTreeMap<tac::IRFunctionId, LocalControlFlowGraph>,
+    ) {
         let ir_fn = ir_module.fn_allocator.get(*ir_fn_id).unwrap();
 
         self.append_cluster_attributes(&ir_fn.name);
@@ -47,11 +51,16 @@ impl CFGDumper {
         self.output += "  }\n";
     }
 
-
     /// グラフのノード定義
     fn append_ir_node(&mut self, code_id: tac::CodeId, ir_fn: &tac::IRFunction) {
         let (code, shape) = self.get_shape(ir_fn, &code_id);
-        self.output += &format!("    \"{}{:?}\"[label=\"{}\", shape=\"{}\"]\n", ir_fn.name, code_id, code.dump(ir_fn.value_allocator.clone()), shape);
+        self.output += &format!(
+            "    \"{}{:?}\"[label=\"{}\", shape=\"{}\"]\n",
+            ir_fn.name,
+            code_id,
+            code.dump(ir_fn.value_allocator.clone()),
+            shape
+        );
     }
 
     /// ノードの形をCodeKindによって決める
@@ -59,21 +68,26 @@ impl CFGDumper {
         let code = ir_fn.get_code(*code_id);
         // ノード定義
         let shape = match code.kind {
-            tac::CodeKind::LABEL { name: _ } => {
-                "ellipse"
-            }
-            _ => {
-                "box"
-            }
+            tac::CodeKind::LABEL { name: _ } => "ellipse",
+            _ => "box",
         };
         (code, shape.to_string())
     }
 
     /// 後続節の定義
-    fn append_succ_edge(&mut self, local_cfg: &BTreeMap<tac::IRFunctionId, LocalControlFlowGraph>, ir_fn_id: &tac::IRFunctionId, code_id: &tac::CodeId, cluster_name: &str) {
+    fn append_succ_edge(
+        &mut self,
+        local_cfg: &BTreeMap<tac::IRFunctionId, LocalControlFlowGraph>,
+        ir_fn_id: &tac::IRFunctionId,
+        code_id: &tac::CodeId,
+        cluster_name: &str,
+    ) {
         let graph = local_cfg.get(ir_fn_id).unwrap().get_successors(code_id);
         for succ_edge in graph.iter() {
-            self.output += &format!("    \"{}{:?}\" -> \"{}{:?}\"\n", cluster_name, code_id, cluster_name, succ_edge);
+            self.output += &format!(
+                "    \"{}{:?}\" -> \"{}{:?}\"\n",
+                cluster_name, code_id, cluster_name, succ_edge
+            );
         }
     }
 

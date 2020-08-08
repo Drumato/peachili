@@ -42,8 +42,10 @@ pub fn type_resolve_main(
                 std::process::exit(1);
             }
 
-            func_env.insert(function.full_path(), Type::new_function(function_ret_type.unwrap()));
-
+            func_env.insert(
+                function.full_path(),
+                Type::new_function(function_ret_type.unwrap()),
+            );
 
             if let Err(e) = add_auto_var_to_env(tld_map, &mut type_env, function, target) {
                 e.output();
@@ -66,7 +68,10 @@ pub fn type_resolve_main(
                     let stmt = stmt_arena.get(*stmt_id).unwrap();
 
                     match stmt.get_kind() {
-                        ast::StatementNodeKind::DECLARE { ident_name, type_name } => {
+                        ast::StatementNodeKind::DECLARE {
+                            ident_name,
+                            type_name,
+                        } => {
                             let var_type = resolve_type_string(tld_map, type_name.clone(), target);
                             if let Err(e) = var_type {
                                 e.output();
@@ -75,7 +80,11 @@ pub fn type_resolve_main(
 
                             func_env.insert(ident_name.clone(), var_type.unwrap());
                         }
-                        ast::StatementNodeKind::VARINIT { ident_name, type_name, expr: _ } => {
+                        ast::StatementNodeKind::VARINIT {
+                            ident_name,
+                            type_name,
+                            expr: _,
+                        } => {
                             let var_type = resolve_type_string(tld_map, type_name.clone(), target);
                             if let Err(e) = var_type {
                                 e.output();
@@ -84,7 +93,11 @@ pub fn type_resolve_main(
 
                             func_env.insert(ident_name.clone(), var_type.unwrap());
                         }
-                        ast::StatementNodeKind::CONST { ident_name, type_name, expr: _ } => {
+                        ast::StatementNodeKind::CONST {
+                            ident_name,
+                            type_name,
+                            expr: _,
+                        } => {
                             let var_type = resolve_type_string(tld_map, type_name.clone(), target);
                             if let Err(e) = var_type {
                                 e.output();
@@ -291,16 +304,26 @@ fn resolve_type_from_tld(
 #[cfg(test)]
 mod analyze_tests {
     use super::*;
-    use crate::common::tld::{TLDKind, TopLevelDecl};
     use crate::common::option::Target;
+    use crate::common::tld::{TLDKind, TopLevelDecl};
 
     #[test]
     fn resolve_type_string_in_x64_test() {
         let m = new_tld();
 
         check_types(Type::new_noreturn(), &m, "Noreturn", option::Target::X86_64);
-        check_types(Type::new_int64(Target::X86_64), &m, "Int64", option::Target::X86_64);
-        check_types(Type::new_uint64(Target::X86_64), &m, "Uint64", option::Target::X86_64);
+        check_types(
+            Type::new_int64(Target::X86_64),
+            &m,
+            "Int64",
+            option::Target::X86_64,
+        );
+        check_types(
+            Type::new_uint64(Target::X86_64),
+            &m,
+            "Uint64",
+            option::Target::X86_64,
+        );
         check_types(
             Type::new_pointer(Type::new_int64(Target::X86_64), Target::X86_64),
             &m,
@@ -308,13 +331,24 @@ mod analyze_tests {
             option::Target::X86_64,
         );
 
-        check_types(Type::new_int64(Target::X86_64), &m, "T1", option::Target::X86_64);
+        check_types(
+            Type::new_int64(Target::X86_64),
+            &m,
+            "T1",
+            option::Target::X86_64,
+        );
         check_types(
             Type::new_struct(
                 {
                     let mut mm = BTreeMap::new();
-                    mm.insert("m1".to_string(), (Box::new(Type::new_int64(Target::X86_64)), 0));
-                    mm.insert("m2".to_string(), (Box::new(Type::new_uint64(Target::X86_64)), 8));
+                    mm.insert(
+                        "m1".to_string(),
+                        (Box::new(Type::new_int64(Target::X86_64)), 0),
+                    );
+                    mm.insert(
+                        "m2".to_string(),
+                        (Box::new(Type::new_uint64(Target::X86_64)), 8),
+                    );
                     mm
                 },
                 16,

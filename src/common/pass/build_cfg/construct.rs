@@ -1,9 +1,11 @@
-use crate::common::three_address_code as tac;
-use tac::CodeKind;
 use crate::common::cfg::LocalControlFlowGraph;
+use crate::common::three_address_code as tac;
 use std::collections::{BTreeMap, BTreeSet};
+use tac::CodeKind;
 
-pub fn build_local_cfg(ir_module: &tac::IRModule) -> BTreeMap<tac::IRFunctionId, LocalControlFlowGraph> {
+pub fn build_local_cfg(
+    ir_module: &tac::IRModule,
+) -> BTreeMap<tac::IRFunctionId, LocalControlFlowGraph> {
     let mut local_cfg = BTreeMap::new();
 
     for fn_id in ir_module.funcs.iter() {
@@ -44,7 +46,10 @@ fn build_graph_in_func(ir_fn: &tac::IRFunction) -> LocalControlFlowGraph {
                     add_pred_edge_from(&mut graph, *code_id, &ir_fn.codes, idx);
                     add_succ_edge_from(&mut graph, *code_id, &ir_fn.codes, idx);
                 }
-                CodeKind::JUMPIFFALSE { label, cond_result: _ } => {
+                CodeKind::JUMPIFFALSE {
+                    label,
+                    cond_result: _,
+                } => {
                     if !jmp_to_label.contains_key(label) {
                         jmp_to_label.insert(label.clone(), BTreeSet::new());
                     }
@@ -81,13 +86,23 @@ fn build_graph_in_func(ir_fn: &tac::IRFunction) -> LocalControlFlowGraph {
     graph
 }
 
-fn add_pred_edge_from(graph: &mut LocalControlFlowGraph, src: tac::CodeId, codes: &[tac::CodeId], idx: usize) {
+fn add_pred_edge_from(
+    graph: &mut LocalControlFlowGraph,
+    src: tac::CodeId,
+    codes: &[tac::CodeId],
+    idx: usize,
+) {
     if idx > 0 {
         graph.add_predecessor(src, codes[idx - 1]);
     }
 }
 
-fn add_succ_edge_from(graph: &mut LocalControlFlowGraph, src: tac::CodeId, codes: &[tac::CodeId], idx: usize) {
+fn add_succ_edge_from(
+    graph: &mut LocalControlFlowGraph,
+    src: tac::CodeId,
+    codes: &[tac::CodeId],
+    idx: usize,
+) {
     if idx < codes.len() - 1 {
         graph.add_successor(src, codes[idx + 1]);
     }

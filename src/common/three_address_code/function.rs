@@ -1,6 +1,6 @@
-use crate::common::three_address_code::*;
 use crate::common::peachili_type;
-use id_arena::{Id, Arena};
+use crate::common::three_address_code::*;
+use id_arena::{Arena, Id};
 use std::sync::{Arc, Mutex};
 
 pub type IRFunctionId = Id<IRFunction>;
@@ -23,11 +23,21 @@ pub struct IRFunction {
 #[allow(dead_code)]
 impl IRFunction {
     pub fn get_value(&self, v_id: ValueId) -> Value {
-        self.value_allocator.lock().unwrap().get(v_id).unwrap().clone()
+        self.value_allocator
+            .lock()
+            .unwrap()
+            .get(v_id)
+            .unwrap()
+            .clone()
     }
 
     pub fn get_code(&self, c_id: CodeId) -> Code {
-        self.code_allocator.lock().unwrap().get(c_id).unwrap().clone()
+        self.code_allocator
+            .lock()
+            .unwrap()
+            .get(c_id)
+            .unwrap()
+            .clone()
     }
 
     pub fn get_called_name(&self, v_id: ValueId) -> String {

@@ -1,6 +1,4 @@
-use crate::common::ast::{
-    ExNodeId, StNodeId,
-};
+use crate::common::ast::{ExNodeId, StNodeId};
 
 /// 文ノードの種類
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
@@ -24,9 +22,7 @@ pub enum StatementNodeKind {
         body: Vec<StNodeId>,
     },
     /// "asm" block `;
-    ASM {
-        stmts: Vec<StNodeId>,
-    },
+    ASM { stmts: Vec<StNodeId> },
     /// "varinit" identifier type `=` expression `;`
     VARINIT {
         ident_name: String,

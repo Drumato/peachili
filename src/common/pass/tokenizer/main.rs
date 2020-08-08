@@ -62,10 +62,7 @@ impl Tokenization {
     /// 文字列の先頭を見て，字句規則を適用する
     fn scan(&mut self, source: &mut String) -> Result<Token, CE<TEK>> {
         if source.is_empty() {
-            return Err(CE::new(
-                TEK::SOURCEISEMPTY,
-                Default::default(),
-            ));
+            return Err(CE::new(TEK::SOURCEISEMPTY, Default::default()));
         }
 
         let cur_char = source.as_bytes()[0];
@@ -91,9 +88,7 @@ impl Tokenization {
                     source.drain(..self.cur_token_length);
                     Ok(t)
                 }
-                Err(e) => {
-                    Err(e)
-                }
+                Err(e) => Err(e),
             },
 
             // 空白類文字
@@ -143,7 +138,8 @@ impl Tokenization {
         let ident_pos = Position::new(self.row, self.column);
 
         // 文字列を切り取る
-        let ident_str = cut_string_while(s, |c| c.is_alphabetic() || c == &'_' || c.is_ascii_digit());
+        let ident_str =
+            cut_string_while(s, |c| c.is_alphabetic() || c == &'_' || c.is_ascii_digit());
         let len = ident_str.len();
         self.condition_position(len);
 
@@ -163,8 +159,7 @@ impl Tokenization {
         for sym_str in multilength_symbols.iter() {
             if s.starts_with(sym_str) {
                 self.condition_position(2);
-                return
-                    Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos);
+                return Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos);
             }
         }
 
@@ -176,8 +171,7 @@ impl Tokenization {
             if s.starts_with(sym_str) {
                 self.condition_position(1);
 
-                return
-                    Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos);
+                return Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos);
             }
         }
 
@@ -198,7 +192,6 @@ impl Tokenization {
             comment_pos,
         )
     }
-
 
     /// 整数/非符号付き整数のトークン化
     fn scan_number(&mut self, s: &str) -> Result<Token, CE<TEK>> {
@@ -223,9 +216,7 @@ impl Tokenization {
             self.cur_token_length += 1;
             let u_value = number_str.parse::<u64>();
 
-            return Ok(
-                Token::new_uint_literal(u_value.unwrap(), literal_pos),
-            );
+            return Ok(Token::new_uint_literal(u_value.unwrap(), literal_pos));
         }
 
         Ok(Token::new_int_literal(value.unwrap(), literal_pos))
@@ -248,7 +239,6 @@ impl Tokenization {
         self.cur_token_length = length;
     }
 }
-
 
 /// 条件が通る間文字列を読み進め，切りとる
 fn cut_string_while(s: &str, f: fn(&char) -> bool) -> String {
@@ -280,8 +270,13 @@ mod tokenizer_tests {
     fn scan_identifier_test() {
         let mut tokenization = new_tokenization();
         let t = tokenization.scan_identifier("xyz");
-        identifier_helper(t, TokenKind::IDENTIFIER { name: "xyz".to_string() }, Position::new(1, 1));
-
+        identifier_helper(
+            t,
+            TokenKind::IDENTIFIER {
+                name: "xyz".to_string(),
+            },
+            Position::new(1, 1),
+        );
 
         let t = tokenization.scan_identifier("ConstStr");
         identifier_helper(t, TokenKind::CONSTSTR, Position::new(1, 4));
@@ -356,7 +351,13 @@ mod tokenizer_tests {
 
         // `return_value`
         let t = tokenization.scan(&mut case);
-        identifier_helper(t.unwrap(), TokenKind::IDENTIFIER { name: "return_value".to_string() }, Position::new(2, 1));
+        identifier_helper(
+            t.unwrap(),
+            TokenKind::IDENTIFIER {
+                name: "return_value".to_string(),
+            },
+            Position::new(2, 1),
+        );
 
         // ` `
         let t = tokenization.scan(&mut case);
@@ -370,7 +371,6 @@ mod tokenizer_tests {
         let t = tokenization.scan(&mut case);
         assert!(t.is_err());
     }
-
 
     fn int_literal_helper(t: Result<Token, CE<TEK>>, value: i64, pos: Position) {
         assert!(t.is_ok());

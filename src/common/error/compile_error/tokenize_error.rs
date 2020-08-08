@@ -25,9 +25,7 @@ impl fmt::Display for TokenizeErrorKind {
             TokenizeErrorKind::INTEGERLITERALOUTOFRANGE(number) => {
                 format!("an int-literal `{}` out of range 64bit", number)
             }
-            TokenizeErrorKind::SOURCEISEMPTY => {
-                "source is empty".to_string()
-            }
+            TokenizeErrorKind::SOURCEISEMPTY => "source is empty".to_string(),
         };
 
         write!(f, "{}", s)

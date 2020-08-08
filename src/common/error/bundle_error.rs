@@ -1,6 +1,6 @@
+use crate::common::error::CompileErrorKind;
 use fmt::Formatter;
 use std::fmt;
-use crate::common::error::CompileErrorKind;
 
 /// Bundlerが発行するエラーを格納
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -9,14 +9,12 @@ pub struct BundleError {
     kind: BundleErrorKind,
 }
 
-
 /// Bundlerが発行するエラーの種類を列挙
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum BundleErrorKind {
     /// import しているファイルが存在しない
     NOTFOUNDSUCHAFILE { file_name: String },
 }
-
 
 impl CompileErrorKind for BundleErrorKind {
     fn category(&self) -> &'static str {

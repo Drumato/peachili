@@ -9,7 +9,6 @@ pub type CodeId = Id<Code>;
 pub struct Code {
     /// 種類
     pub kind: code_kind::CodeKind,
-
     // ベーシックブロック分割時に利用
     // pub label: Option<String>,
 }

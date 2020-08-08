@@ -12,24 +12,24 @@ impl Operand {
         match &self.kind {
             OperandKind::REGISTER { reg } => reg.to_atandt(),
             OperandKind::IMMEDIATE { value } => format!("${}", value),
-            OperandKind::MEMORY { base, offset } => if *offset == 0 {
-                format!("({})", base.to_atandt())
-            } else {
-                format!("-{}({})", offset, base.to_atandt())
-            },
+            OperandKind::MEMORY { base, offset } => {
+                if *offset == 0 {
+                    format!("({})", base.to_atandt())
+                } else {
+                    format!("-{}({})", offset, base.to_atandt())
+                }
+            }
         }
     }
-    pub fn get_reg(&self) -> Register{
-        match &self.kind{
-            OperandKind::REGISTER {reg} => *reg,
+    pub fn get_reg(&self) -> Register {
+        match &self.kind {
+            OperandKind::REGISTER { reg } => *reg,
             _ => unreachable!(),
         }
     }
 
     pub fn new(kind: OperandKind) -> Self {
-        Self {
-            kind,
-        }
+        Self { kind }
     }
 
     pub fn get_kind(&self) -> &OperandKind {
@@ -39,16 +39,9 @@ impl Operand {
 
 #[derive(Debug, Clone, Copy)]
 pub enum OperandKind {
-    IMMEDIATE {
-        value: i64,
-    },
-    REGISTER {
-        reg: Register,
-    },
-    MEMORY {
-        base: Register,
-        offset: usize,
-    },
+    IMMEDIATE { value: i64 },
+    REGISTER { reg: Register },
+    MEMORY { base: Register, offset: usize },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -90,7 +83,6 @@ impl Register {
 
     pub fn to_str(&self) -> &'static str {
         match self {
-
             // 64bit general-purpose registers
             Register::RAX => "rax",
             Register::RCX => "rcx",
