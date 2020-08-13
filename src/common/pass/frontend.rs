@@ -37,6 +37,9 @@ pub fn frontend(
     // メインモジュールが参照する各モジュールも同様にパース
     manager.parse_requires(main_module_id, String::new());
 
+    // ASTレベルのconstant-folding
+    analyzer::constant_folding(manager.fn_arena.clone(), &manager.full_ast);
+
     // TLD解析
     let tld_env = tld_collector::main(manager.fn_arena.clone(), &manager.full_ast);
 
@@ -58,6 +61,8 @@ pub fn frontend(
             setup::BUILD_OPTION.target,
         );
     }
+
+
 
     // スタック割付
     // 通常はローカル変数をすべてスタックに．

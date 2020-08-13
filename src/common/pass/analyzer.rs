@@ -8,3 +8,6 @@ pub use type_check::*;
 
 mod alloc_frame;
 pub use alloc_frame::*;
+
+mod constant_folding;
+pub use constant_folding::*;
