@@ -180,11 +180,10 @@ fn type_check_expr(
         ast::ExpressionNodeKind::STRING { contents: _ } => Ok(Type::new_const_str(target)),
         ast::ExpressionNodeKind::MEMBER {
             id: st_id,
-            member: member_id,
+            member,
         } => {
             let struct_node = expr_arena.lock().unwrap().get(*st_id).unwrap().clone();
-            let member_node = expr_arena.lock().unwrap().get(*member_id).unwrap().clone();
-            type_check_member_expression(tld_env, type_env, struct_node, member_node, target)
+            type_check_member_expression(tld_env, type_env, struct_node, member, target)
         }
         _ => panic!("unimplemented type check with `{:?}`", expr),
     }
@@ -194,7 +193,7 @@ fn type_check_member_expression(
     _tld_env: &BTreeMap<String, tld::TopLevelDecl>,
     type_env: &BTreeMap<String, Type>,
     struct_node: ast::ExpressionNode,
-    value_node: ast::ExpressionNode,
+    member: &str,
     _target: option::Target,
 ) -> Result<Type, CompileError<TypeErrorKind>> {
     // メンバ式でチェックすること
@@ -205,16 +204,6 @@ fn type_check_member_expression(
         let err_pos = struct_node.get_pos();
         return Err(CompileError::new(
             TypeErrorKind::CANNOTACCESSMEMBERWITHNOTANIDENTIFIER { struct_node },
-            err_pos,
-        ));
-    }
-
-    if !value_node.is_identifier() {
-        let err_pos = value_node.get_pos();
-        return Err(CompileError::new(
-            TypeErrorKind::MEMBERNAMEMUSTBEANIDENTIFIER {
-                member_node: value_node,
-            },
             err_pos,
         ));
     }
@@ -234,13 +223,13 @@ fn type_check_member_expression(
             let members = node_type.get_members();
 
             // メンバが存在するかチェック
-            match members.get(&value_node.copy_names().join("::")) {
+            match members.get(member) {
                 Some((member_type, _member_offset)) => Ok(*member_type.clone()),
                 None => {
-                    let err_pos = value_node.get_pos();
+                    let err_pos = struct_node.get_pos();
                     Err(CompileError::new(
                         TypeErrorKind::UNDEFINEDSUCHAMEMBER {
-                            member_node: value_node,
+                            member: member.to_string(),
                         },
                         err_pos,
                     ))
@@ -306,7 +295,7 @@ mod type_check_tests {
         let member_ex = new_member_node(
             expr_arena.clone(),
             ast::ExpressionNode::new_integer(3, Default::default()),
-            ast::ExpressionNode::new_identifier(vec!["foo".to_string()], Default::default()),
+            "foo".to_string(),
         );
         let member_type = type_check_expr(
             &tld_env,
@@ -322,31 +311,11 @@ mod type_check_tests {
             },
         );
 
-        // `foo.3`
-        let member_ex = new_member_node(
-            expr_arena.clone(),
-            ast::ExpressionNode::new_identifier(vec!["foo".to_string()], Default::default()),
-            ast::ExpressionNode::new_integer(3, Default::default()),
-        );
-        let member_type = type_check_expr(
-            &tld_env,
-            &env,
-            expr_arena.clone(),
-            &member_ex,
-            option::Target::X86_64,
-        );
-        type_check_expr_error_test(
-            member_type,
-            TypeErrorKind::MEMBERNAMEMUSTBEANIDENTIFIER {
-                member_node: ast::ExpressionNode::new_integer(3, Default::default()),
-            },
-        );
-
         // `x.foo`
         let member_ex = new_member_node(
             expr_arena.clone(),
             ast::ExpressionNode::new_identifier(vec!["x".to_string()], Default::default()),
-            ast::ExpressionNode::new_identifier(vec!["foo".to_string()], Default::default()),
+            "foo".to_string(),
         );
         let member_type = type_check_expr(
             &tld_env,
@@ -369,7 +338,7 @@ mod type_check_tests {
         let member_ex = new_member_node(
             expr_arena.clone(),
             ast::ExpressionNode::new_identifier(vec!["st".to_string()], Default::default()),
-            ast::ExpressionNode::new_identifier(vec!["undefined".to_string()], Default::default()),
+            "undefined".to_string(),
         );
         let member_type = type_check_expr(
             &tld_env,
@@ -381,10 +350,7 @@ mod type_check_tests {
         type_check_expr_error_test(
             member_type,
             TypeErrorKind::UNDEFINEDSUCHAMEMBER {
-                member_node: ast::ExpressionNode::new_identifier(
-                    vec!["undefined".to_string()],
-                    Default::default(),
-                ),
+                member: "undefined".to_string(),
             },
         );
     }
@@ -472,7 +438,7 @@ mod type_check_tests {
         let member_ex = new_member_node(
             expr_arena.clone(),
             ast::ExpressionNode::new_identifier(vec!["st".to_string()], Default::default()),
-            ast::ExpressionNode::new_identifier(vec!["foo".to_string()], Default::default()),
+            "foo".to_string(),
         );
         let member_type = type_check_expr(
             &tld_env,
@@ -488,11 +454,10 @@ mod type_check_tests {
     fn new_member_node(
         expr_arena: ast::ExprArena,
         st_node: ast::ExpressionNode,
-        mem_node: ast::ExpressionNode,
+        member: String,
     ) -> ast::ExpressionNode {
         let st_id = expr_arena.lock().unwrap().alloc(st_node);
-        let mem_id = expr_arena.lock().unwrap().alloc(mem_node);
-        ast::ExpressionNode::new_postfix_op(&TokenKind::DOT, st_id, mem_id, Default::default())
+        ast::ExpressionNode::new_postfix_op(&TokenKind::DOT, st_id, member, Default::default())
     }
 
     fn new_func(name: String, args: Vec<(String, String)>) -> ast::Function {

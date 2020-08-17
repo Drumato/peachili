@@ -72,7 +72,7 @@ impl ExpressionNode {
     pub fn new_postfix_op(
         operator: &TokenKind,
         id: ExNodeId,
-        member: ExNodeId,
+        member: String,
         pos: position::Position,
     ) -> Self {
         let nk = match operator {

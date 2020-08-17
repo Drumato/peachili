@@ -172,7 +172,7 @@ impl ParseResource {
                 TokenKind::DOT => {
                     parser_util::eat_token(&mut rest_tokens);
 
-                    let (v, rk) = self.postfix(rest_tokens);
+                    let (names, rk) = parser_util::expect_identifier(rest_tokens);
                     rest_tokens = rk;
 
                     value = self
@@ -182,7 +182,7 @@ impl ParseResource {
                         .alloc(ExpressionNode::new_postfix_op(
                             &TokenKind::DOT,
                             value,
-                            v,
+                            names.join("::"),
                             postfix_pos,
                         ));
                 }

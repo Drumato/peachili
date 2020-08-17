@@ -28,7 +28,7 @@ pub enum ExpressionNodeKind {
     /// デリファレンス
     DEREFERENCE { value: ExNodeId },
     /// メンバアクセス
-    MEMBER { id: ExNodeId, member: ExNodeId },
+    MEMBER { id: ExNodeId, member: String },
 
     /// 整数ノード
     INTEGER { value: i64 },

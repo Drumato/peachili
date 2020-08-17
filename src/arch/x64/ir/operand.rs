@@ -21,6 +21,11 @@ impl Operand {
             }
         }
     }
+    pub fn add_offset(&mut self, appendix: usize) {
+        if let OperandKind::MEMORY{base: _, offset} = &mut self.kind {
+            *offset += appendix;
+        }
+    }
     pub fn get_reg(&self) -> Register {
         match &self.kind {
             OperandKind::REGISTER { reg } => *reg,

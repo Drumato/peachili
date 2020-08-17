@@ -194,6 +194,24 @@ impl<'a> FunctionTranslator<'a> {
                 });
                 result_v
             }
+            ast::ExpressionNodeKind::MEMBER{id, member} => {
+                // 構造体のベースアドレスをレジスタにロード
+                let id_v = self.gen_lvalue(id);
+                // メンバオフセットをプラスする
+                let id_names = self.copy_ast_expr(id).copy_names();
+                let id_type = self.copy_type_in_cur_func(&id_names.join("::"));
+                let member_type = id_type.get_members().get(member).unwrap();
+
+                let member_addr = self.gen_result_temp(Type::new_pointer(*member_type.0.clone(), self.target));
+                let member_offset_id = self.value_arena.alloc(tac::Value::new_int64(member_type.1 as i64, self.target));
+                self.add_code_with_allocation(tac::CodeKind::SUB {
+                    lop: id_v,
+                    rop: member_offset_id,
+                    result: member_addr,
+                });
+        
+                member_addr
+            },
             _ => unreachable!(),
         }
     }
@@ -224,6 +242,23 @@ impl<'a> FunctionTranslator<'a> {
             ast::ExpressionNodeKind::STRING { contents } => self.value_arena.alloc(
                 tac::Value::new_string_literal(contents.to_string(), self.target),
             ),
+            ast::ExpressionNodeKind::MEMBER { id, member } => {
+                // 両方のオペランドをIRに変換する
+                let id = self.gen_ir_from_expr(id);
+
+                // 計算結果をTEMP変数に格納するコードを生成   
+                let st_type = self.value_arena.get(id).unwrap().ty.clone();
+                let member_type = st_type.get_members().get(member).unwrap().0.clone();
+                let result_v = self.gen_result_temp(*member_type);
+
+                self.add_code_with_allocation(tac::CodeKind::MEMBER{
+                    id,
+                    member: member.to_string(),
+                    result: result_v,
+                });
+
+                result_v
+            }
 
             // 代入式
             ast::ExpressionNodeKind::ASSIGN { lhs, rhs } => {
@@ -261,10 +296,6 @@ impl<'a> FunctionTranslator<'a> {
             }
             ast::ExpressionNodeKind::DIV { lhs, rhs } => {
                 self.gen_ir_from_binop_expr("/", &expr, lhs, rhs)
-            }
-            // メンバアクセス式も二項演算のようにしておく
-            ast::ExpressionNodeKind::MEMBER { id, member } => {
-                self.gen_ir_from_binop_expr(".", &expr, id, member)
             }
             ast::ExpressionNodeKind::CALL { names, args } => {
                 self.gen_ir_from_call_expr(names.join("::"), args)
@@ -396,11 +427,6 @@ impl<'a> FunctionTranslator<'a> {
             "/" => tac::CodeKind::DIV {
                 lop: lop_value_id,
                 rop: rop_value_id,
-                result: result_v,
-            },
-            "." => tac::CodeKind::MEMBER {
-                id: lop_value_id,
-                member: rop_value_id,
                 result: result_v,
             },
             _ => unreachable!(),

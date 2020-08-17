@@ -32,14 +32,11 @@ pub enum TypeErrorKind {
     /// 変数以外へメンバアクセスしようとした．
     CANNOTACCESSMEMBERWITHNOTANIDENTIFIER { struct_node: ast::ExpressionNode },
 
-    /// メンバ名が識別子でなかった
-    MEMBERNAMEMUSTBEANIDENTIFIER { member_node: ast::ExpressionNode },
-
     /// 構造体型以外にメンバアクセスした
     CANNOTACCESSMEMBERWITHNOTASTRUCT { struct_node: ast::ExpressionNode },
 
     /// 該当するメンバが存在しなかった
-    UNDEFINEDSUCHAMEMBER { member_node: ast::ExpressionNode },
+    UNDEFINEDSUCHAMEMBER { member: String },
 }
 
 impl CompileErrorKind for TypeErrorKind {
@@ -61,16 +58,12 @@ impl fmt::Display for TypeErrorKind {
                 "cannot access member of `{:?}`, its not an identifier",
                 struct_node
             ),
-            TypeErrorKind::MEMBERNAMEMUSTBEANIDENTIFIER { member_node } => format!(
-                "member name must be an identifier, but got `{:?}",
-                member_node
-            ),
             TypeErrorKind::CANNOTACCESSMEMBERWITHNOTASTRUCT { struct_node } => format!(
                 "cannot access member of `{:?}`, its not a struct",
                 struct_node
             ),
-            TypeErrorKind::UNDEFINEDSUCHAMEMBER { member_node } => {
-                format!("undefined such a member -> `{:?}`", member_node)
+            TypeErrorKind::UNDEFINEDSUCHAMEMBER { member } => {
+                format!("undefined such a member -> `{}`", member)
             }
             TypeErrorKind::MAINFUNCNOTFOUND => "entry point `main` not found".to_string(),
             TypeErrorKind::MAINFUNCMUSTNOTHAVEANYARGUMENTS => {

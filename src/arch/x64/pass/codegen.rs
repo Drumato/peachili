@@ -154,9 +154,21 @@ impl<'a> FunctionGenerator<'a> {
                     label: format!("{}_{}", self.f.get_name(), label),
                 });
             }
+            tac::CodeKind::MEMBER{id, member, result} => {
+                let ident_op = tac_fn.get_value(id);
+                let member_offset = ident_op.ty.get_members().get(&member).unwrap().1;
+                let mut ident_op = self.operand_from_value(ident_op);
+                ident_op.add_offset(member_offset);
+                let result = tac_fn.get_value(result);
+                let result_op = self.operand_from_value(result);
 
-            tac::CodeKind::ALLOC { temp: _ } => {}
-            _ => eprintln!("unimplemented {:?}", code.kind),
+                self.add_inst_to_last_bb(lir::InstKind::MOV {
+                    operand_size: lir::OperandSize::QWORD,
+                    src: ident_op,
+                    dst: result_op,
+                });
+            },
+            tac::CodeKind::ALLOC { temp: _ } => {},
         }
     }
 

@@ -46,7 +46,7 @@ pub enum CodeKind {
     },
     MEMBER {
         id: ValueId,
-        member: ValueId,
+        member: String,
         result: ValueId,
     },
     RETURN {
@@ -163,13 +163,6 @@ impl CodeKind {
                     .clone()
                     .dump();
                 let id = value_arena.lock().unwrap().get(*id).unwrap().clone().dump();
-                let member = value_arena
-                    .lock()
-                    .unwrap()
-                    .get(*member)
-                    .unwrap()
-                    .clone()
-                    .dump();
 
                 format!("{} <- {}.{}", res, id, member)
             }
