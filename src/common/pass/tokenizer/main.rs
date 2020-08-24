@@ -48,6 +48,7 @@ fn tokenize(mut source: String) -> Vec<Token> {
 
         let t = t.unwrap();
 
+        // 空白類文字は読み飛ばす
         if t.should_ignore() {
             continue;
         }
@@ -105,6 +106,8 @@ impl Tokenization {
                 source.drain(..1);
                 Ok(Token::new(TokenKind::NEWLINE, Position::new(0, 0)))
             }
+
+            // コメントまたは記号とする
             _ => {
                 let t = self.scan_symbol(source);
                 if let TokenKind::DOUBLESLASH = &t.get_kind() {
@@ -154,28 +157,30 @@ impl Tokenization {
     /// 記号
     fn scan_symbol(&mut self, s: &str) -> Token {
         let symbol_pos = Position::new(self.row, self.column);
-        let multilength_symbols = vec!["::", "//"];
+        let symbol_str = s[..2].to_string();
 
-        for sym_str in multilength_symbols.iter() {
-            if s.starts_with(sym_str) {
+        let symbol_kind = match symbol_str.as_str() {
+            "::" | "//" => {
                 self.condition_position(2);
-                return Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos);
+                TokenKind::new_symbol_from_str(&symbol_str)
             }
-        }
 
-        let symbols = vec![
-            "+", "-", "*", "/", ";", "(", ")", "{", "}", "=", ",", "&", ".",
-        ];
+            // '()' などに対応するため，ネストしたmatch式を用いる
+            _ => {
+                let symbol_str = symbol_str.as_bytes()[0];
 
-        for sym_str in symbols.iter() {
-            if s.starts_with(sym_str) {
-                self.condition_position(1);
-
-                return Token::new(TokenKind::new_symbol_from_str(sym_str), symbol_pos);
+                match symbol_str as char {
+                    '+' | '-' | '*' | '/' | ':' | ';' | '(' | ')' | '{' | '}' | '=' | ',' | '&'
+                    | '.' => {
+                        self.condition_position(1);
+                        TokenKind::new_symbol_from_str(&(symbol_str as char).to_string())
+                    }
+                    _ => panic!("undefined such an symbol => '{}'", symbol_str as char),
+                }
             }
-        }
+        };
 
-        unreachable!();
+        Token::new(symbol_kind, symbol_pos)
     }
 
     /// コメント
@@ -285,8 +290,8 @@ mod tokenizer_tests {
     #[test]
     fn scan_string_literal_test() {
         let mut tokenization = new_tokenization();
-        let t = tokenization.scan_string_literal("\"Drumato\"");
-        string_literal_helper(t, "Drumato", Position::new(1, 1));
+        let t = tokenization.scan_string_literal("\"Drum\"");
+        string_literal_helper(t, "Drum", Position::new(1, 1));
     }
 
     #[test]
@@ -305,7 +310,7 @@ mod tokenizer_tests {
     #[test]
     fn scan_symbol_test() {
         let mut tokenization = new_tokenization();
-        let t = tokenization.scan_symbol("+");
+        let t = tokenization.scan_symbol("+ ");
         symbol_helper(t, TokenKind::PLUS, Position::new(1, 1));
 
         let t = tokenization.scan_symbol("::");

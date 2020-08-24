@@ -70,7 +70,7 @@ fn folding_expr(expr_arena: ast::ExprArena, ast_expr_id: ast::ExNodeId) -> ast::
             rhs: rhs_id,
         } => {
             let lhs = folding_expr(expr_arena.clone(), *lhs_id);
-            let rhs = folding_expr(expr_arena.clone(), *rhs_id);
+            let rhs = folding_expr(expr_arena, *rhs_id);
 
             if lhs.is_integer_literal() && rhs.is_integer_literal() {
                 return ast::ExpressionNode::new_integer(
@@ -86,7 +86,7 @@ fn folding_expr(expr_arena: ast::ExprArena, ast_expr_id: ast::ExNodeId) -> ast::
             rhs: rhs_id,
         } => {
             let lhs = folding_expr(expr_arena.clone(), *lhs_id);
-            let rhs = folding_expr(expr_arena.clone(), *rhs_id);
+            let rhs = folding_expr(expr_arena, *rhs_id);
 
             if lhs.is_integer_literal() && rhs.is_integer_literal() {
                 return ast::ExpressionNode::new_integer(
@@ -102,7 +102,7 @@ fn folding_expr(expr_arena: ast::ExprArena, ast_expr_id: ast::ExNodeId) -> ast::
             rhs: rhs_id,
         } => {
             let lhs = folding_expr(expr_arena.clone(), *lhs_id);
-            let rhs = folding_expr(expr_arena.clone(), *rhs_id);
+            let rhs = folding_expr(expr_arena, *rhs_id);
 
             if lhs.is_integer_literal() && rhs.is_integer_literal() {
                 return ast::ExpressionNode::new_integer(
@@ -118,7 +118,7 @@ fn folding_expr(expr_arena: ast::ExprArena, ast_expr_id: ast::ExNodeId) -> ast::
             rhs: rhs_id,
         } => {
             let lhs = folding_expr(expr_arena.clone(), *lhs_id);
-            let rhs = folding_expr(expr_arena.clone(), *rhs_id);
+            let rhs = folding_expr(expr_arena, *rhs_id);
 
             if lhs.is_integer_literal() && rhs.is_integer_literal() {
                 return ast::ExpressionNode::new_integer(
@@ -130,7 +130,7 @@ fn folding_expr(expr_arena: ast::ExprArena, ast_expr_id: ast::ExNodeId) -> ast::
             ast_expr
         }
         ast::ExpressionNodeKind::NEG { value: value_id } => {
-            let value = folding_expr(expr_arena.clone(), *value_id);
+            let value = folding_expr(expr_arena, *value_id);
 
             if value.is_integer_literal() {
                 return ast::ExpressionNode::new_integer(

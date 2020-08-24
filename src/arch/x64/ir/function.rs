@@ -34,9 +34,7 @@ impl Function {
         self.blocks[last_bb].push_inst(inst);
     }
     pub fn push_string(&mut self, contents: String, hash: StrHash) {
-        if !self.strings.contains_key(&contents) {
-            self.strings.insert(contents, hash);
-        }
+        self.strings.entry(contents).or_insert(hash);
     }
 
     pub fn to_atandt(&self) -> String {

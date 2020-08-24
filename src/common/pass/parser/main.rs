@@ -13,11 +13,7 @@ pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> A
         let t = parser_util::head(&tokens);
 
         match t.get_kind() {
-            TokenKind::IMPORT => {
-                parser_util::eat_token(&mut tokens);
-                parser_util::eat_token(&mut tokens);
-                parser_util::eat_token(&mut tokens);
-            }
+            TokenKind::IMPORT => skip_import_directive(&mut tokens),
             TokenKind::FUNC => {
                 let (fn_id, rest_tokens) = func_def(fn_arena.clone(), module_name.clone(), tokens);
                 tokens = rest_tokens;
@@ -47,6 +43,15 @@ pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> A
     ast_root
 }
 
+/// コンパイラ内部では用いないのでスキップする．
+/// ASTRootに情報を含めることで，ルートがインポートしていないパッケージはバイナリに含めない，みたいなことができるかも.
+fn skip_import_directive(tokens: &mut Vec<Token>) {
+    parser_util::eat_token(tokens);
+    parser_util::eat_token(tokens);
+    parser_util::eat_token(tokens);
+}
+
+/// 構造体型の定義をパースする．
 fn struct_def(module_name: String, mut tokens: Vec<Token>) -> (String, StructDef, Vec<Token>) {
     parser_util::eat_token(&mut tokens);
 
@@ -57,6 +62,8 @@ fn struct_def(module_name: String, mut tokens: Vec<Token>) -> (String, StructDef
     (type_name, StructDef { members }, rest_tokens)
 }
 
+/// 構造体型内のメンバ定義列をパースする．
+/// 引数のように，リスト構造をパースするメタ関数を作ってもいいかも．
 fn member_block(
     module_name: String,
     mut tokens: Vec<Token>,
@@ -84,6 +91,7 @@ fn member_block(
     (members, tokens)
 }
 
+/// 型エイリアスをパースする関数
 fn type_alias(module_name: String, mut tokens: Vec<Token>) -> (String, String, Vec<Token>) {
     parser_util::eat_token(&mut tokens);
 
@@ -98,6 +106,7 @@ fn type_alias(module_name: String, mut tokens: Vec<Token>) -> (String, String, V
     (alias_name, src_name, rest_tokens)
 }
 
+/// 関数定義をパースする関数
 fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (FnId, Vec<Token>) {
     let func_pos = parser_util::current_position(&tokens);
     parser_util::eat_token(&mut tokens);
@@ -128,6 +137,7 @@ fn func_def(fn_arena: FnArena, module_name: String, mut tokens: Vec<Token>) -> (
     )
 }
 
+/// 引数定義リストをパースする関数
 fn arg_list(module_name: String, mut tokens: Vec<Token>) -> (Vec<(String, String)>, Vec<Token>) {
     parser_util::expect(TokenKind::LPAREN, &mut tokens);
 

@@ -473,7 +473,7 @@ impl<'a> FunctionTranslator<'a> {
             result: cond_result_tmp,
         });
         self.add_code_with_allocation(tac::CodeKind::JUMPIFFALSE {
-            label:  false_label.to_string(),
+            label: false_label.to_string(),
             cond_result: cond_result_tmp,
         });
         self.add_code_with_allocation(tac::CodeKind::JUMP {

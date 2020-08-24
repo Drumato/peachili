@@ -28,6 +28,16 @@ impl Operand {
         Self { kind }
     }
 
+    pub fn new_register(reg: Register) -> Self {
+        Self::new(OperandKind::REGISTER { reg })
+    }
+    pub fn new_immediate(v: i64) -> Self {
+        Self::new(OperandKind::IMMEDIATE { value: v })
+    }
+    pub fn new_memory(base: Register, offset: isize) -> Self {
+        Self::new(OperandKind::MEMORY { base, offset })
+    }
+
     pub fn get_kind(&self) -> &OperandKind {
         &self.kind
     }
