@@ -112,13 +112,13 @@ impl ExpressionNode {
     }
     pub fn is_integer_literal(&self) -> bool {
         match self.get_kind() {
-            ExpressionNodeKind::INTEGER{value:_}=> true,
+            ExpressionNodeKind::INTEGER { value: _ } => true,
             _ => false,
         }
     }
     pub fn get_integer_value(&self) -> i64 {
         match self.get_kind() {
-            ExpressionNodeKind::INTEGER{value}=> *value,
+            ExpressionNodeKind::INTEGER { value } => *value,
             _ => panic!("cannot get value from {:?}", self),
         }
     }

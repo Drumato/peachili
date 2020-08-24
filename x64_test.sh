@@ -12,11 +12,12 @@ build_peachili_executable() {
 try() {
   expected="$1"
   input="$2"
+  extra_args="$3"
 
   # テストファイルのコンパイル
   build_peachili_executable $input
 
-  gcc asm.s 
+  gcc asm.s $extra_args
   ./a.out
   actual="$?"
   rm a.out
@@ -55,6 +56,6 @@ try 4 "pointer2.go"
 try 4 "six_pointer.go"
 try 45 "simple_struct.go"
 try 1 "if_expression.go"
-try 0 "hello_world.go"
+try 0 "hello_world.go" "-static"
 
 echo -e "\n\nOK"

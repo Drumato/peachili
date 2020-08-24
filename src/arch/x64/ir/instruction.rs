@@ -77,8 +77,8 @@ impl Instruction {
             },
             ir::InstKind::CLTD => "cltd".to_string(),
             ir::InstKind::RET => "ret".to_string(),
-            ir::InstKind::JMP { label } => format!("jmp {}", label),
-            ir::InstKind::JE { label } => format!("je {}", label),
+            ir::InstKind::JMP { label } => format!("jmp .L{}", label),
+            ir::InstKind::JE { label } => format!("je .L{}", label),
         }
     }
 

@@ -35,5 +35,7 @@ cd examples/aarch64
 
 try 42 "intlit.go"
 try 9 "four_arith.go"
+try 9 "unary_minus.go"
+try 30 "declare_autovar.go"
 
 echo -e "\n\nOK"

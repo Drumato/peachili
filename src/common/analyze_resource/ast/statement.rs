@@ -16,7 +16,7 @@ impl StatementNode {
     pub fn new(k: StatementNodeKind, p: position::Position) -> Self {
         Self { k, p }
     }
-    pub fn get_position(&self) -> position::Position{
+    pub fn get_position(&self) -> position::Position {
         self.p
     }
     pub fn get_kind(&self) -> &StatementNodeKind {

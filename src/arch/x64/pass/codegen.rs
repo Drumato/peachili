@@ -1,8 +1,11 @@
+use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
+
 use crate::arch::x64::ir as lir;
 use crate::common::analyze_resource::frame_object::StackFrame;
-use crate::common::analyze_resource::peachili_type::Type;
+use crate::common::analyze_resource::peachili_type::{Type, TypeKind};
 use crate::common::three_address_code as tac;
-use std::collections::BTreeMap;
 
 pub fn codegen_main(ir_module: tac::IRModule, stack_frame: StackFrame) -> lir::Module {
     let mut x64_module: lir::Module = Default::default();
@@ -31,6 +34,14 @@ fn gen_x64_fn(tac_fn: &tac::IRFunction, stack_frame: &StackFrame) -> lir::Functi
     for code_id in tac_fn.codes.iter() {
         let code = tac_fn.get_code(*code_id);
         generator.gen_x64_inst(tac_fn, code);
+    }
+
+    if let TypeKind::FUNCTION { return_type } = &tac_fn.fn_ty.kind {
+        if return_type.kind == TypeKind::NORETURN {
+            generator.gen_function_epilogue();
+
+            generator.add_inst_to_last_bb(lir::InstKind::RET);
+        }
     }
 
     generator.f
@@ -154,7 +165,7 @@ impl<'a> FunctionGenerator<'a> {
                     label: format!("{}_{}", self.f.get_name(), label),
                 });
             }
-            tac::CodeKind::MEMBER{id, member, result} => {
+            tac::CodeKind::MEMBER { id, member, result } => {
                 let ident_op = tac_fn.get_value(id);
                 let member_offset = ident_op.ty.get_members().get(&member).unwrap().1;
                 let mut ident_op = self.operand_from_value(ident_op);
@@ -167,8 +178,8 @@ impl<'a> FunctionGenerator<'a> {
                     src: ident_op,
                     dst: result_op,
                 });
-            },
-            tac::CodeKind::ALLOC { temp: _ } => {},
+            }
+            tac::CodeKind::ALLOC { temp: _ } => {}
         }
     }
 
@@ -198,19 +209,20 @@ impl<'a> FunctionGenerator<'a> {
         match lop.get_kind() {
             // resultにmoveしてからplus
             lir::OperandKind::IMMEDIATE { value: _ } => {
-                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.moveq_reg_to_reg_inst(lop, result_reg.clone());
                 self.addq_reg_and_reg(rop, result_reg);
             }
             // lopにplusしてresultに格納
             lir::OperandKind::REGISTER { reg: _ } => {
-                self.addq_reg_and_reg(rop, lop);
+                self.addq_reg_and_reg(rop, lop.clone());
                 self.moveq_reg_to_reg_inst(lop, result_reg);
             }
             // resultにmoveしてからplus
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.moveq_reg_to_reg_inst(lop, result_reg.clone());
                 self.addq_reg_and_reg(rop, result_reg);
             }
+            _ => unreachable!(),
         }
     }
     fn gen_sub_inst(&mut self, lop: tac::Value, rop: tac::Value, result: tac::Value) {
@@ -221,19 +233,20 @@ impl<'a> FunctionGenerator<'a> {
         match lop.get_kind() {
             // resultにmoveしてからplus
             lir::OperandKind::IMMEDIATE { value: _ } => {
-                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.moveq_reg_to_reg_inst(lop, result_reg.clone());
                 self.subq_reg_and_reg(rop, result_reg);
             }
             // lopにplusしてresultに格納
             lir::OperandKind::REGISTER { reg: _ } => {
-                self.subq_reg_and_reg(rop, lop);
+                self.subq_reg_and_reg(rop, lop.clone());
                 self.moveq_reg_to_reg_inst(lop, result_reg);
             }
             // resultにmoveしてからplus
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.moveq_reg_to_reg_inst(lop, result_reg.clone());
                 self.subq_reg_and_reg(rop, result_reg);
             }
+            _ => unreachable!(),
         }
     }
     fn gen_mul_inst(&mut self, lop: tac::Value, rop: tac::Value, result: tac::Value) {
@@ -244,19 +257,20 @@ impl<'a> FunctionGenerator<'a> {
         match lop.get_kind() {
             // resultにmoveしてからplus
             lir::OperandKind::IMMEDIATE { value: _ } => {
-                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.moveq_reg_to_reg_inst(lop, result_reg.clone());
                 self.imulq_reg_and_reg(rop, result_reg);
             }
             // lopにplusしてresultに格納
             lir::OperandKind::REGISTER { reg: _ } => {
-                self.imulq_reg_and_reg(rop, lop);
+                self.imulq_reg_and_reg(rop, lop.clone());
                 self.moveq_reg_to_reg_inst(lop, result_reg);
             }
             // resultにmoveしてからplus
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.moveq_reg_to_reg_inst(lop, result_reg);
+                self.moveq_reg_to_reg_inst(lop, result_reg.clone());
                 self.imulq_reg_and_reg(rop, result_reg);
             }
+            _ => unreachable!(),
         }
     }
 
@@ -283,19 +297,20 @@ impl<'a> FunctionGenerator<'a> {
         match value_op.get_kind() {
             // resultにmoveしてからplus
             lir::OperandKind::IMMEDIATE { value: _ } => {
-                self.moveq_reg_to_reg_inst(value_op, result_reg);
+                self.moveq_reg_to_reg_inst(value_op, result_reg.clone());
                 self.negq_reg(result_reg);
             }
             // lopにplusしてresultに格納
             lir::OperandKind::REGISTER { reg: _ } => {
-                self.negq_reg(value_op);
+                self.negq_reg(value_op.clone());
                 self.moveq_reg_to_reg_inst(value_op, result_reg);
             }
             // resultにmoveしてからplus
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.negq_reg(value_op);
+                self.negq_reg(value_op.clone());
                 self.moveq_reg_to_reg_inst(value_op, result_reg);
             }
+            _ => unreachable!(),
         }
     }
     fn gen_address_inst(&mut self, value: tac::Value, result: tac::Value) {
@@ -308,6 +323,7 @@ impl<'a> FunctionGenerator<'a> {
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
                 self.leaq_memory_to_reg(value_op, result_reg);
             }
+            _ => unreachable!(),
         }
     }
     fn gen_deref_inst(&mut self, value: tac::Value, result: tac::Value) {
@@ -317,13 +333,14 @@ impl<'a> FunctionGenerator<'a> {
         match value_op.get_kind() {
             lir::OperandKind::IMMEDIATE { value: _ } => unreachable!(),
             lir::OperandKind::REGISTER { reg: _ } => {
-                self.storeq(value_op, result_reg);
+                self.storeq(value_op, result_reg.clone());
                 self.storeq(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
             }
             lir::OperandKind::MEMORY { base: _, offset: _ } => {
-                self.storeq(value_op, result_reg);
+                self.storeq(value_op, result_reg.clone());
                 self.storeq(self.new_memory_operand(result_reg.get_reg(), 0), result_reg);
             }
+            _ => unreachable!(),
         }
     }
 
@@ -349,7 +366,27 @@ impl<'a> FunctionGenerator<'a> {
                     value: value as i64,
                 })
             }
-            _ => unreachable!(),
+            tac::ValueKind::STRINGLITERAL { contents } => {
+                let mut s = DefaultHasher::new();
+                contents.hash(&mut s);
+                let str_id = s.finish();
+                self.f.push_string(contents, str_id);
+
+                // leaq .LS, %rax
+                self.add_inst_to_last_bb(lir::InstKind::LEA {
+                    operand_size: lir::OperandSize::QWORD,
+                    src: lir::Operand::new(lir::OperandKind::LABEL {
+                        name: format!(".LS{}", str_id),
+                    }),
+                    dst: lir::Operand::new(lir::OperandKind::REGISTER {
+                        reg: lir::Register::RAX,
+                    }),
+                });
+
+                lir::Operand::new(lir::OperandKind::REGISTER {
+                    reg: lir::Register::RAX,
+                })
+            }
         }
     }
 

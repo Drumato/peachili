@@ -22,6 +22,12 @@ pub enum InstKind {
         lop: ir::Operand,
         rop: ir::Operand,
     },
+    /// NEG
+    NEG {
+        operand_size: ir::OperandSize,
+        dst: ir::Operand,
+        value: ir::Operand,
+    },
     /// Move
     MOV {
         operand_size: ir::OperandSize,
@@ -40,6 +46,12 @@ pub enum InstKind {
         reg1: ir::Register,
         reg2: ir::Register,
         dst: ir::Operand,
+    },
+    /// Load To Register
+    LDR {
+        operand_size: ir::OperandSize,
+        dst: ir::Operand,
+        src: ir::Operand,
     },
     /// Load Register Pair
     LDP {

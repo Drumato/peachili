@@ -58,7 +58,7 @@ fn gen_ir_fn(
         code_allocator: Arc::new(Mutex::new(function_translator.code_arena)),
         value_allocator: Arc::new(Mutex::new(function_translator.value_arena)),
         codes: function_translator.codes,
-        return_type: type_env
+        fn_ty: type_env
             .get(&ast_fn.full_path())
             .unwrap()
             .get(&ast_fn.full_path())
@@ -194,7 +194,7 @@ impl<'a> FunctionTranslator<'a> {
                 });
                 result_v
             }
-            ast::ExpressionNodeKind::MEMBER{id, member} => {
+            ast::ExpressionNodeKind::MEMBER { id, member } => {
                 // 構造体のベースアドレスをレジスタにロード
                 let id_v = self.gen_lvalue(id);
                 // メンバオフセットをプラスする
@@ -202,16 +202,19 @@ impl<'a> FunctionTranslator<'a> {
                 let id_type = self.copy_type_in_cur_func(&id_names.join("::"));
                 let member_type = id_type.get_members().get(member).unwrap();
 
-                let member_addr = self.gen_result_temp(Type::new_pointer(*member_type.0.clone(), self.target));
-                let member_offset_id = self.value_arena.alloc(tac::Value::new_int64(member_type.1 as i64, self.target));
+                let member_addr =
+                    self.gen_result_temp(Type::new_pointer(*member_type.0.clone(), self.target));
+                let member_offset_id = self
+                    .value_arena
+                    .alloc(tac::Value::new_int64(member_type.1 as i64, self.target));
                 self.add_code_with_allocation(tac::CodeKind::SUB {
                     lop: id_v,
                     rop: member_offset_id,
                     result: member_addr,
                 });
-        
+
                 member_addr
-            },
+            }
             _ => unreachable!(),
         }
     }
@@ -246,12 +249,12 @@ impl<'a> FunctionTranslator<'a> {
                 // 両方のオペランドをIRに変換する
                 let id = self.gen_ir_from_expr(id);
 
-                // 計算結果をTEMP変数に格納するコードを生成   
+                // 計算結果をTEMP変数に格納するコードを生成
                 let st_type = self.value_arena.get(id).unwrap().ty.clone();
                 let member_type = st_type.get_members().get(member).unwrap().0.clone();
                 let result_v = self.gen_result_temp(*member_type);
 
-                self.add_code_with_allocation(tac::CodeKind::MEMBER{
+                self.add_code_with_allocation(tac::CodeKind::MEMBER {
                     id,
                     member: member.to_string(),
                     result: result_v,
@@ -470,7 +473,7 @@ impl<'a> FunctionTranslator<'a> {
             result: cond_result_tmp,
         });
         self.add_code_with_allocation(tac::CodeKind::JUMPIFFALSE {
-            label: false_label.clone(),
+            label:  false_label.to_string(),
             cond_result: cond_result_tmp,
         });
         self.add_code_with_allocation(tac::CodeKind::JUMP {
@@ -535,13 +538,13 @@ impl<'a> FunctionTranslator<'a> {
     }
 
     fn gen_label(&mut self, prefix: &str) -> String {
-        let l = format!("L{}_{}", prefix, self.label_number);
+        let l = format!("{}_{}", prefix, self.label_number);
         self.label_number += 1;
 
         l
     }
     fn gen_label_without_increment(&self, prefix: &str) -> String {
-        format!("L{}_{}", prefix, self.label_number)
+        format!("{}_{}", prefix, self.label_number)
     }
 
     fn copy_type_in_cur_func(&self, id_name: &str) -> Type {

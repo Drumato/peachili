@@ -1,7 +1,9 @@
+use std::sync::{Arc, Mutex};
+
+use id_arena::{Arena, Id};
+
 use crate::common::peachili_type;
 use crate::common::three_address_code::*;
-use id_arena::{Arena, Id};
-use std::sync::{Arc, Mutex};
 
 pub type IRFunctionId = Id<IRFunction>;
 pub type CodeArena = Arc<Mutex<Arena<code::Code>>>;
@@ -11,13 +13,12 @@ pub type ValueArena = Arc<Mutex<Arena<value::Value>>>;
 #[derive(Debug, Clone)]
 pub struct IRFunction {
     pub name: String,
-    pub return_type: peachili_type::Type,
+    pub fn_ty: peachili_type::Type,
     pub codes: Vec<code::CodeId>,
 
     pub value_allocator: ValueArena,
     pub code_allocator: CodeArena,
     pub args: Vec<String>,
-    // ベーシックブロック系の情報も持たせる
 }
 
 #[allow(dead_code)]

@@ -178,10 +178,7 @@ fn type_check_expr(
         }
         ast::ExpressionNodeKind::BOOLEAN { truth: _ } => Ok(Type::new_boolean(target)),
         ast::ExpressionNodeKind::STRING { contents: _ } => Ok(Type::new_const_str(target)),
-        ast::ExpressionNodeKind::MEMBER {
-            id: st_id,
-            member,
-        } => {
+        ast::ExpressionNodeKind::MEMBER { id: st_id, member } => {
             let struct_node = expr_arena.lock().unwrap().get(*st_id).unwrap().clone();
             type_check_member_expression(tld_env, type_env, struct_node, member, target)
         }

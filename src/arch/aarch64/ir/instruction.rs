@@ -46,6 +46,13 @@ impl Instruction {
                     rop.to_dword()
                 ),
             },
+            ir::InstKind::NEG {
+                operand_size,
+                dst,
+                value,
+            } => match operand_size {
+                ir::OperandSize::DWORD => format!("neg {}, {}", dst.to_dword(), value.to_dword(),),
+            },
             ir::InstKind::MOV {
                 operand_size,
                 dst,
@@ -72,6 +79,13 @@ impl Instruction {
                     reg2.to_dword(),
                     dst.to_dword()
                 ),
+            },
+            ir::InstKind::LDR {
+                operand_size,
+                dst,
+                src,
+            } => match operand_size {
+                ir::OperandSize::DWORD => format!("ldr {}, {}", dst.to_dword(), src.to_dword()),
             },
             ir::InstKind::LDP {
                 operand_size,

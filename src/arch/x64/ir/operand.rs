@@ -2,7 +2,7 @@ pub enum OperandSize {
     QWORD,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Operand {
     kind: OperandKind,
 }
@@ -19,10 +19,11 @@ impl Operand {
                     format!("-{}({})", offset, base.to_atandt())
                 }
             }
+            OperandKind::LABEL { name } => name.to_string(),
         }
     }
     pub fn add_offset(&mut self, appendix: usize) {
-        if let OperandKind::MEMORY{base: _, offset} = &mut self.kind {
+        if let OperandKind::MEMORY { base: _, offset } = &mut self.kind {
             *offset += appendix;
         }
     }
@@ -42,11 +43,12 @@ impl Operand {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum OperandKind {
     IMMEDIATE { value: i64 },
     REGISTER { reg: Register },
     MEMORY { base: Register, offset: usize },
+    LABEL { name: String },
 }
 
 #[derive(Debug, Clone, Copy)]
