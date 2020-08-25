@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 
 use crate::arch::aarch64::ir as lir;
 use crate::common::analyze_resource::frame_object::StackFrame;
@@ -49,6 +48,8 @@ impl<'a> FunctionGenerator<'a> {
     /// IRタイプごとに命令を生成する
     fn gen_aarch64_inst(&mut self, tac_fn: &tac::IRFunction, code: tac::Code) {
         match code.kind {
+            tac::CodeKind::ADDRESSOF{ value, result } => self.gen_address_inst(tac_fn, value, result),
+            tac::CodeKind::STORE{ value, result } => self.gen_store_inst(tac_fn, value, result),
             tac::CodeKind::PARAM { value } => self.gen_param_inst(tac_fn, value),
             tac::CodeKind::CALL { name, result } => self.gen_call_inst(tac_fn, name, result),
             tac::CodeKind::ASM { value } => {
@@ -59,6 +60,47 @@ impl<'a> FunctionGenerator<'a> {
             },
             _ => eprintln!("unimplemented {:?} inst", code.kind),
         }
+    }
+
+    fn gen_store_inst(&mut self, tac_fn: &tac::IRFunction, src: tac::ValueId, result: tac::ValueId){
+        let src_value = tac_fn.get_value(src);
+        let src_op = self.operand_from_value(src_value);
+
+        self.virtual_number -= 2;
+        let result_value = tac_fn.get_value(result);
+        let result_op = self.operand_from_value(result_value);
+
+        match result_op.get_kind(){
+            lir::OperandKind::REGISTER { reg } => {
+                self.gen_inst_to_last_bb(lir::InstKind::STR {
+                    operand_size: lir::OperandSize::DWORD,
+                    dst: lir::Operand::new_memory(*reg, 0),
+                    src: src_op,
+                });
+            },
+            _ => {
+                self.gen_inst_to_last_bb(lir::InstKind::STR {
+                    operand_size: lir::OperandSize::DWORD,
+                    dst: result_op,
+                    src: src_op,
+                });
+            },
+        }
+
+    }
+
+    fn gen_address_inst(&mut self,tac_fn: &tac::IRFunction, src: tac::ValueId, result: tac::ValueId ) {
+        let src_value = tac_fn.get_value(src);
+        let src_op = self.operand_from_value(src_value);
+        let result_value = tac_fn.get_value(result);
+        let result_op = self.operand_from_value(result_value);
+
+        self.gen_inst_to_last_bb(lir::InstKind::ADD{
+            operand_size: lir::OperandSize::DWORD,
+            dst: result_op,
+            lop: lir::Operand::new_register(src_op.get_base_reg()),
+            rop: lir::Operand::new_immediate(src_op.get_offset() as i64),
+        });
     }
 
     fn gen_call_inst(&mut self, tac_fn: &tac::IRFunction, callee: tac::ValueId, result: tac::ValueId) {
@@ -82,11 +124,23 @@ impl<'a> FunctionGenerator<'a> {
         let value = tac_fn.get_value(value_id);
         let param_value = self.operand_from_value(value);
         let param_reg = self.get_param_register();
-        self.gen_inst_to_last_bb(lir::InstKind::MOV {
-            operand_size: lir::OperandSize::DWORD,
-            dst: param_reg,
-            src: param_value,
-        });
+
+        match param_value.get_kind() {
+            lir::OperandKind::MEMORY {base: _, offset:_ } => {
+                self.gen_inst_to_last_bb(lir::InstKind::LDR {
+                    operand_size: lir::OperandSize::DWORD,
+                    dst: param_reg,
+                    src: param_value,
+                });
+            },
+            _ => {
+                self.gen_inst_to_last_bb(lir::InstKind::MOV {
+                    operand_size: lir::OperandSize::DWORD,
+                    dst: param_reg,
+                    src: param_value,
+                });
+            },
+        }
 
         self.param_count += 1;
     }
@@ -143,7 +197,13 @@ impl<'a> FunctionGenerator<'a> {
     /// 三番地コードをaarch64の命令オペランドに変換する
     fn operand_from_value(&mut self, v: tac::Value) -> lir::Operand {
         match v.kind {
-            tac::ValueKind::TEMP{ number: _ } => self.gen_physical_reg_from_temp(v),
+            tac::ValueKind::TEMP{ number: _ } => self.gen_physical_reg(),
+
+            tac::ValueKind::ID{ name } => {
+                let id_offset = self.frame.get(self.f.get_name()).unwrap().get(&name).unwrap().offset;
+                lir::Operand::new_memory(lir::Register::FP, id_offset as isize)
+            },
+            // 多少冗長だけど，レジスタにロードしておく
             tac::ValueKind::INTLITERAL { value: int_value } => {
                 let dst_reg = self.gen_physical_reg();
 
@@ -189,7 +249,7 @@ impl<'a> FunctionGenerator<'a> {
     /// aarch64のために re-numbering しつつレジスタを生成する
     fn gen_physical_reg(&mut self) -> lir::Operand {
         let reg = match self.virtual_number % lir::Register::AVAILABLES {
-            reg_number @ 0..=9 => lir::Register::GPR {
+            reg_number @ 0..=lir::Register::AVAILABLES => lir::Register::GPR {
                 number: reg_number + 10,
             },
             _ => panic!("phys register exhausted"),
@@ -198,18 +258,6 @@ impl<'a> FunctionGenerator<'a> {
         self.virtual_number += 1;
         lir::Operand::new_register(reg)
     }
-
-    fn gen_physical_reg_from_temp(&mut self, v: tac::Value) -> lir::Operand {
-        let reg = match v.get_virt_number() % lir::Register::AVAILABLES {
-            reg_number @ 0..=9 => lir::Register::GPR {
-                number: reg_number + 10,
-            },
-            _ => panic!("phys register exhausted"),
-        };
-
-        lir::Operand::new_register(reg)
-    }
-
 
     /// 関数フレームのサイズ取得
     /// スタックサイズは，fp/lrの保存のために増しておく

@@ -41,6 +41,18 @@ impl Operand {
     pub fn get_kind(&self) -> &OperandKind {
         &self.kind
     }
+    pub fn get_base_reg(&self) -> Register{
+        match self.kind{
+            OperandKind::MEMORY {base, offset: _} => base,
+            _ => unreachable!(),
+        }
+    }
+    pub fn get_offset(&self) -> isize{
+        match self.kind{
+            OperandKind::MEMORY {base:_, offset} => offset,
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

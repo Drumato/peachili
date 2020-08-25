@@ -1,5 +1,6 @@
 use crate::arch::aarch64::ir;
 
+#[allow(dead_code)]
 pub enum InstKind {
     /// Add
     ADD {
