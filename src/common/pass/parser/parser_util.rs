@@ -3,11 +3,77 @@ use crate::common::position::Position;
 use crate::common::token::{Token, TokenKind};
 use std::sync::MutexGuard;
 
-use crate::common::pass::parser::parse_resource::ParseResource;
+use crate::common::pass::parser::context::Context;
 use id_arena::Arena;
 
-type ChildParser = fn(&ParseResource, Vec<Token>) -> (ExNodeId, Vec<Token>);
-type OperatorParser = fn(&ParseResource, Vec<Token>) -> (Option<TokenKind>, Vec<Token>);
+type ChildParser = fn(&mut Context, Vec<Token>) -> (ExNodeId, Vec<Token>);
+type OperatorParser = fn(&mut Context, Vec<Token>) -> (Option<TokenKind>, Vec<Token>);
+
+impl Context {
+    /// type -> "Int64" | "Uint64" | "ConstStr" | "Noreturn" | "Boolean" |`*` type | identifier-path
+    pub fn expect_type(&self, mut tokens: Vec<Token>) -> (String, Vec<Token>) {
+        let type_t = head(&tokens);
+
+        match type_t.get_kind() {
+            TokenKind::INT64 => {
+                eat_token(&mut tokens);
+                ("Int64".to_string(), tokens)
+            }
+            TokenKind::UINT64 => {
+                eat_token(&mut tokens);
+                ("Uint64".to_string(), tokens)
+            }
+            TokenKind::CONSTSTR => {
+                eat_token(&mut tokens);
+                ("ConstStr".to_string(), tokens)
+            }
+            TokenKind::NORETURN => {
+                eat_token(&mut tokens);
+                ("Noreturn".to_string(), tokens)
+            }
+            TokenKind::BOOLEAN => {
+                eat_token(&mut tokens);
+                ("Boolean".to_string(), tokens)
+            }
+
+            TokenKind::ASTERISK => {
+                eat_token(&mut tokens);
+                let (inner_type, rest_tokens) = self.expect_type(tokens);
+                (format!("*{}", inner_type), rest_tokens)
+            }
+            TokenKind::IDENTIFIER { name: _ } => {
+                let (names, rest_tokens) = expect_identifier(tokens);
+                (
+                    format!("{}::{}", self.module_name, names.join("::")),
+                    rest_tokens,
+                )
+            }
+            _ => panic!("TODO we must compile error when got difference token in expect_type()"),
+        }
+    }
+
+    /// block -> `{` statement* `}`
+    pub fn expect_block(&mut self, mut tokens: Vec<Token>) -> (Vec<StNodeId>, Vec<Token>) {
+        eat_token(&mut tokens);
+
+        let mut stmts: Vec<StNodeId> = Vec::new();
+
+        loop {
+            let h = head(&tokens);
+
+            if h.get_kind() == &TokenKind::RBRACE {
+                eat_token(&mut tokens);
+                break;
+            }
+
+            let (st_id, rt) = self.statement(tokens);
+            stmts.push(st_id);
+            tokens = rt;
+        }
+
+        (stmts, tokens)
+    }
+}
 
 pub fn eat_token(tokens: &mut Vec<Token>) {
     if tokens.is_empty() {
@@ -68,26 +134,21 @@ pub fn operator_parser(
 pub fn binary_operation_parser(
     operator_parser: OperatorParser,
     child_parser: ChildParser,
-    resources: &ParseResource,
+    ctxt: &mut Context,
     tokens: Vec<Token>,
 ) -> (ExNodeId, Vec<Token>) {
-    let (mut lhs_id, mut rest_tokens) = child_parser(resources, tokens);
+    let (mut lhs_id, mut rest_tokens) = child_parser(ctxt, tokens);
 
     loop {
         let op_pos = current_position(&rest_tokens);
-        let (op, rk) = operator_parser(resources, rest_tokens);
+        let (op, rk) = operator_parser(ctxt, rest_tokens);
         rest_tokens = rk;
         match op {
             Some(op) => {
-                let (rhs_id, rk) = child_parser(resources, rest_tokens.clone());
+                let (rhs_id, rk) = child_parser(ctxt, rest_tokens.clone());
                 rest_tokens = rk;
-                lhs_id = alloc_binop_node(
-                    resources.expr_arena.lock().unwrap(),
-                    &op,
-                    lhs_id,
-                    rhs_id,
-                    op_pos,
-                );
+                lhs_id =
+                    alloc_binop_node(ctxt.expr_arena.lock().unwrap(), &op, lhs_id, rhs_id, op_pos);
             }
             None => break,
         }
@@ -130,73 +191,6 @@ pub fn expect_identifier(mut tokens: Vec<Token>) -> (Vec<String>, Vec<Token>) {
     (names, tokens)
 }
 
-/// type -> "Int64" | "Uint64" | "ConstStr" | "Noreturn" | "Boolean" |`*` type | identifier-path
-pub fn expect_type(module_name: String, mut tokens: Vec<Token>) -> (String, Vec<Token>) {
-    let type_t = head(&tokens);
-
-    match type_t.get_kind() {
-        TokenKind::INT64 => {
-            eat_token(&mut tokens);
-            ("Int64".to_string(), tokens)
-        }
-        TokenKind::UINT64 => {
-            eat_token(&mut tokens);
-            ("Uint64".to_string(), tokens)
-        }
-        TokenKind::CONSTSTR => {
-            eat_token(&mut tokens);
-            ("ConstStr".to_string(), tokens)
-        }
-        TokenKind::NORETURN => {
-            eat_token(&mut tokens);
-            ("Noreturn".to_string(), tokens)
-        }
-        TokenKind::BOOLEAN => {
-            eat_token(&mut tokens);
-            ("Boolean".to_string(), tokens)
-        }
-
-        TokenKind::ASTERISK => {
-            eat_token(&mut tokens);
-            let (inner_type, rest_tokens) = expect_type(module_name, tokens);
-            (format!("*{}", inner_type), rest_tokens)
-        }
-        TokenKind::IDENTIFIER { name: _ } => {
-            let (names, rest_tokens) = expect_identifier(tokens);
-            (
-                format!("{}::{}", module_name, names.join("::")),
-                rest_tokens,
-            )
-        }
-        _ => panic!("TODO we must compile error when got difference token in expect_type()"),
-    }
-}
-
-/// block -> `{` statement* `}`
-pub fn expect_block(
-    resources: &ParseResource,
-    mut tokens: Vec<Token>,
-) -> (Vec<StNodeId>, Vec<Token>) {
-    eat_token(&mut tokens);
-
-    let mut stmts: Vec<StNodeId> = Vec::new();
-
-    loop {
-        let h = head(&tokens);
-
-        if h.get_kind() == &TokenKind::RBRACE {
-            eat_token(&mut tokens);
-            break;
-        }
-
-        let (st_id, rt) = resources.statement(tokens);
-        stmts.push(st_id);
-        tokens = rt;
-    }
-
-    (stmts, tokens)
-}
-
 #[cfg(test)]
 mod parser_util_tests {
     use super::*;
@@ -226,38 +220,9 @@ mod parser_util_tests {
 
     #[test]
     fn expect_type_test() {
-        let tokens = vec![
-            Token::new(TokenKind::ASTERISK, Default::default()),
-            Token::new(TokenKind::ASTERISK, Default::default()),
-            Token::new(TokenKind::ASTERISK, Default::default()),
-            Token::new_identifier("std".to_string(), Default::default()),
-            Token::new(TokenKind::DOUBLECOLON, Default::default()),
-            Token::new_identifier("os".to_string(), Default::default()),
-            Token::new(TokenKind::DOUBLECOLON, Default::default()),
-            Token::new_identifier("FileDescriptor".to_string(), Default::default()),
-            Token::new(TokenKind::EOF, Default::default()),
-        ];
-
-        let (type_string, rest_tokens) = expect_type(Default::default(), tokens);
-        assert_eq!(1, rest_tokens.len());
-        assert_eq!("***::std::os::FileDescriptor", type_string);
     }
 
     #[test]
     fn expect_block_test() {
-        let tokens = vec![
-            Token::new(TokenKind::LBRACE, Default::default()),
-            Token::new(TokenKind::RBRACE, Default::default()),
-            Token::new(TokenKind::EOF, Default::default()),
-        ];
-
-        let resources = new_resources();
-        let (stmts, rest_tokens) = expect_block(&resources, tokens);
-        assert_eq!(1, rest_tokens.len());
-        assert_eq!(0, stmts.len());
-    }
-
-    fn new_resources() -> ParseResource {
-        ParseResource::new(Default::default())
     }
 }

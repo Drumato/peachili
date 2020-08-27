@@ -22,6 +22,11 @@ pub fn translate_ir(
     for fn_id in ast_root.funcs.iter() {
         if let Ok(fn_arena) = fn_arena.lock() {
             if let Some(ast_fn) = fn_arena.get(*fn_id) {
+                // 呼び出されていない関数はコンパイル対象としない
+                if ast_fn.name != "main" && !ast_root.called_functions.contains(&ast_fn.full_path()) {
+                    continue;
+                }
+
                 let ir_fn = gen_ir_fn(ast_fn, type_env, target);
                 let ir_fn_id = ir_module.fn_allocator.alloc(ir_fn);
                 ir_module.funcs.push(ir_fn_id);

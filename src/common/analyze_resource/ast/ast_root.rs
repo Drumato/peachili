@@ -1,5 +1,5 @@
 use crate::common::ast::function;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 /// Root
 #[derive(Debug, Clone)]
@@ -7,6 +7,7 @@ pub struct ASTRoot {
     pub funcs: Vec<function::FnId>,
     pub typedefs: BTreeMap<String, StructDef>,
     pub alias: BTreeMap<String, String>,
+    pub called_functions: HashSet<String>,
 }
 
 impl Default for ASTRoot {
@@ -15,6 +16,7 @@ impl Default for ASTRoot {
             funcs: Vec::new(),
             alias: BTreeMap::new(),
             typedefs: BTreeMap::new(),
+            called_functions: HashSet::new(),
         }
     }
 }
@@ -29,6 +31,7 @@ impl ASTRoot {
 
         self.typedefs.append(&mut target.typedefs);
         self.alias.append(&mut target.alias);
+        self.called_functions = &self.called_functions | &target.called_functions;
     }
 }
 
