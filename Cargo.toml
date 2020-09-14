@@ -9,10 +9,11 @@ edition = "2018"
 [dependencies]
 clap = { git = "https://github.com/clap-rs/clap/", features = ["yaml"] }
 yaml-rust = "0.4"
-elf-utilities = "0.1.47"
+elf-utilities = "0.1.51"
 indexmap = "1.3.2"
 colored = "1.9.3"
-x64_asm = "0.1.20"
+x64_asm = "0.1.40"
+x64_static_linker = "0.1.41"
 lazy_static = "1.4.0"
 
 # llvm-scratch = "0.1.15"

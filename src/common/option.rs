@@ -16,6 +16,10 @@ impl BuildOption {
 
     pub fn get_source(&self) -> String {
         match self.matches.subcommand() {
+            ("build", Some(build_m)) => match build_m.value_of("source") {
+                Some(s) => s.to_string(),
+                None => panic!("source file must be specified"),
+            },
             ("compile", Some(compile_m)) => match compile_m.value_of("source") {
                 Some(s) => s.to_string(),
                 None => panic!("source file must be specified"),

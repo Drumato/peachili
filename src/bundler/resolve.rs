@@ -14,7 +14,14 @@ pub fn resolve_main(arena: Arc<Mutex<Arena<m::Module>>>, source_name: String) ->
 
     // スタートアップ･ライブラリの追加
     let startup_module_path = setup_startup_routine();
-    process_ext_module(arena.clone(), startup_module_path, "startup".to_string());
+    let startup_module =
+        process_ext_module(arena.clone(), startup_module_path, "startup".to_string());
+    arena
+        .lock()
+        .unwrap()
+        .get_mut(main_mod)
+        .unwrap()
+        .add_reference_module(startup_module);
 
     // mainが参照するモジュールに対しそれぞれprocess_ext_moduleする
     let main_requires = collect_import_modules_from_program(file_contents);

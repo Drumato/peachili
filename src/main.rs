@@ -19,6 +19,7 @@ extern crate lazy_static;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     match setup::BUILD_OPTION.matches.subcommand() {
+        ("build", Some(_build_m)) => {}
         ("compile", Some(_compile_m)) => {}
         _ => {
             eprintln!("please specify a subcommand. see --help.");

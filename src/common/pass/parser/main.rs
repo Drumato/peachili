@@ -179,24 +179,19 @@ mod toplevel_tests {
     use std::sync::{Arc, Mutex};
 
     #[test]
-    fn type_alias_test() {
-    }
+    fn type_alias_test() {}
 
     #[test]
-    fn struct_def_test() {
-    }
+    fn struct_def_test() {}
 
     #[test]
-    fn member_block_test() {
-    }
+    fn member_block_test() {}
 
     #[test]
-    fn arg_list_test() {
-    }
+    fn arg_list_test() {}
 
     #[test]
-    fn func_def_test() {
-    }
+    fn func_def_test() {}
 
     #[test]
     fn main_test() {

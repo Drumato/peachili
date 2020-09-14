@@ -219,10 +219,8 @@ mod parser_util_tests {
     }
 
     #[test]
-    fn expect_type_test() {
-    }
+    fn expect_type_test() {}
 
     #[test]
-    fn expect_block_test() {
-    }
+    fn expect_block_test() {}
 }

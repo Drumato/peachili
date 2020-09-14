@@ -15,6 +15,7 @@ pub fn main(
                 main_module_id,
                 compile_m.is_present("verbose-hir"),
                 compile_m.is_present("debug"),
+                String::new(),
             );
 
             common::file_util::write_program_into("asm.s", aarch64_module.to_assembly());
@@ -31,6 +32,7 @@ pub fn compile_main(
     main_module_id: common::module::ModuleId,
     verbose_ir: bool,
     debug: bool,
+    startup: String,
 ) -> aarch64::ir::Module {
     let (fn_arena, ast_root, type_env, stack_frame) =
         common::pass::frontend(module_arena, main_module_id, debug);
@@ -40,6 +42,7 @@ pub fn compile_main(
         &type_env,
         setup::BUILD_OPTION.target,
         verbose_ir,
+        startup,
     );
 
     aarch64::pass::codegen_main(ir_module, stack_frame)

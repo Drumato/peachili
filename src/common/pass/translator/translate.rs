@@ -15,6 +15,7 @@ pub fn translate_ir(
     ast_root: ast::ASTRoot,
     type_env: &BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
     target: option::Target,
+    startup: String,
 ) -> tac::IRModule {
     let mut ir_module: tac::IRModule = Default::default();
 
@@ -23,7 +24,13 @@ pub fn translate_ir(
         if let Ok(fn_arena) = fn_arena.lock() {
             if let Some(ast_fn) = fn_arena.get(*fn_id) {
                 // 呼び出されていない関数はコンパイル対象としない
-                if ast_fn.name != "main" && !ast_root.called_functions.contains(&ast_fn.full_path()) {
+                // スタートアップルーチンやメイン関数は明示的に呼び出されないがコンパイルする
+                let not_startup_routine = ast_fn.full_path() != startup;
+                let not_main = ast_fn.name != "main";
+                if not_startup_routine
+                    && not_main
+                    && !ast_root.called_functions.contains(&ast_fn.full_path())
+                {
                     continue;
                 }
 

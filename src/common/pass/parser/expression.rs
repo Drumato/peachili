@@ -306,38 +306,29 @@ impl Context {
 #[cfg(test)]
 mod expression_tests {
     #[test]
-    fn primary_integer_test() {
-    }
+    fn primary_integer_test() {}
 
     #[test]
-    fn paren_expr_test() {
-    }
+    fn paren_expr_test() {}
 
     #[test]
-    fn if_expression_test() {
-    }
+    fn if_expression_test() {}
 
     #[test]
-    fn primary_identifier_test() {
-    }
+    fn primary_identifier_test() {}
 
     #[test]
-    fn postfix_test() {
-    }
+    fn postfix_test() {}
 
     #[test]
-    fn prefix_test() {
-    }
+    fn prefix_test() {}
 
     #[test]
-    fn multiplication_test() {
-    }
+    fn multiplication_test() {}
 
     #[test]
-    fn addition_test() {
-    }
+    fn addition_test() {}
 
     #[test]
-    fn assignment_test() {
-    }
+    fn assignment_test() {}
 }

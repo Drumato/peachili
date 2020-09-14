@@ -1,7 +1,7 @@
 #!/bin/bash
 build_peachili_executable() {
   input="$1"
-  ../../target/debug/peachili compile "$input"
+  ../../target/debug/peachili build "$input"
   rustc_actual="$?"
   if [ $rustc_actual -ne 0 ]; then
     echo -e "\e[31mbuilding an executable binary failed!\e[m"
@@ -16,8 +16,6 @@ try() {
 
   # テストファイルのコンパイル
   build_peachili_executable $input
-
-  gcc asm.s $extra_args
   ./a.out
   actual="$?"
   rm a.out

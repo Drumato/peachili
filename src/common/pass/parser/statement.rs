@@ -199,24 +199,17 @@ impl Context {
 #[cfg(test)]
 mod statement_tests {
     #[test]
-    fn return_statement_test() {
-    }
+    fn return_statement_test() {}
 
     #[test]
-    fn expr_statement_test() {
-    }
+    fn expr_statement_test() {}
 
     #[test]
-    fn countup_statement_test() {
-    }
+    fn countup_statement_test() {}
 
     #[test]
-    fn asm_statement_test() {
-    }
+    fn asm_statement_test() {}
 
     #[test]
-    fn const_statement_test() {
-    }
-
-
+    fn const_statement_test() {}
 }

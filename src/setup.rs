@@ -9,6 +9,7 @@ lazy_static! {
 
         // default_valueがあるので，unwrap()してよい
         let target = match matches.subcommand() {
+            ("build", Some(build_m)) => Some(build_m.value_of("target").unwrap()),
             ("compile", Some(compile_m)) => Some(compile_m.value_of("target").unwrap()),
             _ => None,
         };
@@ -24,7 +25,7 @@ lazy_static! {
 }
 
 /// clap::ArgMatches
-pub fn create_arg_matches() -> ArgMatches {
+fn create_arg_matches() -> ArgMatches {
     App::new("Peachili - The Peachili Programming Language Driver")
         .version(PEACHILI_VERSION)
         .author("Drumato <drumato43@gmail.com>")
@@ -53,9 +54,28 @@ pub fn create_arg_matches() -> ArgMatches {
                 ]),
         )
         .subcommand(
-            App::new("translate-c")
+            App::new("build")
                 .version(PEACHILI_VERSION)
-                .author("Drumato <drumato43@gmail.com>"),
+                .author("Drumato <drumato43@gmail.com>")
+                .args(&[
+                    // コンパイル対象のファイル
+                    Arg::with_name("source")
+                        .required(true)
+                        .index(1)
+                        .help("Sets the input file to use"),
+                    // 生成するコードの対象
+                    Arg::with_name("target")
+                        .default_value("x86_64")
+                        .short('t')
+                        .long("target")
+                        .help("x86_64/aarch64"),
+                    // IRのダンプ
+                    Arg::with_name("verbose-hir")
+                        .long("verbose-hir")
+                        .help("dump IR-Module to hir.dot"),
+                    // debugオプション
+                    Arg::with_name("debug").long("debug").help("debug"),
+                ]),
         )
         .get_matches()
 }
