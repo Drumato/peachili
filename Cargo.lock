@@ -91,12 +91,13 @@ dependencies = [
 
 [[package]]
 name = "elf-utilities"
-version = "0.1.56"
+version = "0.1.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0298eeadf9cebb9cae74f9e56d4d82d08a0bb24663156c81e62a5bc1a7e1479e"
+checksum = "a4380ccfcb360a5fe4b5abc9456126c2aeb812beed41b1e29ce58af2cfe0fbcf"
 dependencies = [
  "bincode",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -274,6 +275,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "1.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "318234ffa22e0920fe9a40d7b8369b5f649d490980cf7aadcf1eb91594869b42"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cae2447b6282786c3493999f40a9be2a6ad20cb8bd268b0a0dbf5a065535c0ab"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -327,9 +348,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "x64_asm"
-version = "0.1.41"
+version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9a4091b6e4205d8d6f24e5121d218d996d8893b842c0a7a1885e8eb1b99d0a4"
+checksum = "8b30e5f4e21b585c35c9ca19e2e51d21cebe6bb33bd4ab0d6c41e6bbfe287519"
 dependencies = [
  "elf-utilities",
  "indexmap",
@@ -337,9 +358,9 @@ dependencies = [
 
 [[package]]
 name = "x64_static_linker"
-version = "0.1.42"
+version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f27de81fff3540e9aca21695340a134f73e7ca35b51b70513da5e0c844e69e56"
+checksum = "e9ddf1c4bcc1432f53bec3c6765d3d2e43c0366761441e957c23f42596e13353"
 dependencies = [
  "elf-utilities",
 ]

@@ -26,7 +26,7 @@ pub fn main(
 
             let exec_file_dumper =
                 x64_static_linker::static_link_with(obj_file_dumper.file, link_option);
-            exec_file_dumper.generate_elf_file("a.out")?;
+            exec_file_dumper.generate_elf_file("a.out", 0o755)?;
         }
         ("compile", Some(compile_m)) => {
             let x64_module = compile_main(

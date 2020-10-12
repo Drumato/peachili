@@ -1,30 +1,31 @@
 #!/bin/bash
 build_peachili_executable() {
-  input="$1"
-  ../../target/debug/peachili build "$input"
-  rustc_actual="$?"
-  if [ $rustc_actual -ne 0 ]; then
-    echo -e "\e[31mbuilding an executable binary failed!\e[m"
-    exit 1
-  fi
+    input="$1"
+    ../../target/debug/peachili compile "$input"
+    rustc_actual="$?"
+    if [ $rustc_actual -ne 0 ]; then
+        echo -e "\e[31mbuilding an executable binary failed!\e[m"
+        exit 1
+    fi
 }
 
 try() {
-  expected="$1"
-  input="$2"
-  extra_args="$3"
+    expected="$1"
+    input="$2"
+    extra_args="$3"
 
   # テストファイルのコンパイル
   build_peachili_executable $input
+  gcc asm.s -static
   ./a.out
   actual="$?"
-  rm a.out
+  rm asm.s a.out
 
   if [ "$actual" = "$expected" ]; then
-    echo -e "$input => \e[32m$actual\e[m"
+      echo -e "$input => \e[32m$actual\e[m"
   else
-    echo -e "$input => \e[32m$expected\e[m expected, but got \e[31m$actual\e[m"
-    exit 1
+      echo -e "$input => \e[32m$expected\e[m expected, but got \e[31m$actual\e[m"
+      exit 1
   fi
 }
 
