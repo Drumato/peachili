@@ -15,28 +15,30 @@ pub struct TypeError {
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TypeErrorKind {
     /// 型を導出しきれなかった
-    CANNOTRESOLVE { type_name: String },
+    CannotResolve { type_name: String },
 
     /// メイン関数が見つからなかった
-    MAINFUNCNOTFOUND,
+    NotFoundMainFunction,
 
     /// メイン関数に何らかの引数が定義されてしまっている
     MAINFUNCMUSTNOTHAVEANYARGUMENTS,
 
     /// メイン関数はいかなる値も返さない
-    MAINFUNCMUSTNOTRETURNANYVALUES,
+    MainFunctionMustNotReturnAnyValues,
 
     /// 型名の場所で関数名が使用された
-    GOTFUNCTIONNAMEASTYPE { func_name: String },
+    GotFunctionNameAsType { func_name: String },
+    /// 型名の場所で定数名が使用された
+    GotConstantNameAsType { const_name: String },
 
     /// 変数以外へメンバアクセスしようとした．
-    CANNOTACCESSMEMBERWITHNOTANIDENTIFIER { struct_node: ast::ExpressionNode },
+    CannotAccessMemberWithNotAnIdentifier { struct_node: ast::ExpressionNode },
 
     /// 構造体型以外にメンバアクセスした
-    CANNOTACCESSMEMBERWITHNOTASTRUCT { struct_node: ast::ExpressionNode },
+    CannotAccessMemberWIthNotAStruct { struct_node: ast::ExpressionNode },
 
     /// 該当するメンバが存在しなかった
-    UNDEFINEDSUCHAMEMBER { member: String },
+    UndefinedSuchAMember { member: String },
 }
 
 impl CompileErrorKind for TypeErrorKind {
@@ -48,28 +50,31 @@ impl CompileErrorKind for TypeErrorKind {
 impl fmt::Display for TypeErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let s = match self {
-            TypeErrorKind::CANNOTRESOLVE { type_name } => {
+            TypeErrorKind::CannotResolve { type_name } => {
                 format!("cannot resolve a type -> `{}`", type_name)
             }
-            TypeErrorKind::GOTFUNCTIONNAMEASTYPE { func_name } => {
+            TypeErrorKind::GotFunctionNameAsType { func_name } => {
                 format!("a function `{}` used as a type-name", func_name)
             }
-            TypeErrorKind::CANNOTACCESSMEMBERWITHNOTANIDENTIFIER { struct_node } => format!(
+            TypeErrorKind::GotConstantNameAsType { const_name } => {
+                format!("a constant `{}` used as a type-name", const_name)
+            }
+            TypeErrorKind::CannotAccessMemberWithNotAnIdentifier { struct_node } => format!(
                 "cannot access member of `{:?}`, its not an identifier",
                 struct_node
             ),
-            TypeErrorKind::CANNOTACCESSMEMBERWITHNOTASTRUCT { struct_node } => format!(
+            TypeErrorKind::CannotAccessMemberWIthNotAStruct { struct_node } => format!(
                 "cannot access member of `{:?}`, its not a struct",
                 struct_node
             ),
-            TypeErrorKind::UNDEFINEDSUCHAMEMBER { member } => {
+            TypeErrorKind::UndefinedSuchAMember { member } => {
                 format!("undefined such a member -> `{}`", member)
             }
-            TypeErrorKind::MAINFUNCNOTFOUND => "entry point `main` not found".to_string(),
+            TypeErrorKind::NotFoundMainFunction => "entry point `main` not found".to_string(),
             TypeErrorKind::MAINFUNCMUSTNOTHAVEANYARGUMENTS => {
                 "entry point `main` mustn't have any arguments".to_string()
             }
-            TypeErrorKind::MAINFUNCMUSTNOTRETURNANYVALUES => {
+            TypeErrorKind::MainFunctionMustNotReturnAnyValues => {
                 "entry point `main` mustn't return any values".to_string()
             }
         };

@@ -344,6 +344,21 @@ impl<'a> FunctionGenerator<'a> {
         }
     }
 
+    fn constant_value_to_operand(&self, const_type: Type) -> lir::Operand{
+        let expr_string = const_type.get_const_value();
+        match const_type.get_const_type().kind{
+            TypeKind::INT64 => lir::Operand::new(lir::OperandKind::IMMEDIATE {value: expr_string.parse().unwrap()}),
+            TypeKind::UINT64 => lir::Operand::new(lir::OperandKind::IMMEDIATE {value: expr_string.parse().unwrap()}),
+            TypeKind::BOOLEAN => lir::Operand::new(lir::OperandKind::IMMEDIATE {value: if expr_string == "true" {
+                1
+            }else{
+                0
+            }}),
+
+            _ => unreachable!(),
+        }
+    }
+
     fn operand_from_value(&mut self, v: tac::Value) -> lir::Operand {
         match v.kind {
             tac::ValueKind::TEMP { number } => self.gen_phys_reg(number, v.ty),
@@ -351,6 +366,9 @@ impl<'a> FunctionGenerator<'a> {
                 lir::Operand::new(lir::OperandKind::IMMEDIATE { value })
             }
             tac::ValueKind::ID { name } => {
+                if v.ty.is_constant() {
+                    return self.constant_value_to_operand(v.ty);
+                }
                 let id_offset = self.get_local_var_offset(&name);
                 self.new_memory_operand(lir::Register::RBP, id_offset)
             }

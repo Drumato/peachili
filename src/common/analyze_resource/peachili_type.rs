@@ -29,6 +29,10 @@ impl Type {
 
                 format!("{{ {} }}", type_strs.join(", "))
             }
+            TypeKind::CONST {
+                const_type,
+                value: _,
+            } => const_type.dump(),
         }
     }
     /// 関数型サイズ
@@ -38,6 +42,23 @@ impl Type {
                 return_type: Box::new(ret_ty),
             },
             size: 0,
+        }
+    }
+
+    pub fn can_be_constant(&self) -> bool {
+        match self.kind {
+            TypeKind::BOOLEAN | TypeKind::INT64 | TypeKind::UINT64 => true,
+            _ => false,
+        }
+    }
+
+    pub fn size(&self, target: Target) -> usize {
+        match self.kind {
+            TypeKind::BOOLEAN => Self::boolean_size(target),
+            TypeKind::CONSTSTR => Self::conststr_size(target),
+            TypeKind::INT64 => Self::int64_size(target),
+            TypeKind::UINT64 => Self::uint64_size(target),
+            _ => unreachable!(),
         }
     }
 
@@ -115,6 +136,16 @@ impl Type {
             size: Self::conststr_size(target),
         }
     }
+    pub fn new_const(const_type: Type, expr: String, target: Target) -> Self {
+        let size = const_type.size(target);
+        Self {
+            kind: TypeKind::CONST {
+                const_type: Box::new(const_type),
+                value: expr,
+            },
+            size,
+        }
+    }
 
     /// ポインタ型を新たに割り当てる
     pub fn new_pointer(to: Self, target: Target) -> Self {
@@ -139,6 +170,16 @@ impl Type {
             _ => false,
         }
     }
+    /// stantであるか
+    pub fn is_constant(&self) -> bool {
+        match self.kind {
+            TypeKind::CONST {
+                const_type: _,
+                value: _,
+            } => true,
+            _ => false,
+        }
+    }
     /// 関数型であるか
     pub fn is_function(&self) -> bool {
         match &self.kind {
@@ -151,6 +192,26 @@ impl Type {
         match &self.kind {
             TypeKind::POINTER { to } => to,
             _ => panic!("cannot call pointer_to() with not a pointer"),
+        }
+    }
+
+    /// 定数であると解釈し,式文字列を取得する
+    pub fn get_const_value(&self) -> String {
+        match &self.kind {
+            TypeKind::CONST {
+                const_type: _,
+                value,
+            } => value.to_string(),
+            _ => panic!("cannot call get_const_value() with not a constant"),
+        }
+    }
+    pub fn get_const_type(&self) -> &Type {
+        match &self.kind {
+            TypeKind::CONST {
+                const_type,
+                value: _,
+            } => const_type,
+            _ => panic!("cannot call get_const_type() with not a constant"),
         }
     }
 
@@ -187,5 +248,10 @@ pub enum TypeKind {
     FUNCTION {
         return_type: Box<Type>,
         // args
+    },
+    /// 定数
+    CONST {
+        const_type: Box<Type>,
+        value: String,
     },
 }

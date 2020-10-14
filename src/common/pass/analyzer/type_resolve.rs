@@ -28,6 +28,23 @@ pub fn type_resolve_main(
         }
     }
 
+    // 定数にも型をつける
+    for (const_name, (const_type_name, const_expr)) in ast_root.constants.iter() {
+        let const_type = resolve_type_string(tld_map, const_type_name.to_string(), target);
+
+        if let Err(e) = &const_type {
+            e.output();
+            std::process::exit(1);
+        }
+
+        if let Some(global_env) = type_env.get_mut("global") {
+            global_env.insert(
+                const_name.to_string(),
+                Type::new_const(const_type.unwrap(), const_expr.to_string(), target),
+            );
+        }
+    }
+
     // 関数列を操作し，関数内の識別子に型をつけていく．
     for fn_id in ast_root.funcs.iter() {
         let mut func_env = BTreeMap::new();
@@ -253,7 +270,7 @@ fn resolve_type_string(
             }
 
             Err(CompileError::new(
-                TypeErrorKind::CANNOTRESOLVE {
+                TypeErrorKind::CannotResolve {
                     type_name: type_name_str,
                 },
                 Default::default(),
@@ -293,8 +310,17 @@ fn resolve_type_from_tld(
             return_type: _,
             args: _,
         } => Err(CompileError::new(
-            TypeErrorKind::GOTFUNCTIONNAMEASTYPE {
+            TypeErrorKind::GotFunctionNameAsType {
                 func_name: type_name_str,
+            },
+            Default::default(),
+        )),
+        tld::TLDKind::CONST {
+            type_name: _,
+            expr: _,
+        } => Err(CompileError::new(
+            TypeErrorKind::GotConstantNameAsType {
+                const_name: type_name_str,
             },
             Default::default(),
         )),

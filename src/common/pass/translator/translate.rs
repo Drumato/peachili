@@ -169,7 +169,7 @@ impl<'a> FunctionTranslator<'a> {
         id_name: String,
         expr_id: &ast::ExNodeId,
     ) -> Option<tac::ValueId> {
-        let id_type = self.copy_type_in_cur_func(&id_name);
+        let id_type = self.search_identifier_type(&id_name);
         let id_value = self.value_arena.alloc(tac::Value {
             kind: tac::ValueKind::ID { name: id_name },
             ty: id_type,
@@ -211,7 +211,7 @@ impl<'a> FunctionTranslator<'a> {
                 let id_v = self.gen_lvalue(id);
                 // メンバオフセットをプラスする
                 let id_names = self.copy_ast_expr(id).copy_names();
-                let id_type = self.copy_type_in_cur_func(&id_names.join("::"));
+                let id_type = self.search_identifier_type(&id_names.join("::"));
                 let member_type = id_type.get_members().get(member).unwrap();
 
                 let member_addr =
@@ -248,7 +248,7 @@ impl<'a> FunctionTranslator<'a> {
                     tac::ValueKind::ID {
                         name: names.join("::"),
                     },
-                    self.copy_type_in_cur_func(&names.join("::")),
+                    self.search_identifier_type(&names.join("::")),
                 ))
             }
             ast::ExpressionNodeKind::BOOLEAN { truth } => self
@@ -559,13 +559,22 @@ impl<'a> FunctionTranslator<'a> {
         format!("{}_{}", prefix, self.label_number)
     }
 
-    fn copy_type_in_cur_func(&self, id_name: &str) -> Type {
-        self.type_env
-            .get(&self.fn_name)
-            .unwrap()
-            .get(id_name)
-            .unwrap()
-            .clone()
+    fn search_identifier_type(&self, id_name: &str) -> Type {
+        match self.type_env.get(&self.fn_name).unwrap().get(id_name) {
+            Some(var_type) => var_type.clone(),
+            None => match self
+                .type_env
+                .get("global")
+                .unwrap()
+                .get(id_name) {
+                Some(var_type) => var_type.clone(),
+                None => self
+                    .type_env
+                    .get("global")
+                    .unwrap()
+                    .get(&format!("::{}", id_name)).unwrap().clone(),
+            },
+        }
     }
     fn copy_type_in_called_func(&self, called_fn: &str, id_name: &str) -> Type {
         self.type_env

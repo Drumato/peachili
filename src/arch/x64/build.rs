@@ -10,7 +10,7 @@ pub fn main(
 ) -> Result<(), Box<dyn std::error::Error>> {
     match matches.subcommand() {
         ("build", Some(build_m)) => {
-            let link_option = x64_static_linker::LinkOption {
+            let link_option = pld::LinkOption {
                 entry_point: "startup::initialize".to_string(),
             };
             let x64_module = compile_main(
@@ -22,10 +22,9 @@ pub fn main(
             );
 
             let obj_file_dumper =
-                x64_asm::assemble_code(x64_module.to_atandt(), x64_asm::Syntax::ATANDT)?;
+                asmpeach::assemble_code(x64_module.to_atandt(), asmpeach::Syntax::ATANDT)?;
 
-            let exec_file_dumper =
-                x64_static_linker::static_link_with(obj_file_dumper.file, link_option);
+            let exec_file_dumper = pld::static_link_with(obj_file_dumper.file, link_option);
             exec_file_dumper.generate_elf_file("a.out", 0o755)?;
         }
         ("compile", Some(compile_m)) => {

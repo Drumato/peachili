@@ -32,6 +32,12 @@ pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> A
                     .typedefs
                     .insert(format!("{}::{}", ctxt.module_name, type_name), struct_def);
             }
+            TokenKind::PUBCONST => {
+                let (const_name, type_name, expr, rest_tokens) = ctxt.const_declaration(tokens);
+                tokens = rest_tokens;
+
+                ast_root.constants.insert(format!("{}::{}",ctxt.module_name, const_name), (type_name, expr));
+            }
             TokenKind::PUBTYPE => {
                 let (alias_name, src_name, rest_tokens) = ctxt.type_alias(tokens);
                 tokens = rest_tokens;
@@ -160,6 +166,27 @@ impl Context {
         parser_util::expect(TokenKind::SEMICOLON, &mut rest_tokens);
 
         (alias_name, src_name, rest_tokens)
+    }
+
+    /// 定数宣言をパースする関数
+    fn const_declaration(
+        &mut self,
+        mut tokens: Vec<Token>,
+    ) -> (String, String, String, Vec<Token>) {
+        parser_util::eat_token(&mut tokens);
+
+        let (const_name, mut rest_tokens) = parser_util::expect_identifier(tokens);
+        let const_name = const_name[0].clone();
+
+        parser_util::expect(TokenKind::COLON, &mut rest_tokens);
+        let (type_name, mut rest_tokens) = self.expect_type(rest_tokens);
+        parser_util::expect(TokenKind::ASSIGN, &mut rest_tokens);
+
+        let expr = rest_tokens[0].get_kind().to_string();
+        parser_util::eat_token(&mut rest_tokens);
+        parser_util::expect(TokenKind::SEMICOLON, &mut rest_tokens);
+
+        (const_name, type_name, expr, rest_tokens)
     }
 }
 

@@ -10,6 +10,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "asmpeach"
+version = "0.1.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02e73fbe8f015a327a44d027577cc0125420b8328ad2d19b66ec54496f3d0792"
+dependencies = [
+ "elf-utilities",
+ "indexmap",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -162,15 +172,24 @@ checksum = "ae91b68aebc4ddb91978b11a1b02ddd8602a05ec19002801c5666000e05e0f83"
 name = "peachili"
 version = "0.1.0"
 dependencies = [
+ "asmpeach",
  "clap",
  "colored",
  "elf-utilities",
  "id-arena",
  "indexmap",
  "lazy_static",
- "x64_asm",
- "x64_static_linker",
+ "pld",
  "yaml-rust",
+]
+
+[[package]]
+name = "pld"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b38310d4395fa1f9594aa14b735b3e39d7a92929d5bb56aae46a8e64ebd8721c"
+dependencies = [
+ "elf-utilities",
 ]
 
 [[package]]
@@ -345,25 +364,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "x64_asm"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b30e5f4e21b585c35c9ca19e2e51d21cebe6bb33bd4ab0d6c41e6bbfe287519"
-dependencies = [
- "elf-utilities",
- "indexmap",
-]
-
-[[package]]
-name = "x64_static_linker"
-version = "0.1.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9ddf1c4bcc1432f53bec3c6765d3d2e43c0366761441e957c23f42596e13353"
-dependencies = [
- "elf-utilities",
-]
 
 [[package]]
 name = "yaml-rust"

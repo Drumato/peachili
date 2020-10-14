@@ -94,6 +94,8 @@ pub enum TokenKind {
     NORETURN,
     /// `pubtype`
     PUBTYPE,
+    /// `pubconst`
+    PUBCONST,
     /// `return`
     RETURN,
     /// `asm`
@@ -157,6 +159,7 @@ impl Display for TokenKind {
             TokenKind::INT64 => "Int64".to_string(),
             TokenKind::NORETURN => "Noreturn".to_string(),
             TokenKind::PUBTYPE => "pubtype".to_string(),
+            TokenKind::PUBCONST => "pubconst".to_string(),
             TokenKind::RETURN => "return".to_string(),
             TokenKind::STRUCT => "struct".to_string(),
             TokenKind::TRUE => "true".to_string(),
@@ -214,6 +217,7 @@ impl TokenKind {
             "true" => Some(TokenKind::TRUE),
             "Uint64" => Some(TokenKind::UINT64),
             "varinit" => Some(TokenKind::VARINIT),
+            "pubconst" => Some(TokenKind::PUBCONST),
             _ => None,
         }
     }

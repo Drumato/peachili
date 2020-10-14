@@ -23,6 +23,13 @@ pub fn main(
         );
     }
 
+    for (const_name, (const_type_name, const_expr)) in full_ast.constants.iter() {
+        tld_map.insert(
+            const_name.to_string(),
+            tld::TopLevelDecl::new_const(const_type_name, const_expr.to_string()),
+        );
+    }
+
     for fn_id in full_ast.funcs.iter() {
         let ast_function = fn_arena.lock().unwrap().get(*fn_id).unwrap().clone();
 

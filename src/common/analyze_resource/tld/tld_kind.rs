@@ -7,7 +7,10 @@ type MemberName = String;
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum TLDKind {
-    // CONST,
+    CONST {
+        type_name: String,
+        expr: String,
+    },
     FN {
         return_type: String,
         args: Vec<(ArgName, ArgType)>,

@@ -16,7 +16,7 @@ try() {
 
   # テストファイルのコンパイル
   build_peachili_executable $input
-  gcc asm.s -static
+  gcc asm.s $extra_args
   ./a.out
   actual="$?"
   rm asm.s a.out
@@ -56,5 +56,7 @@ try 4 "six_pointer.go"
 try 45 "simple_struct.go"
 try 1 "if_expression.go"
 try 0 "hello_world.go" "-static"
+try 1 "if_expression.go"
+try 30 "global_const.go"
 
 echo -e "\n\nOK"

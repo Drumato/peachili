@@ -1,6 +1,7 @@
+extern crate asmpeach;
 extern crate clap;
 extern crate id_arena;
-extern crate x64_asm;
+extern crate pld;
 extern crate yaml_rust;
 
 use arch::{aarch64, x64};

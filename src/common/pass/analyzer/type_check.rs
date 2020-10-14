@@ -36,7 +36,7 @@ pub fn type_check_main(
 
     // エントリポイントがなければエラー
     if !main_func_exists {
-        CompileError::new(TypeErrorKind::MAINFUNCNOTFOUND, Default::default()).output();
+        CompileError::new(TypeErrorKind::NotFoundMainFunction, Default::default()).output();
         std::process::exit(1);
     }
 }
@@ -61,7 +61,7 @@ fn type_check_main_fn(
 
     if type_env.get("main").unwrap().get("main").unwrap().kind != TypeKind::NORETURN {
         return Err(CompileError::new(
-            TypeErrorKind::MAINFUNCMUSTNOTRETURNANYVALUES,
+            TypeErrorKind::MainFunctionMustNotReturnAnyValues,
             function.pos,
         ));
     }
@@ -200,7 +200,7 @@ fn type_check_member_expression(
     if !struct_node.is_identifier() {
         let err_pos = struct_node.get_pos();
         return Err(CompileError::new(
-            TypeErrorKind::CANNOTACCESSMEMBERWITHNOTANIDENTIFIER { struct_node },
+            TypeErrorKind::CannotAccessMemberWithNotAnIdentifier { struct_node },
             err_pos,
         ));
     }
@@ -212,7 +212,7 @@ fn type_check_member_expression(
             if !node_type.is_struct() {
                 let err_pos = struct_node.get_pos();
                 return Err(CompileError::new(
-                    TypeErrorKind::CANNOTACCESSMEMBERWITHNOTASTRUCT { struct_node },
+                    TypeErrorKind::CannotAccessMemberWIthNotAStruct { struct_node },
                     err_pos,
                 ));
             }
@@ -225,7 +225,7 @@ fn type_check_member_expression(
                 None => {
                     let err_pos = struct_node.get_pos();
                     Err(CompileError::new(
-                        TypeErrorKind::UNDEFINEDSUCHAMEMBER {
+                        TypeErrorKind::UndefinedSuchAMember {
                             member: member.to_string(),
                         },
                         err_pos,
@@ -258,7 +258,10 @@ mod type_check_tests {
         assert!(actual.is_err());
 
         if let Err(e) = actual {
-            assert_eq!(&TypeErrorKind::MAINFUNCMUSTNOTRETURNANYVALUES, e.get_kind());
+            assert_eq!(
+                &TypeErrorKind::MainFunctionMustNotReturnAnyValues,
+                e.get_kind()
+            );
         }
     }
 
@@ -303,7 +306,7 @@ mod type_check_tests {
         );
         type_check_expr_error_test(
             member_type,
-            TypeErrorKind::CANNOTACCESSMEMBERWITHNOTANIDENTIFIER {
+            TypeErrorKind::CannotAccessMemberWithNotAnIdentifier {
                 struct_node: ast::ExpressionNode::new_integer(3, Default::default()),
             },
         );
@@ -323,7 +326,7 @@ mod type_check_tests {
         );
         type_check_expr_error_test(
             member_type,
-            TypeErrorKind::CANNOTACCESSMEMBERWITHNOTASTRUCT {
+            TypeErrorKind::CannotAccessMemberWIthNotAStruct {
                 struct_node: ast::ExpressionNode::new_identifier(
                     vec!["x".to_string()],
                     Default::default(),
@@ -346,7 +349,7 @@ mod type_check_tests {
         );
         type_check_expr_error_test(
             member_type,
-            TypeErrorKind::UNDEFINEDSUCHAMEMBER {
+            TypeErrorKind::UndefinedSuchAMember {
                 member: "undefined".to_string(),
             },
         );

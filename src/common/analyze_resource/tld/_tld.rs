@@ -16,6 +16,12 @@ impl TopLevelDecl {
             src_type: src_type.to_string(),
         })
     }
+    pub fn new_const(type_name: &str, expr: String) -> Self {
+        Self::new(tld_kind::TLDKind::CONST {
+            type_name: type_name.to_string(),
+            expr,
+        })
+    }
 
     pub fn new_function_from_ast(fn_ty: ast::FunctionTypeDef) -> Self {
         Self::new(tld_kind::TLDKind::FN {
