@@ -1,4 +1,6 @@
-use crate::common::ast::{ASTRoot, FnArena, FnId, Function, FunctionTypeDef, StructDef};
+use crate::common::ast::{
+    ASTRoot, EnumDef, FnArena, FnId, Function, FunctionTypeDef, StructDef, VariantDef,
+};
 use crate::common::token::{Token, TokenKind};
 
 use crate::common::pass::parser::context::Context;
@@ -32,11 +34,22 @@ pub fn main(fn_arena: FnArena, mut tokens: Vec<Token>, module_name: String) -> A
                     .typedefs
                     .insert(format!("{}::{}", ctxt.module_name, type_name), struct_def);
             }
+            TokenKind::PUBENUM => {
+                let (enum_name, variants, rest_tokens) = ctxt.enum_declaration(tokens);
+                tokens = rest_tokens;
+
+                ast_root
+                    .enum_decls
+                    .insert(format!("{}::{}", ctxt.module_name, enum_name), variants);
+            }
             TokenKind::PUBCONST => {
                 let (const_name, type_name, expr, rest_tokens) = ctxt.const_declaration(tokens);
                 tokens = rest_tokens;
 
-                ast_root.constants.insert(format!("{}::{}",ctxt.module_name, const_name), (type_name, expr));
+                ast_root.constants.insert(
+                    format!("{}::{}", ctxt.module_name, const_name),
+                    (type_name, expr),
+                );
             }
             TokenKind::PUBTYPE => {
                 let (alias_name, src_name, rest_tokens) = ctxt.type_alias(tokens);
@@ -125,6 +138,33 @@ impl Context {
 
         let (members, rest_tokens) = self.member_block(rest_tokens);
         (type_name, StructDef { members }, rest_tokens)
+    }
+
+    /// Enum型をパースする．
+    fn enum_declaration(&mut self, mut tokens: Vec<Token>) -> (String, EnumDef, Vec<Token>) {
+        parser_util::eat_token(&mut tokens);
+
+        let (enum_name, mut rest_tokens) = parser_util::expect_identifier(tokens);
+        parser_util::expect(TokenKind::LBRACE, &mut rest_tokens);
+
+        let mut variants = BTreeMap::new();
+        let mut variant_tag = 0;
+
+        loop {
+            if parser_util::consume(TokenKind::RBRACE, &mut rest_tokens) {
+                break;
+            }
+
+            let (variant_name, r) = parser_util::expect_identifier(rest_tokens);
+            rest_tokens = r;
+
+            variants.insert(variant_name[0].clone(), VariantDef { tag: variant_tag });
+            variant_tag += 1;
+
+            parser_util::consume(TokenKind::COMMA, &mut rest_tokens);
+        }
+
+        (enum_name[0].clone(), EnumDef { variants }, rest_tokens)
     }
 
     /// 構造体型内のメンバ定義列をパースする．

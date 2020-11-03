@@ -160,7 +160,7 @@ impl Tokenization {
         let symbol_str = s[..2].to_string();
 
         let symbol_kind = match symbol_str.as_str() {
-            "::" | "//" => {
+            "->" | "::" | "//" => {
                 self.condition_position(2);
                 TokenKind::new_symbol_from_str(&symbol_str)
             }

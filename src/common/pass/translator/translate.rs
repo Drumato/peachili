@@ -562,17 +562,15 @@ impl<'a> FunctionTranslator<'a> {
     fn search_identifier_type(&self, id_name: &str) -> Type {
         match self.type_env.get(&self.fn_name).unwrap().get(id_name) {
             Some(var_type) => var_type.clone(),
-            None => match self
-                .type_env
-                .get("global")
-                .unwrap()
-                .get(id_name) {
+            None => match self.type_env.get("global").unwrap().get(id_name) {
                 Some(var_type) => var_type.clone(),
                 None => self
                     .type_env
                     .get("global")
                     .unwrap()
-                    .get(&format!("::{}", id_name)).unwrap().clone(),
+                    .get(&format!("::{}", id_name))
+                    .unwrap()
+                    .clone(),
             },
         }
     }

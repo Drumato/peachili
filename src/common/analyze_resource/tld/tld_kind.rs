@@ -18,8 +18,10 @@ pub enum TLDKind {
     ALIAS {
         src_type: String,
     },
-
     STRUCT {
         members: BTreeMap<MemberName, MemberType>,
+    },
+    ENUM {
+        variants: BTreeMap<String, usize>,
     },
 }

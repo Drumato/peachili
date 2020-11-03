@@ -199,7 +199,7 @@ impl Context {
 
         match head.get_kind() {
             TokenKind::LPAREN => self.paren_expr(tokens),
-            TokenKind::INTEGER { value } => {
+            TokenKind::Integer { value } => {
                 parser_util::eat_token(&mut tokens);
                 (
                     self.expr_arena

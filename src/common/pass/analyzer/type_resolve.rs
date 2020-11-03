@@ -305,6 +305,7 @@ fn resolve_type_from_tld(
 
             Ok(Type::new_struct(member_types, total_size))
         }
+        tld::TLDKind::ENUM { variants } => Ok(Type::new_enum(8)),
         // 関数名だったときは何もしない．
         tld::TLDKind::FN {
             return_type: _,

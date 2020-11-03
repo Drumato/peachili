@@ -4,6 +4,7 @@ use crate::common::{
     ast::{ExNodeId, StNodeId, StatementNode, StatementNodeKind},
     token::{Token, TokenKind},
 };
+use std::collections::BTreeMap;
 
 impl Context {
     /// statement -> return_st | ifret_st | declare_st | countup_st| block_st | asm_st
@@ -11,6 +12,7 @@ impl Context {
         let head = parser_util::head(&tokens);
 
         match head.get_kind() {
+            TokenKind::MATCH => self.match_statement(tokens),
             TokenKind::RETURN => self.return_statement(tokens),
             TokenKind::IFRET => self.ifret_statement(tokens),
             TokenKind::DECLARE => self.declare_statement(tokens),
@@ -20,6 +22,44 @@ impl Context {
             TokenKind::CONST => self.const_statement(tokens),
             _ => self.expression_statement(tokens),
         }
+    }
+
+    /// match_statement -> "match" expression `{` pattern* `}`
+    fn match_statement(&mut self, mut tokens: Vec<Token>) -> (StNodeId, Vec<Token>) {
+        let stmt_pos = parser_util::current_position(&tokens);
+        parser_util::eat_token(&mut tokens);
+
+        let (ex_id, mut rest_tokens) = self.expression(tokens);
+        parser_util::expect(TokenKind::LBRACE, &mut rest_tokens);
+
+        let mut arms = BTreeMap::new();
+
+        loop {
+            if parser_util::consume(TokenKind::RBRACE, &mut rest_tokens) {
+                break;
+            }
+
+            let (pattern_name, r) = parser_util::expect_identifier(rest_tokens);
+            rest_tokens = r;
+
+            parser_util::expect(TokenKind::ARROW, &mut rest_tokens);
+
+            let (stmts, r) = self.expect_block(rest_tokens);
+            rest_tokens = r;
+
+            arms.insert(pattern_name.join("::"), stmts);
+
+            parser_util::expect(TokenKind::COMMA, &mut rest_tokens);
+        }
+
+        parser_util::expect(TokenKind::SEMICOLON, &mut rest_tokens);
+        (
+            self.stmt_arena.lock().unwrap().alloc(StatementNode::new(
+                StatementNodeKind::MATCH { expr: ex_id, arms },
+                stmt_pos,
+            )),
+            rest_tokens,
+        )
     }
 
     /// return_statement -> "return" expression `;`

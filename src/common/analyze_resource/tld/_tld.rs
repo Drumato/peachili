@@ -35,4 +35,14 @@ impl TopLevelDecl {
             members: st_ty.members,
         })
     }
+
+    pub fn new_enum(en_ty: ast::EnumDef) -> Self {
+        Self::new(tld_kind::TLDKind::ENUM {
+            variants: en_ty
+                .variants
+                .iter()
+                .map(|(name, variant)| (name.to_string(), variant.tag))
+                .collect(),
+        })
+    }
 }

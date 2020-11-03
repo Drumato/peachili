@@ -1,4 +1,5 @@
 use crate::common::ast::{ExNodeId, StNodeId};
+use std::collections::BTreeMap;
 
 /// 文ノードの種類
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
@@ -34,5 +35,9 @@ pub enum StatementNodeKind {
         ident_name: String,
         type_name: String,
         expr: ExNodeId,
+    },
+    MATCH {
+        expr: ExNodeId,
+        arms: BTreeMap<String, Vec<StNodeId>>,
     },
 }

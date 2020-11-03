@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter, Result as FR};
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum TokenKind {
     /// 整数リテラル( `100` )
-    INTEGER { value: i64 },
+    Integer { value: i64 },
 
     /// 非符号付き整数リテラル( `100u` )
     UNSIGNEDINTEGER { value: u64 },
@@ -42,6 +42,8 @@ pub enum TokenKind {
     COLON,
     /// `::`
     DOUBLECOLON,
+    /// `->`
+    ARROW,
     /// `;`
     SEMICOLON,
     /// `=`
@@ -90,8 +92,12 @@ pub enum TokenKind {
     INT64,
     /// `import`
     IMPORT,
+    /// `match`
+    MATCH,
     /// `Noreturm`
     NORETURN,
+    /// `pubenum`
+    PUBENUM,
     /// `pubtype`
     PUBTYPE,
     /// `pubconst`
@@ -111,7 +117,7 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> FR {
         let s = match self {
-            TokenKind::INTEGER { value } => value.to_string(),
+            TokenKind::Integer { value } => value.to_string(),
 
             TokenKind::UNSIGNEDINTEGER { value } => value.to_string(),
 
@@ -132,6 +138,7 @@ impl Display for TokenKind {
             TokenKind::RBRACE => "}".to_string(),
             TokenKind::COLON => ":".to_string(),
             TokenKind::DOUBLECOLON => "::".to_string(),
+            TokenKind::ARROW => "->".to_string(),
             TokenKind::SEMICOLON => ";".to_string(),
             TokenKind::ASSIGN => "=".to_string(),
             TokenKind::BLANK => "(BLANK)".to_string(),
@@ -157,7 +164,9 @@ impl Display for TokenKind {
             TokenKind::IFRET => "ifret".to_string(),
             TokenKind::IMPORT => "import".to_string(),
             TokenKind::INT64 => "Int64".to_string(),
+            TokenKind::MATCH => "match".to_string(),
             TokenKind::NORETURN => "Noreturn".to_string(),
+            TokenKind::PUBENUM => "pubenum".to_string(),
             TokenKind::PUBTYPE => "pubtype".to_string(),
             TokenKind::PUBCONST => "pubconst".to_string(),
             TokenKind::RETURN => "return".to_string(),
@@ -185,6 +194,7 @@ impl TokenKind {
             "}" => TokenKind::RBRACE,
             ":" => TokenKind::COLON,
             "::" => TokenKind::DOUBLECOLON,
+            "->" => TokenKind::ARROW,
             "=" => TokenKind::ASSIGN,
             "," => TokenKind::COMMA,
             ";" => TokenKind::SEMICOLON,
@@ -210,7 +220,9 @@ impl TokenKind {
             "ifret" => Some(TokenKind::IFRET),
             "import" => Some(TokenKind::IMPORT),
             "Int64" => Some(TokenKind::INT64),
+            "match" => Some(TokenKind::MATCH),
             "Noreturn" => Some(TokenKind::NORETURN),
+            "pubenum" => Some(TokenKind::PUBENUM),
             "pubtype" => Some(TokenKind::PUBTYPE),
             "return" => Some(TokenKind::RETURN),
             "struct" => Some(TokenKind::STRUCT),

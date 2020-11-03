@@ -11,6 +11,7 @@ pub struct ASTRoot {
 
     /// 定数名 => (型名, 代入されている式)
     pub constants: BTreeMap<String, (String, String)>,
+    pub enum_decls: BTreeMap<String, EnumDef>,
 }
 
 impl Default for ASTRoot {
@@ -21,6 +22,7 @@ impl Default for ASTRoot {
             typedefs: BTreeMap::new(),
             called_functions: HashSet::new(),
             constants: BTreeMap::new(),
+            enum_decls: BTreeMap::new(),
         }
     }
 }
@@ -35,6 +37,7 @@ impl ASTRoot {
 
         self.typedefs.append(&mut target.typedefs);
         self.constants.append(&mut target.constants);
+        self.enum_decls.append(&mut target.enum_decls);
         self.alias.append(&mut target.alias);
         self.called_functions = &self.called_functions | &target.called_functions;
     }
@@ -51,4 +54,14 @@ impl Default for StructDef {
             members: BTreeMap::new(),
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct EnumDef {
+    pub variants: BTreeMap<String, VariantDef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct VariantDef {
+    pub tag: usize,
 }

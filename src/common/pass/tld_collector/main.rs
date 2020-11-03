@@ -30,6 +30,13 @@ pub fn main(
         );
     }
 
+    for (enum_name, enum_decl) in full_ast.enum_decls.iter() {
+        tld_map.insert(
+            enum_name.to_string(),
+            tld::TopLevelDecl::new_enum(enum_decl.clone()),
+        );
+    }
+
     for fn_id in full_ast.funcs.iter() {
         let ast_function = fn_arena.lock().unwrap().get(*fn_id).unwrap().clone();
 

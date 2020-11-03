@@ -33,6 +33,7 @@ impl Type {
                 const_type,
                 value: _,
             } => const_type.dump(),
+            TypeKind::ENUM => "enum".to_string(),
         }
     }
     /// 関数型サイズ
@@ -58,6 +59,7 @@ impl Type {
             TypeKind::CONSTSTR => Self::conststr_size(target),
             TypeKind::INT64 => Self::int64_size(target),
             TypeKind::UINT64 => Self::uint64_size(target),
+            TypeKind::ENUM => 8,
             _ => unreachable!(),
         }
     }
@@ -162,6 +164,12 @@ impl Type {
             size: total_size,
         }
     }
+    pub fn new_enum(size: usize) -> Self {
+        Self {
+            kind: TypeKind::ENUM,
+            size,
+        }
+    }
 
     /// 構造体型であるか
     pub fn is_struct(&self) -> bool {
@@ -232,7 +240,9 @@ pub enum TypeKind {
     /// 64bit非符号付き整数
     UINT64,
     /// ポインタ
-    POINTER { to: Box<Type> },
+    POINTER {
+        to: Box<Type>,
+    },
     /// ConstStr
     CONSTSTR,
     /// Boolean
@@ -254,4 +264,5 @@ pub enum TypeKind {
         const_type: Box<Type>,
         value: String,
     },
+    ENUM,
 }

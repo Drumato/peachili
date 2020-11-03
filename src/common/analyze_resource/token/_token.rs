@@ -42,7 +42,7 @@ impl Token {
 
     /// 整数トークンの定義
     pub fn new_int_literal(v: i64, position: Position) -> Self {
-        Self::new(TokenKind::INTEGER { value: v }, position)
+        Self::new(TokenKind::Integer { value: v }, position)
     }
 
     /// 非符号付き整数トークンの定義
@@ -58,7 +58,7 @@ impl Token {
     /// 整数トークンだと仮定して，数値を受け取る
     pub fn int_value(&self) -> i64 {
         match &self.k {
-            TokenKind::INTEGER { value } => *value,
+            TokenKind::Integer { value } => *value,
             _ => unimplemented!(),
         }
     }
