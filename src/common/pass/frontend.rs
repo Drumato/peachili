@@ -1,4 +1,4 @@
-use crate::common::pass::{analyzer, parser, tld_collector, tokenizer};
+use crate::common::pass::{analyzer, parser, tld_collector};
 use crate::common::{ast, file_util, frame_object, module, peachili_type};
 use crate::setup;
 use id_arena::Arena;
@@ -88,10 +88,11 @@ impl FrontendManager {
 
     /// 字句解析, 構文解析をして返す
     fn parse_file(&mut self, file_contents: String, module_name: String) {
-        let tokens = tokenizer::main(file_contents);
-
-        self.full_ast
-            .absorb(parser::main(self.fn_arena.clone(), tokens, module_name));
+        self.full_ast.absorb(parser::main(
+            self.fn_arena.clone(),
+            file_contents,
+            module_name,
+        ));
     }
 
     /// mod_idのモジュールが参照するすべてのモジュールをパースし，結合
