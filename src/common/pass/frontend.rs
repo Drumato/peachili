@@ -1,14 +1,9 @@
-use crate::common::pass::{analyzer, parser, tld_collector};
-use crate::common::{ast, file_util, frame_object, module, peachili_type};
-use crate::setup;
-use id_arena::Arena;
-use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
+use crate::common::pass::parser;
+use crate::common::{ast, file_util, module};
 
 /// フロントエンド資源をまとめる構造体
 struct FrontendManager {
     module_arena: module::ModuleArena,
-    fn_arena: ast::FnArena,
     full_ast: ast::ASTRoot,
 }
 
@@ -17,15 +12,9 @@ pub fn frontend(
     module_arena: module::ModuleArena,
     main_module_id: module::ModuleId,
     debug: bool,
-) -> (
-    ast::FnArena,
-    ast::ASTRoot,
-    BTreeMap<String, BTreeMap<String, peachili_type::Type>>,
-    frame_object::StackFrame,
-) {
+) -> ast::ASTRoot {
     let mut manager = FrontendManager {
         module_arena,
-        fn_arena: Arc::new(Mutex::new(Arena::new())),
         full_ast: Default::default(),
     };
 
@@ -38,36 +27,21 @@ pub fn frontend(
     manager.parse_requires(main_module_id, String::new());
 
     // ASTレベルのconstant-folding
-    analyzer::constant_folding(manager.fn_arena.clone(), &manager.full_ast);
 
     // TLD解析
-    let tld_env = tld_collector::main(manager.fn_arena.clone(), &manager.full_ast);
 
     // 意味解析
     // 先に型環境を構築してから，型検査を行う
-    let type_env = analyzer::type_resolve_main(
-        manager.fn_arena.clone(),
-        &tld_env,
-        &manager.full_ast,
-        setup::BUILD_OPTION.target,
-    );
 
     if debug {
-        analyzer::type_check_main(
-            manager.fn_arena.clone(),
-            &tld_env,
-            &type_env,
-            &manager.full_ast,
-            setup::BUILD_OPTION.target,
-        );
+        // 型検査
     }
 
     // スタック割付
     // 通常はローカル変数をすべてスタックに．
     // 最適化を有効化にしたらレジスタ割付したい
-    let func_frame = analyzer::allocate_stack_frame(&tld_env, &type_env);
 
-    (manager.fn_arena, manager.full_ast, type_env, func_frame)
+    manager.full_ast
 }
 
 impl FrontendManager {
@@ -88,11 +62,8 @@ impl FrontendManager {
 
     /// 字句解析, 構文解析をして返す
     fn parse_file(&mut self, file_contents: String, module_name: String) {
-        self.full_ast.absorb(parser::main(
-            self.fn_arena.clone(),
-            file_contents,
-            module_name,
-        ));
+        self.full_ast
+            .absorb(parser::main(file_contents, module_name));
     }
 
     /// mod_idのモジュールが参照するすべてのモジュールをパースし，結合
