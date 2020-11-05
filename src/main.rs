@@ -1,13 +1,13 @@
 extern crate asmpeach;
 extern crate clap;
-extern crate id_arena;
 extern crate pld;
+extern crate typed_arena;
 extern crate yaml_rust;
 
 use arch::x64;
 use common::option;
-use id_arena::Arena;
 use std::sync::{Arc, Mutex};
+use typed_arena::Arena;
 
 mod arch;
 mod bundler;
@@ -27,18 +27,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let module_arena: common::module::ModuleArena = Arc::new(Mutex::new(Arena::new()));
+    let module_arena = Arena::new();
     let source = setup::BUILD_OPTION.get_source();
-    let main_module = bundler::resolve_main(module_arena.clone(), source);
+    let main_module = bundler::resolve_main(setup::BUILD_OPTION.target, &module_arena, source);
 
     // ******************
     // *    Compiler    *
     // ******************
 
     match setup::BUILD_OPTION.target {
-        option::Target::X86_64 => {
-            x64::main(module_arena, main_module, &setup::BUILD_OPTION.matches)?
-        }
+        option::Target::X86_64 => x64::main(main_module, &setup::BUILD_OPTION.matches)?,
         option::Target::AARCH64 => unimplemented!(),
     }
 

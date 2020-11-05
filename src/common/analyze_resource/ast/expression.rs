@@ -1,11 +1,13 @@
-use crate::common::position;
-
 /// 式ノード
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct Expr {
-    k: ExprKind,
-    p: position::Position,
+    pub kind: ExprKind,
+    // pub position: position::Position,
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub enum ExprKind {}
+pub enum ExprKind {
+    Integer { value: i128 },
+    UnsignedInteger { value: u128 },
+    Identifier { list: Vec<String> },
+}

@@ -1,119 +1,114 @@
+use crate::common::option;
 use crate::common::{file_util as fu, module as m, option as opt};
-use crate::setup;
-use id_arena::Arena;
-use std::sync::{Arc, Mutex, MutexGuard};
+use typed_arena::Arena;
 
 use std::fs;
 
-pub fn resolve_main(arena: Arc<Mutex<Arena<m::Module>>>, source_name: String) -> m::ModuleId {
+pub fn resolve_main<'a>(
+    target: option::Target,
+    arena: &'a Arena<m::ModuleInfo<'a>>,
+    source_name: String,
+) -> m::Module<'a> {
     let file_contents = try_to_get_file_contents(&source_name);
-    let main_mod = alloc_main_module(arena.lock().unwrap(), source_name);
+    let main_module = arena.alloc(m::ModuleInfo::new_primary(source_name, "main".to_string()));
 
     // スタートアップ･ライブラリの追加
-    let startup_module_path = setup_startup_routine();
-    let startup_module =
-        process_ext_module(arena.clone(), startup_module_path, "startup".to_string());
-    arena
-        .lock()
-        .unwrap()
-        .get_mut(main_mod)
-        .unwrap()
-        .add_reference_module(startup_module);
+    let startup_module_path = setup_startup_routine(target);
+    let startup_module = analyze_external_module(arena, startup_module_path, "startup".to_string());
+    main_module.refs.lock().unwrap().push(startup_module);
 
     // mainが参照するモジュールに対しそれぞれprocess_ext_moduleする
     let main_requires = collect_import_modules_from_program(file_contents);
 
-    add_dependencies_to(arena, main_mod, main_requires, false);
+    add_dependencies_to(arena, main_module, main_requires);
 
-    main_mod
+    main_module
 }
 
 /// (間接的にではあるが)再帰的に呼び出される
-fn process_ext_module(
-    arena: Arc<Mutex<Arena<m::Module>>>,
-    ext_fp: String,
-    ext_name: String,
-) -> m::ModuleId {
-    // 相対パス部分と拡張子を削る
-    let ext_name = if ext_name.contains('/') {
-        let ext_name = ext_name.split('/').collect::<Vec<&str>>().pop().unwrap();
-        if ext_name.contains('.') {
-            ext_name.split('.').collect::<Vec<&str>>()[0].to_string()
-        } else {
-            ext_name.to_string()
-        }
-    } else {
-        ext_name
-    };
-    let parent_mod = alloc_ext_module(arena.lock().unwrap(), ext_fp.to_string(), ext_name);
+fn analyze_external_module<'a>(
+    arena: &'a Arena<m::ModuleInfo<'a>>,
+    external_file_path: String,
+    external_module_name: String,
+) -> m::Module<'a> {
+    // 階層が深いモジュールのインポートは/を含む場合がある
+    let external_module_name = module_name_from_path_form_string(external_module_name);
 
     // TODO: エラー出したほうがいいかも
-    let ext_module_is_dir = fs::metadata(&ext_fp).unwrap().is_dir();
+    let parent_module_is_dir = fs::metadata(&external_file_path).unwrap().is_dir();
 
-    if ext_module_is_dir {
+    let parent_module = arena.alloc(m::ModuleInfo::new_external(
+        external_file_path.to_string(),
+        external_module_name,
+    ));
+
+    if parent_module_is_dir {
         // parent_modのsubsにモジュールをぶら下げる
-        process_submodules(arena, &parent_mod);
+        analyze_children(arena, parent_module);
     } else {
         // 普通のファイルと同じように処理する
-        let file_contents = try_to_get_file_contents(&ext_fp);
+        let file_contents = try_to_get_file_contents(&external_file_path);
         let requires = collect_import_modules_from_program(file_contents);
 
-        add_dependencies_to(arena, parent_mod, requires, false);
+        add_dependencies_to(arena, parent_module, requires);
     }
 
-    parent_mod
+    parent_module
+}
+
+fn module_name_from_path_form_string(raw_module_name: String) -> String {
+    if raw_module_name.contains('/') {
+        let base_path = base_file_name_from_full_path(&raw_module_name);
+        try_remove_extension(&base_path)
+    } else {
+        raw_module_name
+    }
+}
+
+fn base_file_name_from_full_path(module_name: &str) -> String {
+    module_name
+        .split('/')
+        .collect::<Vec<&str>>()
+        .pop()
+        .unwrap()
+        .to_string()
+}
+
+fn try_remove_extension(file_name: &str) -> String {
+    if file_name.contains('.') {
+        file_name.split('.').collect::<Vec<&str>>()[0].to_string()
+    } else {
+        file_name.to_string()
+    }
 }
 
 /// ディレクトリ内の各ファイルに対して，resolveを実行する
-fn process_submodules(arena: Arc<Mutex<Arena<m::Module>>>, dir_module_id: &m::ModuleId) {
-    let parent_module_path = arena
-        .lock()
-        .unwrap()
-        .get_mut(*dir_module_id)
-        .unwrap()
-        .copy_path();
+fn analyze_children<'a>(arena: &'a Arena<m::ModuleInfo<'a>>, dir_module: m::Module<'a>) {
+    let parent_module_path = dir_module.file_path.clone();
 
     for entry in fs::read_dir(&parent_module_path).unwrap() {
         let file_in_dir = entry.unwrap();
         let child_module_name = file_in_dir.path().to_str().unwrap().to_string();
         let resolved_path = resolve_path_from_name(child_module_name.to_string());
 
-        let child_module = process_ext_module(arena.clone(), resolved_path, child_module_name);
-        arena
-            .lock()
-            .unwrap()
-            .get_mut(*dir_module_id)
-            .unwrap()
-            .add_child_module(child_module);
+        let child_module = analyze_external_module(arena, resolved_path, child_module_name);
+        if let m::ModuleKind::External { children } = &dir_module.kind {
+            children.lock().unwrap().push(child_module);
+        }
     }
 }
 
 /// 依存ノードを追加する
-fn add_dependencies_to(
-    arena: Arc<Mutex<Arena<m::Module>>>,
-    src_mod_id: m::ModuleId,
+fn add_dependencies_to<'a>(
+    arena: &'a Arena<m::ModuleInfo<'a>>,
+    src_module: m::Module<'a>,
     dependencies: Vec<String>,
-    is_dir: bool,
 ) {
     for req in dependencies {
         let req_path = resolve_path_from_name(req.to_string());
-        let ext_mod = process_ext_module(arena.clone(), req_path, req);
+        let referenced_module = analyze_external_module(arena, req_path, req);
 
-        if is_dir {
-            arena
-                .lock()
-                .unwrap()
-                .get_mut(src_mod_id)
-                .unwrap()
-                .add_child_module(ext_mod);
-        } else {
-            arena
-                .lock()
-                .unwrap()
-                .get_mut(src_mod_id)
-                .unwrap()
-                .add_reference_module(ext_mod);
-        }
+        src_module.refs.lock().unwrap().push(referenced_module);
     }
 }
 
@@ -126,7 +121,6 @@ fn resolve_path_from_name(module_name: String) -> String {
     if let Some(relative_path) = resolved_path {
         return relative_path;
     }
-
     // PEACHILI_LIB_PATH/lib をつけて検索
     let resolved_path = search_module(format!("{}{}", get_lib_path(), module_name));
     if let Some(lib_path) = resolved_path {
@@ -180,19 +174,6 @@ fn search_directory(dir_name: String) -> Option<String> {
     Some(dir_name)
 }
 
-/// PRIMARYなモジュールをアロケートして返す
-fn alloc_main_module(mut arena: MutexGuard<Arena<m::Module>>, main_fp: String) -> m::ModuleId {
-    arena.alloc(m::Module::new_primary(main_fp, "main".to_string()))
-}
-
-fn alloc_ext_module(
-    mut arena: MutexGuard<Arena<m::Module>>,
-    ext_fp: String,
-    ext_name: String,
-) -> m::ModuleId {
-    arena.alloc(m::Module::new_external(ext_fp, ext_name))
-}
-
 /// ファイル先頭にある任意数の `import <module-name>;` を解読して返す
 fn collect_import_modules_from_program(file_contents: String) -> Vec<String> {
     let mut requires = Vec::new();
@@ -236,8 +217,8 @@ fn try_to_get_file_contents(source_name: &str) -> String {
     }
 }
 
-fn setup_startup_routine() -> String {
-    match setup::BUILD_OPTION.target {
+fn setup_startup_routine(target: option::Target) -> String {
+    match target {
         opt::Target::X86_64 => format!("{}startup_x64.go", get_lib_path()),
         opt::Target::AARCH64 => format!("{}startup_aarch64.go", get_lib_path()),
     }
@@ -311,25 +292,5 @@ mod resolve_tests {
 
         let invalid = search_module("invalid".to_string());
         assert!(invalid.is_none());
-    }
-
-    #[test]
-    #[ignore]
-    fn resolve_test() {
-        // lib/ のディレクトリ
-        let p = resolve_path_from_name("std".to_string());
-        assert_eq!(format!("{}std", get_lib_path()), p);
-
-        // lib/ のファイル
-        let p = resolve_path_from_name("std/os".to_string());
-        assert_eq!(format!("{}std/os.go", get_lib_path()), p);
-
-        // 相対パスのディレクトリ
-        let p = resolve_path_from_name("examples".to_string());
-        assert_eq!("examples", p);
-
-        // 相対パスのファイル
-        let p = resolve_path_from_name("examples/boolean_1.go".to_string());
-        assert_eq!("examples/boolean_1.go", p);
     }
 }

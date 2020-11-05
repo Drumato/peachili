@@ -1,95 +1,59 @@
-use id_arena::{Arena, Id};
 use std::sync::{Arc, Mutex};
 
 /// 各ファイル(パッケージ)を表す構造体
 /// 依存グラフの各ノードとしても動作する
 #[derive(Clone)]
-pub struct Module {
+pub struct ModuleInfo<'a> {
     /// モジュールの種類
-    pub kind: ModuleKind,
-    /// 参照するモジュール
-    pub refs: Arc<Mutex<Vec<ModuleId>>>,
-    /// ディレクトリにぶら下がっているモジュール
-    pub children: Arc<Mutex<Vec<ModuleId>>>,
+    pub kind: ModuleKind<'a>,
     /// モジュールが存在するパス
-    file_path: String,
+    pub file_path: String,
     /// モジュール名
-    name: String,
+    pub name: String,
+    /// 参照するモジュール
+    pub refs: Arc<Mutex<Vec<Module<'a>>>>,
 }
 
-pub type ModuleArena = Arc<Mutex<Arena<Module>>>;
-pub type ModuleId = Id<Module>;
+pub type Module<'a> = &'a ModuleInfo<'a>;
 
 #[allow(dead_code)]
-impl Module {
-    fn new(kind: ModuleKind, file_path: String, name: String) -> Self {
+impl<'a> ModuleInfo<'a> {
+    fn new(kind: ModuleKind<'a>, file_path: String, name: String) -> Self {
         Self {
             kind,
             file_path,
             name,
             refs: Arc::new(Mutex::new(Vec::new())),
-            children: Arc::new(Mutex::new(Vec::new())),
         }
-    }
-
-    /// モジュールの依存ノードを追加する
-    pub fn add_reference_module(&self, ref_module: ModuleId) {
-        self.refs.lock().unwrap().push(ref_module);
-    }
-
-    /// モジュールの下位ノードを追加する
-    pub fn add_child_module(&self, child_module: ModuleId) {
-        self.children.lock().unwrap().push(child_module);
-    }
-
-    /// ファイルパスの参照
-    pub fn get_path(&self) -> &String {
-        &self.file_path
-    }
-
-    /// ファイルパスのコピー
-    pub fn copy_path(&self) -> String {
-        self.file_path.to_string()
-    }
-
-    /// モジュール名のコピー
-    pub fn copy_name(&self) -> String {
-        self.name.to_string()
     }
 
     /// mainパッケージを割り当てる
     pub fn new_primary(file_path: String, name: String) -> Self {
-        Self::new(ModuleKind::PRIMARY, file_path, name)
+        Self::new(ModuleKind::Primary, file_path, name)
     }
 
     /// 外部パッケージを割り当てる
     pub fn new_external(file_path: String, name: String) -> Self {
-        Self::new(ModuleKind::EXTERNAL, file_path, name)
-    }
-
-    /// ファイルパスの設定
-    pub fn set_file_path(&mut self, fp: String) {
-        self.file_path = fp;
-    }
-
-    /// 依存モジュール数の取得
-    pub fn ref_count(&self) -> usize {
-        self.refs.lock().unwrap().len()
-    }
-
-    /// 下位モジュール数の取得
-    pub fn child_count(&self) -> usize {
-        self.children.lock().unwrap().len()
+        Self::new(
+            ModuleKind::External {
+                children: Arc::new(Mutex::new(Vec::new())),
+            },
+            file_path,
+            name,
+        )
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 #[allow(dead_code)]
-pub enum ModuleKind {
+pub enum ModuleKind<'a> {
     /// func main() Noreturn を持つファイルのみが該当
     /// このパッケージが他のパッケージから参照されることはない
-    PRIMARY,
+    Primary,
 
     /// 何らかのパッケージから参照されているパッケージ
-    EXTERNAL,
+    External {
+        /// ディレクトリにぶら下がっているモジュール
+        children: Arc<Mutex<Vec<Module<'a>>>>,
+    },
 }

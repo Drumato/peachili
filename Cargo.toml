@@ -17,5 +17,5 @@ pld = "0.1.45"
 lazy_static = "1.4.0"
 
 # llvm-scratch = "0.1.15"
-id-arena = "2.2.1"
+typed-arena = "2.0.1"
 nom = "6.0.0"
