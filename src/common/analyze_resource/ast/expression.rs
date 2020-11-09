@@ -7,7 +7,10 @@ pub struct Expr {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum ExprKind {
+    StringLiteral { contents: String },
     Integer { value: i128 },
     UnsignedInteger { value: u128 },
     Identifier { list: Vec<String> },
+    True,
+    False,
 }
