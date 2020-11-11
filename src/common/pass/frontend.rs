@@ -7,7 +7,7 @@ struct FrontendManager {
 }
 
 /// 字句解析，パース，意味解析等を行う．
-pub fn frontend<'a>(main_module: module::Module<'a>, debug: bool) -> ast::ASTRoot {
+pub fn frontend<'a>(main_module: module::Module<'a>) -> ast::ASTRoot {
     let mut manager = FrontendManager {
         full_ast: Default::default(),
     };
@@ -27,9 +27,8 @@ pub fn frontend<'a>(main_module: module::Module<'a>, debug: bool) -> ast::ASTRoo
     // 意味解析
     // 先に型環境を構築してから，型検査を行う
 
-    if debug {
-        // 型検査
-    }
+
+    // 型検査
 
     // スタック割付
     // 通常はローカル変数をすべてスタックに．
@@ -40,7 +39,7 @@ pub fn frontend<'a>(main_module: module::Module<'a>, debug: bool) -> ast::ASTRoo
 
 impl FrontendManager {
     /// モジュールの内容(Peachiliコード)を読み出す
-    fn read_module_contents<'a>(&self, module_id: module::Module<'a>) -> String {
+    fn read_module_contents<'a>(&self, _m: module::Module<'a>) -> String {
         unimplemented!()
     }
 
@@ -51,18 +50,18 @@ impl FrontendManager {
     }
 
     /// mod_idのモジュールが参照するすべてのモジュールをパースし，結合
-    fn parse_requires<'a>(&mut self, m: module::Module<'a>, module_name: String) {
+    fn parse_requires<'a>(&mut self, _m: module::Module<'a>, _module_name: String) {
         unimplemented!()
     }
 
     /// 再帰呼出しされる，外部モジュールの組み立て関数
     /// 本体 -> 参照 -> 子の順にパースし，すべてを結合して返す
-    fn parse_ext_module<'a>(&mut self, m: module::Module<'a>, mut module_name: String) {
+    fn parse_ext_module<'a>(&mut self, _m: module::Module<'a>, _module_name: String) {
         unimplemented!()
     }
 
     /// mのモジュール以下のすべてのモジュールをパースし，結合
-    fn parse_children<'a>(&mut self, m: module::Module<'a>, module_name: String) {
+    fn parse_children<'a>(&mut self, _m: module::Module<'a>, _module_name: String) {
         unimplemented!()
     }
 }

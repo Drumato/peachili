@@ -1,46 +1,33 @@
-use clap::ArgMatches;
-
-#[derive(Clone)]
+use structopt::StructOpt;
+#[derive(StructOpt, Clone)]
 pub struct BuildOption {
-    pub matches: ArgMatches,
+    pub source_file: String,
+
+    #[structopt(parse(from_str), default_value = "x86_64")]
     pub target: Target,
+
+    #[structopt(subcommand)]
+    pub cmd: Command,
 }
 
-impl BuildOption {
-    pub fn new(matches: ArgMatches) -> Self {
-        Self {
-            matches,
-            target: Target::X86_64,
-        }
-    }
 
-    pub fn get_source(&self) -> String {
-        match self.matches.subcommand() {
-            ("build", Some(build_m)) => match build_m.value_of("source") {
-                Some(s) => s.to_string(),
-                None => panic!("source file must be specified"),
-            },
-            ("compile", Some(compile_m)) => match compile_m.value_of("source") {
-                Some(s) => s.to_string(),
-                None => panic!("source file must be specified"),
-            },
-            _ => panic!("source file must be specified"),
-        }
-    }
+#[derive(StructOpt, Clone)]
+pub enum Command {
+    Build,
+    Compile,
 }
+
 
 #[derive(Copy, Clone)]
 pub enum Target {
     X86_64,
-    AARCH64,
 }
 
-impl Target {
-    pub fn new(target_str: &str) -> Self {
-        match target_str {
+impl From<&str> for Target{
+    fn from(s: &str) -> Self {
+        match s {
             "x86_64" => Target::X86_64,
-            "aarch64" => Target::AARCH64,
-            _ => panic!("unsupported target -> {}", target_str),
+            _ => panic!("unsupported target -> {}", s),
         }
     }
 }

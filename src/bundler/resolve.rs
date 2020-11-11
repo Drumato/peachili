@@ -2,6 +2,7 @@ use crate::common::option;
 use crate::common::{file_util as fu, module as m, option as opt};
 use typed_arena::Arena;
 
+use std::path::PathBuf;
 use std::fs;
 
 pub fn resolve_main<'a>(
@@ -10,7 +11,7 @@ pub fn resolve_main<'a>(
     source_name: String,
 ) -> m::Module<'a> {
     let file_contents = try_to_get_file_contents(&source_name);
-    let main_module = arena.alloc(m::ModuleInfo::new_primary(source_name, "main".to_string()));
+    let main_module = arena.alloc(m::ModuleInfo::new_primary(PathBuf::from(source_name), "main".to_string()));
 
     // スタートアップ･ライブラリの追加
     let startup_module_path = setup_startup_routine(target);
@@ -31,14 +32,13 @@ fn analyze_external_module<'a>(
     external_file_path: String,
     external_module_name: String,
 ) -> m::Module<'a> {
-    // 階層が深いモジュールのインポートは/を含む場合がある
-    let external_module_name = module_name_from_path_form_string(external_module_name);
+    let external_file_path = PathBuf::from(external_file_path.to_string());
 
     // TODO: エラー出したほうがいいかも
-    let parent_module_is_dir = fs::metadata(&external_file_path).unwrap().is_dir();
+    let parent_module_is_dir = external_file_path.is_dir();
 
     let parent_module = arena.alloc(m::ModuleInfo::new_external(
-        external_file_path.to_string(),
+        external_file_path.clone(),
         external_module_name,
     ));
 
@@ -47,7 +47,7 @@ fn analyze_external_module<'a>(
         analyze_children(arena, parent_module);
     } else {
         // 普通のファイルと同じように処理する
-        let file_contents = try_to_get_file_contents(&external_file_path);
+        let file_contents = try_to_get_file_contents(external_file_path.to_str().unwrap());
         let requires = collect_import_modules_from_program(file_contents);
 
         add_dependencies_to(arena, parent_module, requires);
@@ -56,31 +56,6 @@ fn analyze_external_module<'a>(
     parent_module
 }
 
-fn module_name_from_path_form_string(raw_module_name: String) -> String {
-    if raw_module_name.contains('/') {
-        let base_path = base_file_name_from_full_path(&raw_module_name);
-        try_remove_extension(&base_path)
-    } else {
-        raw_module_name
-    }
-}
-
-fn base_file_name_from_full_path(module_name: &str) -> String {
-    module_name
-        .split('/')
-        .collect::<Vec<&str>>()
-        .pop()
-        .unwrap()
-        .to_string()
-}
-
-fn try_remove_extension(file_name: &str) -> String {
-    if file_name.contains('.') {
-        file_name.split('.').collect::<Vec<&str>>()[0].to_string()
-    } else {
-        file_name.to_string()
-    }
-}
 
 /// ディレクトリ内の各ファイルに対して，resolveを実行する
 fn analyze_children<'a>(arena: &'a Arena<m::ModuleInfo<'a>>, dir_module: m::Module<'a>) {
@@ -208,11 +183,11 @@ fn parse_import(l: String) -> String {
 
 /// コマンドライン引数に渡されたファイルから内容を読み取ろうとする
 /// エラーを発行する可能性もある
-fn try_to_get_file_contents(source_name: &str) -> String {
-    match fu::read_program_from_file(source_name) {
+fn try_to_get_file_contents(file_name: &str) -> String {
+    match fu::read_program_from_file(file_name) {
         Some(contents) => contents,
         None => {
-            panic!("not found such a file => {}", source_name);
+            panic!("not found such a file => {}", file_name);
         }
     }
 }
@@ -220,7 +195,6 @@ fn try_to_get_file_contents(source_name: &str) -> String {
 fn setup_startup_routine(target: option::Target) -> String {
     match target {
         opt::Target::X86_64 => format!("{}startup_x64.go", get_lib_path()),
-        opt::Target::AARCH64 => format!("{}startup_aarch64.go", get_lib_path()),
     }
 }
 
