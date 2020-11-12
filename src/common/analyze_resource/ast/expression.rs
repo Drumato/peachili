@@ -1,12 +1,16 @@
 /// 式ノード
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub struct Expr {
-    pub kind: ExprKind,
+pub struct ExprInfo<'a> {
+    pub kind: ExprKind<'a>,
     // pub position: position::Position,
 }
 
+pub type Expr<'a> = &'a ExprInfo<'a>;
+
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub enum ExprKind {
+pub enum ExprKind<'a> {
+    Negative{child: Expr<'a> },
+
     StringLiteral { contents: String },
     Integer { value: i128 },
     UnsignedInteger { value: u128 },

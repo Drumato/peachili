@@ -21,7 +21,6 @@ pub fn main<'a>(
                 String::new(),
             );
         }
-        _ => eprintln!("please specify a subcommand. see --help."),
     }
     Ok(())
 }

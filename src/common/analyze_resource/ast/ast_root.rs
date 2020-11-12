@@ -10,5 +10,5 @@ impl Default for ASTRoot {
 
 impl ASTRoot {
     /// 別モジュールのASTRootを吸収する
-    pub fn absorb(&mut self, mut target: Self) {}
+    pub fn absorb(&mut self, _target: Self) {}
 }
