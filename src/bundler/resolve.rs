@@ -1,12 +1,11 @@
-use crate::common::option;
-use crate::common::{file_util as fu, module as m, option as opt};
+use crate::{module as m, option as opt};
 use typed_arena::Arena;
 
 use std::path::PathBuf;
 use std::fs;
 
 pub fn resolve_main<'a>(
-    target: option::Target,
+    target: opt::Target,
     arena: &'a Arena<m::ModuleInfo<'a>>,
     source_name: String,
 ) -> m::Module<'a> {
@@ -184,15 +183,15 @@ fn parse_import(l: String) -> String {
 /// コマンドライン引数に渡されたファイルから内容を読み取ろうとする
 /// エラーを発行する可能性もある
 fn try_to_get_file_contents(file_name: &str) -> String {
-    match fu::read_program_from_file(file_name) {
-        Some(contents) => contents,
-        None => {
-            panic!("not found such a file => {}", file_name);
+    match std::fs::read_to_string(file_name) {
+        Ok(contents) => contents,
+        Err(e) => {
+            panic!("{}", e);
         }
     }
 }
 
-fn setup_startup_routine(target: option::Target) -> String {
+fn setup_startup_routine(target: opt::Target) -> String {
     match target {
         opt::Target::X86_64 => format!("{}startup_x64.go", get_lib_path()),
     }

@@ -1,54 +1,14 @@
-# Syntax Specification
+# The Peachili Syntax Specification
 
-## EBNF
+```go
 
-```
-Start Symbol: program
-Terminal Symbol: string_literal/integer_literal/identifier/uint-literal
+// expression
 
-program -> toplevel*
-
-toplevel -> func_def | struct_def | type_def
-
-func_def -> "func" identifier arg_list type block
-struct_def -> "struct" identifier member_block
-type_def -> "pubtype" identifier `=` type `;`
-member_block -> `{` (identifier type)* `}`
-
-// Statement Rewrite Rule
-statement -> return_st | ifret_st| declare_st | countup_st | asm_st | varinit_st| const_st
-return_st -> "return" expression `;`
-ifret_st -> "ifret" expression `;`
-declare -> "declare" identifier type `;`
-countup_st -> "countup" identifier "begin" expression "exclude" expression block `;`
-asm_st -> "asm" block `;`
-varinit_st -> "varinit" identifier type `=` expression `;`
-const_st -> "const" identifier type `=` expression `;`
-
-
-// Expression Rewrite Rule
-expr -> if_expr | addition
-if_expf -> "if" paren_expr block ("else" block)?
-addition -> multiplication (addition_op multiplication)*
-multiplication -> prefix (multiplication_op prefix)*
-prefix -> prefix_op* postfix
-postfix -> primary (postfix_op postfix)*
-primary -> "true" | "false" | integer_literal | string_literal | identifier-path | uint-literal | paren_expr
-paren_expr -> `(` expression `)`
-
-// Operators
-addition_op -> `+` | `-`
-multiplication_op -> `*` | `/`
-prefix_op -> `+` | `-` | `&` | `*`
-postfix_op -> `.`
-
-// etc
-type -> "Int64"
-        | "Uint64"
-        | "Boolean"
-        | "Noreturn"
-        | "ConstStr"
-        | identifier_path
-identifier_path -> identifier (`::` identifier)*
-block -> `{` statement* `}`
+primary = string_literal | integer_literal | unsigned_integer_literal | identifier_sequence | boolean_literal
+integer_literal = [0-9]+
+unsigned_integer_literal = 'u' [0-9]+
+identifier = [a-zA-Z] ([a-zA-Z0-9] | '_')*
+identifier_sequence = identifier ('::' identifier)* ('(' expression (',' expression)* ')')*
+boolean_literal = "true" | "false"
+string_literal = '"' any-char* '"'
 ```
