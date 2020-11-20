@@ -19,15 +19,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ******************
 
     match build_option.cmd {
-        option::Command::Build => {
-            unimplemented!()
-        }
-        option::Command::Compile{ref source_file} => {
-            let main_module = bundler::resolve_main(build_option.target, &module_arena, source_file.clone());
-            compiler::compile_main(
-                main_module,
-                build_option,
-            );
+        option::Command::Build => unimplemented!(),
+        option::Command::Compile { ref source_file } => {
+            let main_module =
+                bundler::resolve_main(build_option.target, &module_arena, source_file.clone());
+            compiler::compile_main(main_module, build_option);
         }
     }
 

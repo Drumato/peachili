@@ -1,8 +1,8 @@
 use crate::{module as m, option as opt};
 use typed_arena::Arena;
 
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 pub fn resolve_main<'a>(
     target: opt::Target,
@@ -10,7 +10,10 @@ pub fn resolve_main<'a>(
     source_name: String,
 ) -> m::Module<'a> {
     let file_contents = try_to_get_file_contents(&source_name);
-    let main_module = arena.alloc(m::ModuleInfo::new_primary(PathBuf::from(source_name), "main".to_string()));
+    let main_module = arena.alloc(m::ModuleInfo::new_primary(
+        PathBuf::from(source_name),
+        "main".to_string(),
+    ));
 
     // スタートアップ･ライブラリの追加
     let startup_module_path = setup_startup_routine(target);
@@ -54,7 +57,6 @@ fn analyze_external_module<'a>(
 
     parent_module
 }
-
 
 /// ディレクトリ内の各ファイルに対して，resolveを実行する
 fn analyze_children<'a>(arena: &'a Arena<m::ModuleInfo<'a>>, dir_module: m::Module<'a>) {

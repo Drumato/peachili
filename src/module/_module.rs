@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 /// 各ファイル(パッケージ)を表す構造体
 /// 依存グラフの各ノードとしても動作する

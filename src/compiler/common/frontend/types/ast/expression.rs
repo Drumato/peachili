@@ -11,7 +11,7 @@ pub type Expr<'a> = &'a ExprInfo<'a>;
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum ExprKind<'a> {
-    Negative{child: RefCell<Expr<'a>> },
+    Negative { child: RefCell<Expr<'a>> },
 
     StringLiteral { contents: String },
     Integer { value: i128 },

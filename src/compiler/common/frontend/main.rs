@@ -1,20 +1,23 @@
+use crate::compiler::common::frontend::{allocator, ast, pass};
 use crate::module;
-use crate::compiler::common::frontend::{pass, ast};
 /// フロントエンド資源をまとめる構造体
 struct FrontendManager {
     full_ast: ast::ASTRoot,
 }
 
 /// 字句解析，パース，意味解析等を行う．
-pub fn main<'a>(main_module: module::Module<'a>) -> Result<ast::ASTRoot, Box<dyn std::error::Error>> {
+pub fn main<'a>(
+    main_module: module::Module<'a>,
+) -> Result<ast::ASTRoot, Box<dyn std::error::Error>> {
     let mut manager = FrontendManager {
         full_ast: Default::default(),
     };
+    let alloc: allocator::Allocator = Default::default();
 
     let source = manager.read_module_contents(main_module)?;
 
     // 初期値として空のStringを渡しておく
-    manager.parse_file(source, String::new());
+    manager.parse_file(&alloc, source, String::new());
 
     // メインモジュールが参照する各モジュールも同様にパース
     // manager.parse_requires(main_module, String::new());
@@ -25,7 +28,6 @@ pub fn main<'a>(main_module: module::Module<'a>) -> Result<ast::ASTRoot, Box<dyn
 
     // 意味解析
     // 先に型環境を構築してから，型検査を行う
-
 
     // 型検査
 
@@ -38,16 +40,24 @@ pub fn main<'a>(main_module: module::Module<'a>) -> Result<ast::ASTRoot, Box<dyn
 
 impl FrontendManager {
     /// モジュールの内容(Peachiliコード)を読み出す
-    fn read_module_contents<'a>(&self, m: module::Module<'a>) -> Result<String, Box<dyn std::error::Error>> {
+    fn read_module_contents<'a>(
+        &self,
+        m: module::Module<'a>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let file_contents = std::fs::read_to_string(&m.file_path)?;
 
         Ok(file_contents)
     }
 
     /// 字句解析, 構文解析をして返す
-    fn parse_file(&mut self, file_contents: String, module_name: String) {
+    fn parse_file(
+        &mut self,
+        alloc: &allocator::Allocator,
+        file_contents: String,
+        module_name: String,
+    ) {
         self.full_ast
-            .absorb(pass::parser::main(file_contents, module_name));
+            .absorb(pass::parser::main(alloc, file_contents, module_name));
     }
 
     /// mod_idのモジュールが参照するすべてのモジュールをパースし，結合

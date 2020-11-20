@@ -1,6 +1,10 @@
-use crate::compiler::common::frontend::{ast, parse_context};
+use crate::compiler::common::frontend::{allocator, ast, parse_context};
 
-pub fn main(file_contents: String, module_name: String) -> ast::ASTRoot {
+pub fn main<'a>(
+    arena: &allocator::Allocator<'a>,
+    file_contents: String,
+    module_name: String,
+) -> ast::ASTRoot {
     let mut ast_root: ast::ASTRoot = Default::default();
     let mut ctxt: parse_context::Context = Default::default();
     ctxt.module_name = module_name;
