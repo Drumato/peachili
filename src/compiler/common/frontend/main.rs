@@ -1,27 +1,39 @@
-use crate::compiler::common::frontend::{allocator, ast, pass};
+use crate::compiler::common::frontend::{allocator, pass, types};
+use types::ast;
 use crate::module;
-/// フロントエンド資源をまとめる構造体
-struct FrontendManager {
-    full_ast: ast::ASTRoot,
-}
+use fxhash::FxHashMap;
+
+use std::collections::VecDeque;
 
 /// 字句解析，パース，意味解析等を行う．
-pub fn main<'a>(
-    main_module: module::Module<'a>,
-) -> Result<ast::ASTRoot, Box<dyn std::error::Error>> {
-    let mut manager = FrontendManager {
-        full_ast: Default::default(),
-    };
+pub fn main(main_module: module::Module) -> Result<(), Box<dyn std::error::Error>> {
+    let module_queue = pseudo_topological_sort_modules(main_module);
+
+    let mut raw_type_env : FxHashMap<String, ast::TopLevelDecl> = FxHashMap::default();
     let alloc: allocator::Allocator = Default::default();
+    let parser = pass::parser::Parser::new(&alloc);
 
-    let source = manager.read_module_contents(main_module)?;
+    for m in module_queue.iter() {
+        // キューにはPrimitiveモジュールしか存在しない
+        if let module::ModuleKind::Primitive{refs: _, contents} = &m.kind{
+            // 初期値として空のStringを渡しておく
+        let ast_root = pass::parser::main(&parser, &m.name, contents.as_str()).unwrap();
 
-    // 初期値として空のStringを渡しておく
-    manager.parse_file(&alloc, source, String::new());
+        for decl in ast_root.decls.iter() {
+            match &decl.kind{
+                ast::TopLevelDeclKind::Import{module_name: _} => {},
+                ast::TopLevelDeclKind::Function{
+                    func_name,
+                    return_type: _,
+                    stmts: _,
+                } => {
+                    raw_type_env.insert(func_name.clone(), decl.clone());
+                },
+            }
+        }
+        }
 
-    // メインモジュールが参照する各モジュールも同様にパース
-    // manager.parse_requires(main_module, String::new());
-
+    }
     // ASTレベルのconstant-folding
 
     // TLD解析
@@ -35,70 +47,41 @@ pub fn main<'a>(
     // 通常はローカル変数をすべてスタックに．
     // 最適化を有効化にしたらレジスタ割付したい
 
-    Ok(manager.full_ast)
+    Ok(())
 }
 
-impl FrontendManager {
-    /// モジュールの内容(Peachiliコード)を読み出す
-    fn read_module_contents<'a>(
-        &self,
-        m: module::Module<'a>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let file_contents = std::fs::read_to_string(&m.file_path)?;
-
-        Ok(file_contents)
-    }
-
-    /// 字句解析, 構文解析をして返す
-    fn parse_file(
-        &mut self,
-        alloc: &allocator::Allocator,
-        file_contents: String,
-        module_name: String,
-    ) {
-        self.full_ast
-            .absorb(pass::parser::main(alloc, file_contents, module_name));
-    }
-
-    /// mod_idのモジュールが参照するすべてのモジュールをパースし，結合
-    fn parse_requires<'a>(&mut self, _m: module::Module<'a>, _module_name: String) {
-        unimplemented!()
-    }
-
-    /// 再帰呼出しされる，外部モジュールの組み立て関数
-    /// 本体 -> 参照 -> 子の順にパースし，すべてを結合して返す
-    fn parse_ext_module<'a>(&mut self, _m: module::Module<'a>, _module_name: String) {
-        unimplemented!()
-    }
-
-    /// mのモジュール以下のすべてのモジュールをパースし，結合
-    fn parse_children<'a>(&mut self, _m: module::Module<'a>, _module_name: String) {
-        unimplemented!()
-    }
+/// モジュールの依存関係をソートしてキューを作成．
+/// 現在は特に考えず，シンプルな関数で実装
+fn pseudo_topological_sort_modules<'a>(
+    main_module: module::Module<'a>,
+) -> VecDeque<module::Module<'a>> {
+    collect_module_rec(main_module)
 }
 
-// トップのモジュールなら `std` のように
-// それ以降なら `std::os` のようにつなげる
-fn construct_full_path(full_path: &mut String, module_name: String) {
-    *full_path = if full_path.is_empty() {
-        module_name
-    } else {
-        format!("{}::{}", full_path, module_name)
-    };
+fn collect_module_rec<'a>(base_module: module::Module<'a>) -> VecDeque<module::Module<'a>> {
+    let mut queue = VecDeque::new();
+
+    match &base_module.kind {
+        module::ModuleKind::Primitive{contents: _, refs} => {
+            for ref_module in refs.lock().unwrap().iter() {
+                let mut ref_queue = collect_module_rec(ref_module);
+                queue.append(&mut ref_queue);
+            }
+
+            queue.push_back(base_module);
+        }
+
+        // Directory モジュールの場合自分自身はキューに追加しないので注意
+        module::ModuleKind::Directory { children } => {
+            for child in children.lock().unwrap().iter() {
+                let mut child_queue = collect_module_rec(child);
+                queue.append(&mut child_queue);
+            }
+        }
+    }
+
+    queue
 }
 
 #[cfg(test)]
-mod frontend_tests {
-    use super::*;
-
-    #[test]
-    fn construct_full_path_test() {
-        let mut s1 = String::new();
-        construct_full_path(&mut s1, "std".to_string());
-        assert_eq!("std", s1);
-
-        let mut s2 = String::from("std");
-        construct_full_path(&mut s2, "os".to_string());
-        assert_eq!("std::os", s2);
-    }
-}
+mod frontend_tests {}

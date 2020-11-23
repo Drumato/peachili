@@ -1,14 +1,13 @@
+use super::TopLevelDecl;
+
 /// Root
 #[derive(Debug, Clone)]
-pub struct ASTRoot {}
-
-impl Default for ASTRoot {
-    fn default() -> Self {
-        Self {}
-    }
+pub struct ASTRoot<'a> {
+    pub decls: Vec<TopLevelDecl<'a>>,
 }
 
-impl ASTRoot {
-    /// 別モジュールのASTRootを吸収する
-    pub fn absorb(&mut self, _target: Self) {}
+impl<'a> Default for ASTRoot<'a> {
+    fn default() -> Self {
+        Self { decls: Vec::new() }
+    }
 }

@@ -11,8 +11,6 @@ pub struct ModuleInfo<'a> {
     pub file_path: PathBuf,
     /// モジュール名
     pub name: String,
-    /// 参照するモジュール
-    pub refs: Arc<Mutex<Vec<Module<'a>>>>,
 }
 
 pub type Module<'a> = &'a ModuleInfo<'a>;
@@ -24,19 +22,17 @@ impl<'a> ModuleInfo<'a> {
             kind,
             file_path,
             name,
-            refs: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    /// mainパッケージを割り当てる
-    pub fn new_primary(file_path: PathBuf, name: String) -> Self {
-        Self::new(ModuleKind::Primary, file_path, name)
+    pub fn new_primitive(file_path: PathBuf, name: String, contents: String) -> Self {
+        Self::new(ModuleKind::Primitive{contents, refs: Arc::new(Mutex::new(Default::default()))}, file_path, name)
     }
 
     /// 外部パッケージを割り当てる
-    pub fn new_external(file_path: PathBuf, name: String) -> Self {
+    pub fn new_directory(file_path: PathBuf, name: String) -> Self {
         Self::new(
-            ModuleKind::External {
+            ModuleKind::Directory {
                 children: Arc::new(Mutex::new(Vec::new())),
             },
             file_path,
@@ -48,12 +44,16 @@ impl<'a> ModuleInfo<'a> {
 #[derive(Clone)]
 #[allow(dead_code)]
 pub enum ModuleKind<'a> {
-    /// func main() Noreturn を持つファイルのみが該当
-    /// このパッケージが他のパッケージから参照されることはない
-    Primary,
+    /// ソースコードが含まれるファイルを表す
+    Primitive{
+        /// 参照するモジュール
+        refs: Arc<Mutex<Vec<Module<'a>>>>,
+        /// ソースコードの内容
+        contents: String,
+    },
 
-    /// 何らかのパッケージから参照されているパッケージ
-    External {
+    /// 複数のサブパッケージを含むディレクトリを表す
+    Directory {
         /// ディレクトリにぶら下がっているモジュール
         children: Arc<Mutex<Vec<Module<'a>>>>,
     },

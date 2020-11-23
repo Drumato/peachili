@@ -1,18 +1,19 @@
 use std::cell::RefCell;
 
-use super::parser::Parser;
 use super::primitive;
-use crate::compiler::common::frontend::types::{allocator, ast};
+use super::Parser;
+use crate::compiler::common::frontend::types::ast;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while, take_while1},
-    character::complete::{char as parse_char, multispace0},
+    character::complete::char as parse_char,
     combinator::{map, value},
     multi::separated_list0,
-    sequence::{delimited, preceded, tuple},
+    sequence::{delimited, preceded},
+    IResult,
 };
 
-type IResultExpr<'a> = nom::IResult<&'a str, ast::ExprInfo<'a>>;
+type IResultExpr<'a> = IResult<&'a str, ast::ExprInfo<'a>>;
 
 impl<'a> Parser<'a> {
     pub fn expression(&'a self, i: &'a str) -> IResultExpr<'a> {
@@ -89,19 +90,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// [a-zA-Z] ('_' | [a-zA-Z0-9])*
-    fn identifier_string(&'a self) -> impl Fn(&'a str) -> nom::IResult<&'a str, String> {
-        move |i: &str| {
-            let (rest, (_, head, last, _)) = tuple((
-                multispace0,
-                take_while1(|b: char| b.is_alphabetic()),
-                take_while(|b: char| b.is_alphanumeric() || b == '_'),
-                multispace0,
-            ))(i)?;
-            Ok((rest, format!("{}{}", head, last)))
-        }
-    }
-
     /// "[0-9]+"
     fn integer_literal(&'a self) -> impl Fn(&'a str) -> IResultExpr<'a> {
         move |i: &str| {
@@ -130,7 +118,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn integer_literal_string(&'a self) -> impl Fn(&'a str) -> nom::IResult<&str, &str> {
+    fn integer_literal_string(&'a self) -> impl Fn(&'a str) -> IResult<&str, &str> {
         move |i: &str| take_while1(|b: char| b.is_ascii_digit())(i)
     }
 
@@ -148,193 +136,123 @@ mod expression_parser_test {
     use super::*;
 
     #[test]
-    fn minus_operation_test() {
+    fn expression_parser_test_main() {
         let arena = Default::default();
         let parser: Parser = Parser::new(&arena);
-        let result = parser.minus_operation("- 100;");
-        assert!(result.is_ok());
 
-        let (rest, n) = result.unwrap();
-        assert_eq!(
-            ast::ExprInfo {
-                kind: ast::ExprKind::Negative {
-                    child: RefCell::new(&ast::ExprInfo {
-                        kind: ast::ExprKind::Integer { value: 100 },
-                    }),
-                },
-            },
-            n,
-        );
-
-        assert_eq!(";", rest);
+        let _ = minus_operation_test(&parser, "- 100;", ";");
+        let _ = primary_test(&parser, "u100;", ";");
+        let _ = string_literal_test(&parser, "\"Hello, world!\";", ";");
+        let _ = boolean_literal_test(&parser, "true;", ";");
+        let _ = identifier_sequence_test(&parser, "    drumato;", ";");
+        let _ = identifier_sequence_test(&parser, "    x64::STDIN;", ";");
+        let _ = identifier_string_with_invalid_input(&parser, "100yen;");
+        let _ = identifier_string_with_invalid_input(&parser, "!foafekajl;");
+        let _ = unsigned_integer_literal_test(&parser, "    u300;", ";");
+        let _ = integer_literal_test(&parser, "100;", ";");
     }
 
-    #[test]
-    fn primary_test() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let result = parser.primary()(" u100 Drumato;");
+    fn minus_operation_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.minus_operation(input);
         assert!(result.is_ok());
 
-        let (rest, literal) = result.unwrap();
-        assert_eq!(
-            ast::ExprInfo {
-                kind: ast::ExprKind::UnsignedInteger { value: 100 },
-            },
-            literal
-        );
-        assert_eq!("Drumato;", rest);
-        let result = parser.primary()(rest);
-        assert!(result.is_ok());
+        let (r, n) = result.unwrap();
 
-        let (rest, literal) = result.unwrap();
-        assert_eq!(
-            ast::ExprInfo {
-                kind: ast::ExprKind::Identifier {
-                    list: vec!["Drumato".to_string()],
-                },
-            },
-            literal
-        );
+        assert_eq!(rest, r);
 
-        assert_eq!(";", rest);
+        n
     }
 
-    #[test]
-    fn string_literal_test() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let result = parser.string_literal()("\"Hello, world!\";");
+    fn primary_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.primary()(input);
         assert!(result.is_ok());
 
-        let (rest, literal) = result.unwrap();
-        assert_eq!(
-            ast::ExprInfo {
-                kind: ast::ExprKind::StringLiteral {
-                    contents: "Hello, world!".to_string()
-                },
-            },
-            literal
-        );
-        assert_eq!(";", rest);
-    }
+        let (r, n) = result.unwrap();
 
-    #[test]
-    fn boolean_literal_test() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let result = parser.boolean_literal()(" true false ;");
+        assert_eq!(rest, r);
+
+        n
+    }
+    fn string_literal_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.string_literal()(input);
         assert!(result.is_ok());
 
-        let (rest, literal) = result.unwrap();
-        assert_eq!(
-            ast::ExprInfo {
-                kind: ast::ExprKind::True
-            },
-            literal
-        );
-        assert_eq!("false ;", rest);
+        let (r, literal) = result.unwrap();
+        assert_eq!(rest, r);
 
-        let result = parser.boolean_literal()(rest);
+        literal
+    }
+
+    fn boolean_literal_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.boolean_literal()(input);
         assert!(result.is_ok());
 
-        let (rest, literal) = result.unwrap();
-        assert_eq!(
-            ast::ExprInfo {
-                kind: ast::ExprKind::False
-            },
-            literal
-        );
-        assert_eq!(";", rest);
+        let (r, literal) = result.unwrap();
+        assert_eq!(rest, r);
+
+        literal
     }
 
-    #[test]
-    fn identifier_sequence_test() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let result = parser.identifier_sequence()("    drumato;");
-        assert_eq!(
-            Ok((
-                ";",
-                ast::ExprInfo {
-                    kind: ast::ExprKind::Identifier {
-                        list: vec!["drumato".to_string()],
-                    }
-                },
-            )),
-            result
-        );
+    fn identifier_sequence_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.identifier_sequence()(input);
+        assert!(result.is_ok());
 
-        let result = parser.identifier_sequence()("   x64::STDIN;");
-        assert_eq!(
-            Ok((
-                ";",
-                ast::ExprInfo {
-                    kind: ast::ExprKind::Identifier {
-                        list: vec!["x64".to_string(), "STDIN".to_string()],
-                    }
-                },
-            )),
-            result
-        );
+        let (r, literal) = result.unwrap();
+        assert_eq!(rest, r);
+
+        literal
     }
 
-    #[test]
-    fn identifier_string_with_invalid_input() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let result = parser.identifier_string()("100drumato;");
+    fn identifier_string_with_invalid_input<'a>(parser: &'a Parser<'a>, input: &'a str) {
+        let result = parser.identifier_string()(input);
         assert!(result.is_err());
-        let result = parser.identifier_string()("drumato;");
-        assert_eq!(Ok((";", "drumato".to_string())), result);
-        let result = parser.identifier_string()("100yen;");
-        assert!(result.is_err());
-        let result = parser.identifier_string()("foo1;");
-        assert_eq!(Ok((";", "foo1".to_string())), result);
-        let result = parser.identifier_string()("foo_1;");
-        assert_eq!(Ok((";", "foo_1".to_string())), result);
     }
 
-    #[test]
-    fn unsigned_integer_literal_test() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let result = parser.unsigned_integer_literal()("   u300;");
-        assert_eq!(
-            Ok((
-                ";",
-                ast::ExprInfo {
-                    kind: ast::ExprKind::UnsignedInteger { value: 300 }
-                }
-            )),
-            result
-        );
+    fn unsigned_integer_literal_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.unsigned_integer_literal()(input);
+        assert!(result.is_ok());
+
+        let (r, n) = result.unwrap();
+        assert_eq!(rest, r);
+
+        n
     }
 
-    #[test]
-    fn integer_literal_test() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let result = parser.integer_literal()("   300;");
-        assert_eq!(
-            Ok((
-                ";",
-                ast::ExprInfo {
-                    kind: ast::ExprKind::Integer { value: 300 }
-                }
-            )),
-            result
-        );
-    }
+    fn integer_literal_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.integer_literal()(input);
+        assert!(result.is_ok());
 
-    #[test]
-    fn integer_literal_string_with_invalid_input() {
-        let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
-        let f = parser.integer_literal_string();
-        let result = f("   abc;");
-        assert!(result.is_err());
-        let result = f("   u100;");
-        assert!(result.is_err());
+        let (r, n) = result.unwrap();
+        assert_eq!(rest, r);
+
+        n
     }
 }

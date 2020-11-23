@@ -10,18 +10,21 @@ pub fn resolve_main<'a>(
     source_name: String,
 ) -> m::Module<'a> {
     let file_contents = try_to_get_file_contents(&source_name);
-    let main_module = arena.alloc(m::ModuleInfo::new_primary(
+        // mainが参照するモジュールに対しそれぞれprocess_ext_moduleする
+        let main_requires = collect_import_modules_from_program(&file_contents);
+
+    let main_module = arena.alloc(m::ModuleInfo::new_primitive(
         PathBuf::from(source_name),
         "main".to_string(),
+        file_contents.clone(),
     ));
 
     // スタートアップ･ライブラリの追加
     let startup_module_path = setup_startup_routine(target);
     let startup_module = analyze_external_module(arena, startup_module_path, "startup".to_string());
-    main_module.refs.lock().unwrap().push(startup_module);
-
-    // mainが参照するモジュールに対しそれぞれprocess_ext_moduleする
-    let main_requires = collect_import_modules_from_program(file_contents);
+    if let m::ModuleKind::Primitive{refs, contents: _} = &main_module.kind{
+        refs.lock().unwrap().push(startup_module);
+    }
 
     add_dependencies_to(arena, main_module, main_requires);
 
@@ -34,12 +37,12 @@ fn analyze_external_module<'a>(
     external_file_path: String,
     external_module_name: String,
 ) -> m::Module<'a> {
-    let external_file_path = PathBuf::from(external_file_path.to_string());
+    let external_file_path = PathBuf::from(external_file_path);
 
     // TODO: エラー出したほうがいいかも
     let parent_module_is_dir = external_file_path.is_dir();
 
-    let parent_module = arena.alloc(m::ModuleInfo::new_external(
+    let parent_module = arena.alloc(m::ModuleInfo::new_directory(
         external_file_path.clone(),
         external_module_name,
     ));
@@ -50,7 +53,7 @@ fn analyze_external_module<'a>(
     } else {
         // 普通のファイルと同じように処理する
         let file_contents = try_to_get_file_contents(external_file_path.to_str().unwrap());
-        let requires = collect_import_modules_from_program(file_contents);
+        let requires = collect_import_modules_from_program(&file_contents);
 
         add_dependencies_to(arena, parent_module, requires);
     }
@@ -68,7 +71,7 @@ fn analyze_children<'a>(arena: &'a Arena<m::ModuleInfo<'a>>, dir_module: m::Modu
         let resolved_path = resolve_path_from_name(child_module_name.to_string());
 
         let child_module = analyze_external_module(arena, resolved_path, child_module_name);
-        if let m::ModuleKind::External { children } = &dir_module.kind {
+        if let m::ModuleKind::Directory { children } = &dir_module.kind {
             children.lock().unwrap().push(child_module);
         }
     }
@@ -84,7 +87,9 @@ fn add_dependencies_to<'a>(
         let req_path = resolve_path_from_name(req.to_string());
         let referenced_module = analyze_external_module(arena, req_path, req);
 
-        src_module.refs.lock().unwrap().push(referenced_module);
+        if let m::ModuleKind::Primitive{refs, contents: _} = &src_module.kind{
+            refs.lock().unwrap().push(referenced_module);
+        }
     }
 }
 
@@ -151,7 +156,7 @@ fn search_directory(dir_name: String) -> Option<String> {
 }
 
 /// ファイル先頭にある任意数の `import <module-name>;` を解読して返す
-fn collect_import_modules_from_program(file_contents: String) -> Vec<String> {
+fn collect_import_modules_from_program(file_contents: &str) -> Vec<String> {
     let mut requires = Vec::new();
     let lines_iter = file_contents.lines();
 
@@ -230,14 +235,14 @@ mod resolve_tests {
     #[test]
     fn collect_import_modules_from_program_test() {
         // 空行あり
-        let s1 = "import A;\nimport B;\nimport C;\n\nstruct A{}\n".to_string();
+        let s1 = "import A;\nimport B;\nimport C;\n\nstruct A{}\n";
 
         let actual = collect_import_modules_from_program(s1);
 
         assert_eq!(3, actual.len());
 
         // importなし
-        let s2 = "\n\n\n\nstruct A{}\n".to_string();
+        let s2 = "\n\n\n\nstruct A{}\n";
 
         let actual = collect_import_modules_from_program(s2);
 

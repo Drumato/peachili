@@ -1,15 +1,15 @@
 use crate::compiler::common::frontend::{
-    pass::parser::{expression, parser::Parser, primitive},
-    types::{allocator, ast},
+    pass::parser::{primitive, Parser},
+    types::ast,
 };
 
-use nom::character::complete::char as parse_char;
+use nom::IResult;
 
-type IResultStmt<'a> = nom::IResult<&'a str, ast::StmtInfo<'a>>;
+type IResultStmt<'a> = IResult<&'a str, ast::StmtInfo<'a>>;
 
 impl<'a> Parser<'a> {
-    pub fn statement(&'a self, i: &'a str) -> IResultStmt<'a> {
-        self.expression_statement()(i)
+    pub fn statement(&'a self) -> impl Fn(&'a str) -> IResultStmt<'a> {
+        move |i: &str| self.expression_statement()(i)
     }
 
     fn expression_statement(&'a self) -> impl Fn(&'a str) -> IResultStmt<'a> {
@@ -28,30 +28,44 @@ impl<'a> Parser<'a> {
 }
 
 #[cfg(test)]
-mod expression_parser_test {
+mod statement_parser_test {
     use super::*;
 
     #[test]
-    fn expression_statement_test() {
+    fn statement_parser_test_main() {
         let arena = Default::default();
         let parser: Parser = Parser::new(&arena);
-        let result = parser.expression_statement()("\"String\";");
+
+        let _ = expression_statement_test(&parser, "u100;", "");
+        let _ = statement_test(&parser, "u100;", "");
+    }
+
+    fn statement_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::StmtInfo<'a> {
+        let result = parser.statement()(input);
         assert!(result.is_ok());
 
-        let (rest, n) = result.unwrap();
-        assert_eq!(
-            ast::StmtInfo {
-                kind: ast::StmtKind::Expr {
-                    expr: ast::ExprInfo {
-                        kind: ast::ExprKind::StringLiteral {
-                            contents: "String".to_string(),
-                        }
-                    },
-                },
-            },
-            n,
-        );
+        let (r, n) = result.unwrap();
 
-        assert_eq!("", rest);
+        assert_eq!(rest, r);
+
+        n
+    }
+    fn expression_statement_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::StmtInfo<'a> {
+        let result = parser.expression_statement()(input);
+        assert!(result.is_ok());
+
+        let (r, n) = result.unwrap();
+
+        assert_eq!(rest, r);
+
+        n
     }
 }
