@@ -16,8 +16,8 @@ use nom::{
 type IResultExpr<'a> = IResult<&'a str, ast::ExprInfo<'a>>;
 
 impl<'a> Parser<'a> {
-    pub fn expression(&'a self, i: &'a str) -> IResultExpr<'a> {
-        self.postfix(i)
+    pub fn expression(&'a self) -> impl Fn(&'a str) -> IResultExpr<'a> {
+        move |i: &str| self.postfix(i)
     }
 
     /// minus_operation | primary
@@ -49,7 +49,7 @@ impl<'a> Parser<'a> {
                 self.unsigned_integer_literal(),
                 self.integer_literal(),
                 self.boolean_literal(),
-                self.identifier_sequence(),
+                self.identifier_expr(),
             ))(i)
         }
     }
@@ -79,6 +79,37 @@ impl<'a> Parser<'a> {
                 value(ast::ExprKind::False, primitive::keyword("false")),
             ))(i)?;
             self.gen_result_primary(rest, literal_kind)
+        }
+    }
+
+    /// identifier_sequence args_list?
+    fn identifier_expr(&'a self) -> impl Fn(&'a str) -> IResultExpr<'a> {
+        move |i: &str| {
+            let (rest, ident) = self.identifier_sequence()(i)?;
+
+            if rest.as_bytes()[0] != '(' as u8 {
+                return Ok((rest, ident));
+            }
+
+            let (rest, args) = self.argument_list()(rest)?;
+
+            self.gen_result_primary(
+                rest,
+                ast::ExprKind::Call {
+                    ident: self.gen_child_node(ident),
+                    args,
+                },
+            )
+        }
+    }
+
+    /// '(' expression? ( ',' expression )* ')'
+    fn argument_list(&'a self) -> impl Fn(&'a str) -> IResult<&str, Vec<RefCell<ast::Expr<'a>>>> {
+        move |i: &str| {
+            self.list_structure(primitive::Delimiter::Paren, ",", |i2: &str| {
+                let (rest, n) = self.expression()(i2)?;
+                Ok((rest, self.gen_child_node(n)))
+            })(i)
         }
     }
 
@@ -150,6 +181,33 @@ mod expression_parser_test {
         let _ = identifier_string_with_invalid_input(&parser, "!foafekajl;");
         let _ = unsigned_integer_literal_test(&parser, "    u300;", ";");
         let _ = integer_literal_test(&parser, "100;", ";");
+        let call_expr = identifier_expr_test(&parser, "x64::exit_with(0, 1, 2, 3);", ";");
+        assert_eq!(
+            ast::ExprInfo {
+                kind: ast::ExprKind::Call {
+                    ident: RefCell::new(&ast::ExprInfo {
+                        kind: ast::ExprKind::Identifier {
+                            list: vec!["x64".to_string(), "exit_with".to_string()]
+                        }
+                    }),
+                    args: vec![
+                        RefCell::new(&ast::ExprInfo {
+                            kind: ast::ExprKind::Integer { value: 0 }
+                        }),
+                        RefCell::new(&ast::ExprInfo {
+                            kind: ast::ExprKind::Integer { value: 1 }
+                        }),
+                        RefCell::new(&ast::ExprInfo {
+                            kind: ast::ExprKind::Integer { value: 2 }
+                        }),
+                        RefCell::new(&ast::ExprInfo {
+                            kind: ast::ExprKind::Integer { value: 3 }
+                        }),
+                    ],
+                }
+            },
+            call_expr
+        );
     }
 
     fn minus_operation_test<'a>(
@@ -201,6 +259,20 @@ mod expression_parser_test {
         rest: &'a str,
     ) -> ast::ExprInfo<'a> {
         let result = parser.boolean_literal()(input);
+        assert!(result.is_ok());
+
+        let (r, literal) = result.unwrap();
+        assert_eq!(rest, r);
+
+        literal
+    }
+
+    fn identifier_expr_test<'a>(
+        parser: &'a Parser<'a>,
+        input: &'a str,
+        rest: &'a str,
+    ) -> ast::ExprInfo<'a> {
+        let result = parser.identifier_expr()(input);
         assert!(result.is_ok());
 
         let (r, literal) = result.unwrap();

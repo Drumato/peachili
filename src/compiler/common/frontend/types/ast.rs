@@ -9,3 +9,6 @@ pub use statement::*;
 
 mod top_level_decl;
 pub use top_level_decl::*;
+
+mod debug;
+pub use debug::*;

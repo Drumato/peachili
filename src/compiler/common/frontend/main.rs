@@ -1,38 +1,38 @@
 use crate::compiler::common::frontend::{allocator, pass, types};
-use types::ast;
-use crate::module;
+use crate::compiler::common::hir;
+use crate::{module, option};
 use fxhash::FxHashMap;
+use types::ast;
 
 use std::collections::VecDeque;
 
 /// 字句解析，パース，意味解析等を行う．
-pub fn main(main_module: module::Module) -> Result<(), Box<dyn std::error::Error>> {
+pub fn main(
+    main_module: module::Module,
+    build_option: option::BuildOption,
+) -> Result<(), Box<dyn std::error::Error>> {
     let module_queue = pseudo_topological_sort_modules(main_module);
+    let mut hir_program_queue: VecDeque<hir::Program> = VecDeque::new();
 
-    let mut raw_type_env : FxHashMap<String, ast::TopLevelDecl> = FxHashMap::default();
+    let mut raw_type_env: FxHashMap<String, ast::TopLevelDecl> = FxHashMap::default();
     let alloc: allocator::Allocator = Default::default();
     let parser = pass::parser::Parser::new(&alloc);
 
     for m in module_queue.iter() {
         // キューにはPrimitiveモジュールしか存在しない
-        if let module::ModuleKind::Primitive{refs: _, contents} = &m.kind{
+        if let module::ModuleKind::Primitive { refs: _, contents } = &m.kind {
             // 初期値として空のStringを渡しておく
-        let ast_root = pass::parser::main(&parser, &m.name, contents.as_str()).unwrap();
+            let ast_root = pass::parser::main(&parser, &m.name, contents.as_str()).unwrap();
+            if build_option.dump_ir {
+                ast::dump_ast_root(&ast_root);
+            }
 
-        for decl in ast_root.decls.iter() {
-            match &decl.kind{
-                ast::TopLevelDeclKind::Import{module_name: _} => {},
-                ast::TopLevelDeclKind::Function{
-                    func_name,
-                    return_type: _,
-                    stmts: _,
-                } => {
-                    raw_type_env.insert(func_name.clone(), decl.clone());
-                },
+            for decl in ast_root.decls.iter() {
+                if let Some((decl_name, copied_decl)) = copy_tld_by(decl.clone()) {
+                    raw_type_env.insert(decl_name, copied_decl);
+                }
             }
         }
-        }
-
     }
     // ASTレベルのconstant-folding
 
@@ -62,7 +62,7 @@ fn collect_module_rec<'a>(base_module: module::Module<'a>) -> VecDeque<module::M
     let mut queue = VecDeque::new();
 
     match &base_module.kind {
-        module::ModuleKind::Primitive{contents: _, refs} => {
+        module::ModuleKind::Primitive { contents: _, refs } => {
             for ref_module in refs.lock().unwrap().iter() {
                 let mut ref_queue = collect_module_rec(ref_module);
                 queue.append(&mut ref_queue);
@@ -81,6 +81,17 @@ fn collect_module_rec<'a>(base_module: module::Module<'a>) -> VecDeque<module::M
     }
 
     queue
+}
+
+fn copy_tld_by<'a>(decl: ast::TopLevelDecl<'a>) -> Option<(String, ast::TopLevelDecl<'a>)> {
+    match &decl.kind {
+        ast::TopLevelDeclKind::Import { module_name: _ } => None,
+        ast::TopLevelDeclKind::Function {
+            func_name,
+            return_type: _,
+            stmts: _,
+        } => Some((func_name.to_string(), decl.clone())),
+    }
 }
 
 #[cfg(test)]

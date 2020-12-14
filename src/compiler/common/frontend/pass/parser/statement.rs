@@ -14,7 +14,7 @@ impl<'a> Parser<'a> {
 
     fn expression_statement(&'a self) -> impl Fn(&'a str) -> IResultStmt<'a> {
         move |i: &str| {
-            let (rest, expr) = self.expression(i)?;
+            let (rest, expr) = self.expression()(i)?;
             let (rest, _) = primitive::symbol(";")(rest)?;
 
             Ok((

@@ -6,8 +6,10 @@ pub struct BuildOption {
 
     #[structopt(subcommand)]
     pub cmd: Command,
-}
 
+    #[structopt(short, long)]
+    pub dump_ir: bool,
+}
 #[derive(StructOpt, Clone)]
 pub enum Command {
     Build,
