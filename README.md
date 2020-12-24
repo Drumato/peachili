@@ -1,6 +1,10 @@
 # Peachili
 
-This programming language is inspired Golang strongly.
+## Architecture
+
+```
+String ==(Parser)==> Higher AST ==(Translator)==> Typed AST(Architecture-dependent) ==(Generator)==> assembly
+```
 
 ## usage
 
@@ -36,8 +40,6 @@ cargo build
 ## Debug
 
 ```
-# x64
-
 # aarch64
 qemu-aarch64-static -g <port> a.out
 gdb-multiarch a.out

@@ -3,6 +3,7 @@ use typed_arena::Arena;
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 pub fn resolve_main<'a>(
     target: opt::Target,
@@ -10,8 +11,8 @@ pub fn resolve_main<'a>(
     source_name: String,
 ) -> m::Module<'a> {
     let file_contents = try_to_get_file_contents(&source_name);
-        // mainが参照するモジュールに対しそれぞれprocess_ext_moduleする
-        let main_requires = collect_import_modules_from_program(&file_contents);
+    // mainが参照するモジュールに対しそれぞれprocess_ext_moduleする
+    let main_requires = collect_import_modules_from_program(&file_contents);
 
     let main_module = arena.alloc(m::ModuleInfo::new_primitive(
         PathBuf::from(source_name),
@@ -22,7 +23,7 @@ pub fn resolve_main<'a>(
     // スタートアップ･ライブラリの追加
     let startup_module_path = setup_startup_routine(target);
     let startup_module = analyze_external_module(arena, startup_module_path, "startup".to_string());
-    if let m::ModuleKind::Primitive{refs, contents: _} = &main_module.kind{
+    if let m::ModuleKind::Primitive { refs, contents: _ } = &main_module.kind {
         refs.lock().unwrap().push(startup_module);
     }
 
@@ -42,39 +43,60 @@ fn analyze_external_module<'a>(
     // TODO: エラー出したほうがいいかも
     let parent_module_is_dir = external_file_path.is_dir();
 
-    let parent_module = arena.alloc(m::ModuleInfo::new_directory(
-        external_file_path.clone(),
-        external_module_name,
-    ));
-
-    if parent_module_is_dir {
+    let parent_module = if parent_module_is_dir {
         // parent_modのsubsにモジュールをぶら下げる
-        analyze_children(arena, parent_module);
+        create_directory_module(arena, external_file_path, external_module_name)
     } else {
         // 普通のファイルと同じように処理する
-        let file_contents = try_to_get_file_contents(external_file_path.to_str().unwrap());
-        let requires = collect_import_modules_from_program(&file_contents);
-
-        add_dependencies_to(arena, parent_module, requires);
-    }
+        create_primitive_module(arena, external_file_path, external_module_name)
+    };
 
     parent_module
 }
 
 /// ディレクトリ内の各ファイルに対して，resolveを実行する
-fn analyze_children<'a>(arena: &'a Arena<m::ModuleInfo<'a>>, dir_module: m::Module<'a>) {
-    let parent_module_path = dir_module.file_path.clone();
-
-    for entry in fs::read_dir(&parent_module_path).unwrap() {
+fn create_directory_module<'a>(
+    arena: &'a Arena<m::ModuleInfo<'a>>,
+    file_path: PathBuf,
+    module_name: String,
+) -> m::Module<'a> {
+    let mut children = Vec::new();
+    for entry in fs::read_dir(&file_path).unwrap() {
         let file_in_dir = entry.unwrap();
         let child_module_name = file_in_dir.path().to_str().unwrap().to_string();
         let resolved_path = resolve_path_from_name(child_module_name.to_string());
 
         let child_module = analyze_external_module(arena, resolved_path, child_module_name);
-        if let m::ModuleKind::Directory { children } = &dir_module.kind {
-            children.lock().unwrap().push(child_module);
-        }
+        children.push(child_module);
     }
+
+    let mut parent_module = m::ModuleInfo::new_directory(file_path, module_name);
+    if let m::ModuleKind::Directory {
+        children: ref mut c,
+    } = parent_module.kind
+    {
+        *c = Arc::new(Mutex::new(children));
+    }
+
+    arena.alloc(parent_module)
+}
+
+fn create_primitive_module<'a>(
+    arena: &'a Arena<m::ModuleInfo<'a>>,
+    external_file_path: PathBuf,
+    external_module_name: String,
+) -> m::Module<'a> {
+    let file_contents = try_to_get_file_contents(external_file_path.to_str().unwrap());
+    let requires = collect_import_modules_from_program(&file_contents);
+    let m = arena.alloc(m::ModuleInfo::new_primitive(
+        external_file_path.clone(),
+        external_module_name,
+        file_contents,
+    ));
+
+    add_dependencies_to(arena, m, requires);
+
+    m
 }
 
 /// 依存ノードを追加する
@@ -87,7 +109,7 @@ fn add_dependencies_to<'a>(
         let req_path = resolve_path_from_name(req.to_string());
         let referenced_module = analyze_external_module(arena, req_path, req);
 
-        if let m::ModuleKind::Primitive{refs, contents: _} = &src_module.kind{
+        if let m::ModuleKind::Primitive { refs, contents: _ } = &src_module.kind {
             refs.lock().unwrap().push(referenced_module);
         }
     }

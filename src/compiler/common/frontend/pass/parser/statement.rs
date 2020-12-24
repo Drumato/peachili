@@ -1,29 +1,45 @@
-use crate::compiler::common::frontend::{
-    pass::parser::{primitive, Parser},
-    types::ast,
-};
+use crate::compiler::common::frontend::{allocator::Allocator, pass::parser::*, types::ast};
 
-use nom::IResult;
+use nom::{branch::alt, IResult};
+use primitive::{keyword, list_structure, string_literal_str, symbol, Delimiter};
 
 type IResultStmt<'a> = IResult<&'a str, ast::StmtInfo<'a>>;
 
-impl<'a> Parser<'a> {
-    pub fn statement(&'a self) -> impl Fn(&'a str) -> IResultStmt<'a> {
-        move |i: &str| self.expression_statement()(i)
+pub fn statement<'a>(alloc: &'a Allocator<'a>) -> impl Fn(&'a str) -> IResultStmt<'a> {
+    move |i: &str| alt((expression_statement(alloc), asm_statement()))(i)
+}
+
+/// expression ';'
+fn expression_statement<'a>(alloc: &'a Allocator<'a>) -> impl Fn(&'a str) -> IResultStmt<'a> {
+    move |i: &str| {
+        let (rest, expr) = expression(alloc)(i)?;
+        let (rest, _) = primitive::symbol(";")(rest)?;
+
+        Ok((
+            rest,
+            ast::StmtInfo {
+                kind: ast::StmtKind::Expr { expr },
+            },
+        ))
     }
+}
 
-    fn expression_statement(&'a self) -> impl Fn(&'a str) -> IResultStmt<'a> {
-        move |i: &str| {
-            let (rest, expr) = self.expression()(i)?;
-            let (rest, _) = primitive::symbol(";")(rest)?;
+/// "asm" '{' list[string_literal, ';'] '}' ';'
+fn asm_statement<'a>() -> impl Fn(&'a str) -> IResultStmt<'a> {
+    move |i: &str| {
+        let (rest, _) = keyword("asm")(i)?;
+        let (rest, asm_insts) =
+            list_structure(Delimiter::Bracket, ";", string_literal_str())(rest)?;
+        let (rest, _) = symbol(";")(rest)?;
 
-            Ok((
-                rest,
-                ast::StmtInfo {
-                    kind: ast::StmtKind::Expr { expr },
+        Ok((
+            rest,
+            ast::StmtInfo {
+                kind: ast::StmtKind::Asm {
+                    insts: asm_insts.iter().map(|s| s.to_string()).collect(),
                 },
-            ))
-        }
+            },
+        ))
     }
 }
 
@@ -34,18 +50,18 @@ mod statement_parser_test {
     #[test]
     fn statement_parser_test_main() {
         let arena = Default::default();
-        let parser: Parser = Parser::new(&arena);
 
-        let _ = expression_statement_test(&parser, "u100;", "");
-        let _ = statement_test(&parser, "u100;", "");
+        let _ = expression_statement_test(&arena, "u100;", "");
+        let _ = asm_statement_test("asm { \"movq $60, %rax\"; \"syscall\" };", "");
+        let _ = statement_test(&arena, "u100;", "");
     }
 
     fn statement_test<'a>(
-        parser: &'a Parser<'a>,
+        alloc: &'a Allocator<'a>,
         input: &'a str,
         rest: &'a str,
     ) -> ast::StmtInfo<'a> {
-        let result = parser.statement()(input);
+        let result = statement(alloc)(input);
         assert!(result.is_ok());
 
         let (r, n) = result.unwrap();
@@ -54,12 +70,22 @@ mod statement_parser_test {
 
         n
     }
+    fn asm_statement_test<'a>(input: &'a str, rest: &'a str) -> ast::StmtInfo<'a> {
+        let result = asm_statement()(input);
+        eprintln!("{:?}", result);
+        assert!(result.is_ok());
+
+        let (r, n) = result.unwrap();
+        assert_eq!(rest, r);
+
+        n
+    }
     fn expression_statement_test<'a>(
-        parser: &'a Parser<'a>,
+        alloc: &'a Allocator<'a>,
         input: &'a str,
         rest: &'a str,
     ) -> ast::StmtInfo<'a> {
-        let result = parser.expression_statement()(input);
+        let result = expression_statement(alloc)(input);
         assert!(result.is_ok());
 
         let (r, n) = result.unwrap();

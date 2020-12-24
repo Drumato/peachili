@@ -1,5 +1,4 @@
 use crate::compiler::common::frontend::{allocator, pass, types};
-use crate::compiler::common::hir;
 use crate::{module, option};
 use fxhash::FxHashMap;
 use types::ast;
@@ -7,22 +6,27 @@ use types::ast;
 use std::collections::VecDeque;
 
 /// 字句解析，パース，意味解析等を行う．
-pub fn main(
-    main_module: module::Module,
+pub fn main<'a>(
+    alloc: &'a allocator::Allocator<'a>,
+    main_module: module::Module<'a>,
     build_option: option::BuildOption,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<
+    (
+        VecDeque<ast::ASTRoot<'a>>,
+        FxHashMap<String, ast::TopLevelDecl<'a>>,
+    ),
+    Box<dyn std::error::Error + 'a>,
+> {
     let module_queue = pseudo_topological_sort_modules(main_module);
-    let mut hir_program_queue: VecDeque<hir::Program> = VecDeque::new();
+    let mut ast_root_deque: VecDeque<ast::ASTRoot<'a>> = VecDeque::new();
 
     let mut raw_type_env: FxHashMap<String, ast::TopLevelDecl> = FxHashMap::default();
-    let alloc: allocator::Allocator = Default::default();
-    let parser = pass::parser::Parser::new(&alloc);
 
     for m in module_queue.iter() {
         // キューにはPrimitiveモジュールしか存在しない
         if let module::ModuleKind::Primitive { refs: _, contents } = &m.kind {
             // 初期値として空のStringを渡しておく
-            let ast_root = pass::parser::main(&parser, &m.name, contents.as_str()).unwrap();
+            let ast_root = pass::parser::main(alloc, &m.name, contents.as_str())?;
             if build_option.dump_ir {
                 ast::dump_ast_root(&ast_root);
             }
@@ -32,22 +36,10 @@ pub fn main(
                     raw_type_env.insert(decl_name, copied_decl);
                 }
             }
+            ast_root_deque.push_back(ast_root);
         }
     }
-    // ASTレベルのconstant-folding
-
-    // TLD解析
-
-    // 意味解析
-    // 先に型環境を構築してから，型検査を行う
-
-    // 型検査
-
-    // スタック割付
-    // 通常はローカル変数をすべてスタックに．
-    // 最適化を有効化にしたらレジスタ割付したい
-
-    Ok(())
+    Ok((ast_root_deque, raw_type_env))
 }
 
 /// モジュールの依存関係をソートしてキューを作成．
@@ -79,7 +71,6 @@ fn collect_module_rec<'a>(base_module: module::Module<'a>) -> VecDeque<module::M
             }
         }
     }
-
     queue
 }
 
@@ -89,8 +80,17 @@ fn copy_tld_by<'a>(decl: ast::TopLevelDecl<'a>) -> Option<(String, ast::TopLevel
         ast::TopLevelDeclKind::Function {
             func_name,
             return_type: _,
+            parameters: _,
             stmts: _,
         } => Some((func_name.to_string(), decl.clone())),
+        ast::TopLevelDeclKind::PubType { type_name, to: _ } => {
+            Some((type_name.to_string(), decl.clone()))
+        }
+        ast::TopLevelDeclKind::PubConst {
+            const_name,
+            const_type: _,
+            expr: _,
+        } => Some((const_name.to_string(), decl.clone())),
     }
 }
 

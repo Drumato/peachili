@@ -10,6 +10,7 @@ fn dump_decl(decl: &TopLevelDecl) {
         TopLevelDeclKind::Function {
             func_name,
             return_type,
+            parameters: _,
             stmts,
         } => {
             eprintln!("Function {}() {} {{", func_name, return_type);
@@ -17,6 +18,16 @@ fn dump_decl(decl: &TopLevelDecl) {
                 dump_stmt(stmt);
             }
             eprintln!("}}");
+        }
+        TopLevelDeclKind::PubType { type_name, to } => {
+            eprintln!("PubType {} = {};", type_name, to);
+        }
+        TopLevelDeclKind::PubConst {
+            const_name,
+            const_type,
+            expr: _,
+        } => {
+            eprintln!("PubConst {}: {};", const_name, const_type);
         }
         TopLevelDeclKind::Import { module_name } => {
             eprintln!("Import {};", module_name);
@@ -28,6 +39,9 @@ fn dump_stmt(stmt: &StmtInfo) {
     match &stmt.kind {
         StmtKind::Expr { expr: _ } => {
             eprintln!("    ExpressionStatement");
+        }
+        StmtKind::Asm { insts: _ } => {
+            eprintln!("    AsmStatement");
         }
     }
 }

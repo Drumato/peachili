@@ -11,4 +11,5 @@ pub type Stmt<'a> = &'a StmtInfo<'a>;
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum StmtKind<'a> {
     Expr { expr: expression::ExprInfo<'a> },
+    Asm { insts: Vec<String> },
 }
