@@ -1,18 +1,17 @@
 use std::cell::RefCell;
+use std::rc::Rc;
 
 /// 式ノード
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub struct ExprInfo<'a> {
-    pub kind: ExprKind<'a>,
+pub struct Expr {
+    pub kind: ExprKind,
     // pub position: position::Position,
 }
 
-pub type Expr<'a> = &'a ExprInfo<'a>;
-
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub enum ExprKind<'a> {
+pub enum ExprKind {
     Negative {
-        child: RefCell<Expr<'a>>,
+        child: Rc<RefCell<Expr>>,
     },
 
     StringLiteral {
@@ -28,8 +27,8 @@ pub enum ExprKind<'a> {
         list: Vec<String>,
     },
     Call {
-        ident: RefCell<Expr<'a>>,
-        args: Vec<RefCell<Expr<'a>>>,
+        ident: Rc<RefCell<Expr>>,
+        params: Vec<Expr>,
     },
     True,
     False,

@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use super::{ExprInfo, StmtInfo};
+use super::{Expr, Stmt};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TopLevelDecl<'a> {
-    pub kind: TopLevelDeclKind<'a>,
+pub struct TopLevelDecl {
+    pub kind: TopLevelDeclKind,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum TopLevelDeclKind<'a> {
+pub enum TopLevelDeclKind {
     PubType {
         type_name: String,
         to: String,
@@ -16,13 +16,13 @@ pub enum TopLevelDeclKind<'a> {
     PubConst {
         const_name: String,
         const_type: String,
-        expr: ExprInfo<'a>,
+        expr: Expr,
     },
     Function {
         func_name: String,
         return_type: String,
         parameters: HashMap<String, String>,
-        stmts: Vec<StmtInfo<'a>>,
+        stmts: Vec<Stmt>,
     },
     Import {
         module_name: String,

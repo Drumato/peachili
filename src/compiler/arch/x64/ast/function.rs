@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::compiler::arch::x64;
 pub struct Function {
-    pub func_name: String,
+    pub name: String,
     pub return_type: x64::PeachiliType,
     pub params: HashMap<String, x64::PeachiliType>,
     pub stack_size: usize,

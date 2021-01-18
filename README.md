@@ -10,7 +10,6 @@ String ==(Parser)==> Higher AST ==(Translator)==> Typed AST(Architecture-depende
 
 ```
 $ peachili compile <peachili-file> # generate an assembly-file for X86_64
-$ peachili compile <peachili-file> # generate an assembly-file for aarch64
 ```
 
 ## [Documents](https://github.com/Drumato/peachili/blob/master/docs/main.md)
@@ -23,18 +22,11 @@ $ peachili compile <peachili-file> # generate an assembly-file for aarch64
 cargo test
 ```
 
-### Integration tests on x86_64
+### Integration tests
 
 ```
 cargo build
-./x64_test.sh
-```
-
-### Integration tests on Arm64
-
-```
-cargo build
-./aarch64_test.sh
+python integration_test.py
 ```
 
 ## Debug

@@ -2,12 +2,16 @@ use super::TopLevelDecl;
 
 /// Root
 #[derive(Debug, Clone)]
-pub struct ASTRoot<'a> {
-    pub decls: Vec<TopLevelDecl<'a>>,
+pub struct ASTRoot {
+    pub decls: Vec<TopLevelDecl>,
+    pub module_name: String,
 }
 
-impl<'a> Default for ASTRoot<'a> {
+impl Default for ASTRoot {
     fn default() -> Self {
-        Self { decls: Vec::new() }
+        Self {
+            decls: Vec::new(),
+            module_name: String::new(),
+        }
     }
 }

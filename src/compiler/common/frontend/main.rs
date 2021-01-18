@@ -1,4 +1,4 @@
-use crate::compiler::common::frontend::{allocator, pass, types};
+use crate::compiler::common::frontend::{pass, types};
 use crate::{module, option};
 use fxhash::FxHashMap;
 use types::ast;
@@ -7,18 +7,14 @@ use std::collections::VecDeque;
 
 /// 字句解析，パース，意味解析等を行う．
 pub fn main<'a>(
-    alloc: &'a allocator::Allocator<'a>,
     main_module: module::Module<'a>,
     build_option: option::BuildOption,
 ) -> Result<
-    (
-        VecDeque<ast::ASTRoot<'a>>,
-        FxHashMap<String, ast::TopLevelDecl<'a>>,
-    ),
+    (VecDeque<ast::ASTRoot>, FxHashMap<String, ast::TopLevelDecl>),
     Box<dyn std::error::Error + 'a>,
 > {
     let module_queue = pseudo_topological_sort_modules(main_module);
-    let mut ast_root_deque: VecDeque<ast::ASTRoot<'a>> = VecDeque::new();
+    let mut ast_root_deque: VecDeque<ast::ASTRoot> = VecDeque::new();
 
     let mut raw_type_env: FxHashMap<String, ast::TopLevelDecl> = FxHashMap::default();
 
@@ -26,7 +22,7 @@ pub fn main<'a>(
         // キューにはPrimitiveモジュールしか存在しない
         if let module::ModuleKind::Primitive { refs: _, contents } = &m.kind {
             // 初期値として空のStringを渡しておく
-            let ast_root = pass::parser::main(alloc, &m.name, contents.as_str())?;
+            let ast_root = pass::parser::main(&m.name, contents.as_str())?;
             if build_option.dump_ir {
                 ast::dump_ast_root(&ast_root);
             }
@@ -74,7 +70,7 @@ fn collect_module_rec<'a>(base_module: module::Module<'a>) -> VecDeque<module::M
     queue
 }
 
-fn copy_tld_by<'a>(decl: ast::TopLevelDecl<'a>) -> Option<(String, ast::TopLevelDecl<'a>)> {
+fn copy_tld_by<'a>(decl: ast::TopLevelDecl) -> Option<(String, ast::TopLevelDecl)> {
     match &decl.kind {
         ast::TopLevelDeclKind::Import { module_name: _ } => None,
         ast::TopLevelDeclKind::Function {

@@ -1,4 +1,4 @@
-use super::{ASTRoot, StmtInfo, StmtKind, TopLevelDecl, TopLevelDeclKind};
+use super::{ASTRoot, Stmt, StmtKind, TopLevelDecl, TopLevelDeclKind};
 pub fn dump_ast_root(ast_root: &ASTRoot) {
     for decl in ast_root.decls.iter() {
         dump_decl(decl);
@@ -35,7 +35,7 @@ fn dump_decl(decl: &TopLevelDecl) {
     }
 }
 
-fn dump_stmt(stmt: &StmtInfo) {
+fn dump_stmt(stmt: &Stmt) {
     match &stmt.kind {
         StmtKind::Expr { expr: _ } => {
             eprintln!("    ExpressionStatement");

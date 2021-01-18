@@ -4,6 +4,7 @@ pub enum PeachiliType {
     Uint64,
     ConstStr,
     Noreturn,
+    Boolean,
 }
 
 impl PeachiliType {
@@ -11,6 +12,8 @@ impl PeachiliType {
         match self {
             PeachiliType::Int64 => 8,
             PeachiliType::Uint64 => 8,
+            // とりあえず8
+            PeachiliType::Boolean => 8,
             PeachiliType::ConstStr => 8,
             PeachiliType::Noreturn => 0,
         }

@@ -1,13 +1,13 @@
 func exit_with(status Int64) Noreturn {
     asm {
-        "movq $60, %rax";
+        "mov rax, 60";
         "syscall"
     };
 }
 
 func write(fd FileDescriptor, buf ConstStr, count Int64) Noreturn {
     asm {
-        "movq $1, %rax";
+        "mov rax, 1";
         "syscall"
     };
 }

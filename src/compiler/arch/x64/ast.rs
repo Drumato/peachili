@@ -15,3 +15,9 @@ pub use function::*;
 
 mod statement;
 pub use statement::*;
+
+mod expression;
+pub use expression::*;
+
+mod type_resolve;
+pub use type_resolve::*;

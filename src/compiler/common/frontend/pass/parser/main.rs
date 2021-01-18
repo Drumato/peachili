@@ -1,5 +1,5 @@
 use super::*;
-use crate::compiler::common::frontend::{allocator::Allocator, ast};
+use crate::compiler::common::frontend::ast;
 use nom::{
     branch::alt,
     bytes::complete::take_while1,
@@ -9,25 +9,26 @@ use nom::{
 };
 use primitive::{identifier_string, list_structure, symbol};
 use std::collections::HashMap;
+
 /// program -> toplevel*
 pub fn main<'a>(
-    alloc: &'a Allocator<'a>,
     module_name: &'a str,
     file_contents: &'a str,
-) -> Result<ast::ASTRoot<'a>, Box<dyn std::error::Error + 'a>> {
+) -> Result<ast::ASTRoot, Box<dyn std::error::Error + 'a>> {
     let mut ast_root: ast::ASTRoot = Default::default();
+    ast_root.module_name = module_name.to_string();
 
     let (_rest, top_level_decls) = many0(alt((
         pubtype_declaration(module_name),
         import_directive(),
-        pubconst_declaration(alloc, module_name),
-        function_declaration(alloc, module_name),
+        pubconst_declaration(module_name),
+        function_declaration(module_name),
     )))(file_contents)?;
 
     ast_root.decls = top_level_decls;
     Ok(ast_root)
 }
-fn import_directive<'a>() -> impl Fn(&str) -> IResult<&str, ast::TopLevelDecl<'a>> {
+fn import_directive<'a>() -> impl Fn(&str) -> IResult<&str, ast::TopLevelDecl> {
     move |i: &str| {
         let (rest, _) = primitive::keyword("import")(i)?;
         let (rest, module_name) = take_while1(|b| b != ';')(rest)?;
@@ -46,7 +47,7 @@ fn import_directive<'a>() -> impl Fn(&str) -> IResult<&str, ast::TopLevelDecl<'a
 
 fn pubtype_declaration<'a>(
     module_name: &'a str,
-) -> impl Fn(&'a str) -> IResult<&str, ast::TopLevelDecl<'a>> {
+) -> impl Fn(&'a str) -> IResult<&str, ast::TopLevelDecl> {
     move |i: &str| {
         let (rest, _) = primitive::keyword("pubtype")(i)?;
         let (rest, type_name) = primitive::identifier_string()(rest)?;
@@ -68,9 +69,8 @@ fn pubtype_declaration<'a>(
 }
 
 fn pubconst_declaration<'a>(
-    arena: &'a Allocator<'a>,
     module_name: &'a str,
-) -> impl Fn(&'a str) -> IResult<&str, ast::TopLevelDecl<'a>> {
+) -> impl Fn(&'a str) -> IResult<&str, ast::TopLevelDecl> {
     move |i: &str| {
         let (rest, _) = primitive::keyword("pubconst")(i)?;
         let (rest, const_name) = primitive::identifier_string()(rest)?;
@@ -79,7 +79,7 @@ fn pubconst_declaration<'a>(
         let (rest, const_type) = primitive::identifier_string()(rest)?;
 
         let (rest, _) = symbol("=")(rest)?;
-        let (rest, expr) = expression(arena)(rest)?;
+        let (rest, expr) = expression()(rest)?;
         let (rest, _) = symbol(";")(rest)?;
 
         Ok((
@@ -96,9 +96,8 @@ fn pubconst_declaration<'a>(
 }
 
 fn function_declaration<'a>(
-    alloc: &'a Allocator<'a>,
     module_name: &'a str,
-) -> impl Fn(&'a str) -> IResult<&str, ast::TopLevelDecl<'a>> {
+) -> impl Fn(&'a str) -> IResult<&str, ast::TopLevelDecl> {
     move |i: &str| {
         let (rest, _) = primitive::keyword("func")(i)?;
         let (rest, func_name) = primitive::identifier_string()(rest)?;
@@ -116,7 +115,7 @@ fn function_declaration<'a>(
 
         let (rest, stmts) = delimited(
             primitive::symbol("{"),
-            many0(statement(alloc)),
+            many0(statement()),
             primitive::symbol("}"),
         )(rest)?;
         Ok((
@@ -135,15 +134,13 @@ fn function_declaration<'a>(
 
 #[cfg(test)]
 mod toplevel_tests {
-    use ast::ExprInfo;
+    use ast::Expr;
 
     use super::*;
 
     #[test]
     fn parser_main_test() {
-        let arena = Default::default();
-
-        let result = main(&arena, "main", "import x64;\n\nfunc main() Noreturn {}");
+        let result = main("main", "import x64;\n\nfunc main() Noreturn {}");
         assert!(result.is_ok());
 
         let ast_root = result.unwrap();
@@ -167,11 +164,8 @@ mod toplevel_tests {
 
     #[test]
     fn function_declaration_test() {
-        let arena = Default::default();
-
-        let result = function_declaration(&arena, "main")(
-            "func main(a Int64, b Int64, c Int64) Noreturn {}",
-        );
+        let result =
+            function_declaration("main")("func main(a Int64, b Int64, c Int64) Noreturn {}");
         assert!(result.is_ok());
 
         let (rest, f) = result.unwrap();
@@ -213,8 +207,7 @@ mod toplevel_tests {
 
     #[test]
     fn pubconst_declaration_test() {
-        let arena = Default::default();
-        let result = pubconst_declaration(&arena, "main")("pubconst STDIN : FileDescriptor = u0;");
+        let result = pubconst_declaration("main")("pubconst STDIN : FileDescriptor = u0;");
 
         assert!(result.is_ok());
 
@@ -225,7 +218,7 @@ mod toplevel_tests {
             ast::TopLevelDeclKind::PubConst {
                 const_name: "main::STDIN".to_string(),
                 const_type: "FileDescriptor".to_string(),
-                expr: ExprInfo {
+                expr: Expr {
                     kind: ast::ExprKind::UnsignedInteger { value: 0 }
                 },
             },
