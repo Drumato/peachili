@@ -1,22 +1,21 @@
 use crate::compiler::common::frontend::{pass, types};
 use crate::{module, option};
-use fxhash::FxHashMap;
 use types::ast;
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 /// 字句解析，パース，意味解析等を行う．
 pub fn main<'a>(
     main_module: module::Module<'a>,
     build_option: option::BuildOption,
 ) -> Result<
-    (VecDeque<ast::ASTRoot>, FxHashMap<String, ast::TopLevelDecl>),
+    (VecDeque<ast::ASTRoot>, HashMap<String, ast::TopLevelDecl>),
     Box<dyn std::error::Error + 'a>,
 > {
     let module_queue = pseudo_topological_sort_modules(main_module);
     let mut ast_root_deque: VecDeque<ast::ASTRoot> = VecDeque::new();
 
-    let mut raw_type_env: FxHashMap<String, ast::TopLevelDecl> = FxHashMap::default();
+    let mut raw_type_env: HashMap<String, ast::TopLevelDecl> = Default::default();
 
     for m in module_queue.iter() {
         // キューにはPrimitiveモジュールしか存在しない
@@ -51,7 +50,7 @@ fn collect_module_rec<'a>(base_module: module::Module<'a>) -> VecDeque<module::M
 
     match &base_module.kind {
         module::ModuleKind::Primitive { contents: _, refs } => {
-            for ref_module in refs.lock().unwrap().iter() {
+            for ref_module in refs.as_ref().borrow().iter() {
                 let mut ref_queue = collect_module_rec(ref_module);
                 queue.append(&mut ref_queue);
             }
@@ -61,7 +60,7 @@ fn collect_module_rec<'a>(base_module: module::Module<'a>) -> VecDeque<module::M
 
         // Directory モジュールの場合自分自身はキューに追加しないので注意
         module::ModuleKind::Directory { children } => {
-            for child in children.lock().unwrap().iter() {
+            for child in children.as_ref().borrow().iter() {
                 let mut child_queue = collect_module_rec(child);
                 queue.append(&mut child_queue);
             }

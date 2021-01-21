@@ -2,6 +2,9 @@ extern crate asmpeach;
 extern crate pld;
 extern crate typed_arena;
 
+use std::fs::File;
+use std::io::prelude::*;
+
 use structopt::StructOpt;
 use typed_arena::Arena;
 
@@ -24,7 +27,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let main_module =
                 bundler::resolve_main(build_option.target, &module_arena, source_file.clone());
             match compiler::compile_main(main_module, build_option) {
-                Ok(_) => {}
+                Ok(assembly_file) => {
+                    let mut file = File::create("asm.s")?;
+                    write!(file, "{}", assembly_file)?;
+                    file.flush()?;
+                }
                 Err(e) => eprintln!("{}", e),
             }
         }

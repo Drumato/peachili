@@ -2,17 +2,38 @@ use std::collections::{HashMap, HashSet};
 
 use crate::compiler::arch::x64;
 
-pub fn codegen_main(ast_root: x64::Root) -> String {
-    let mut assembly_file = format!(".intel_syntax noprefix\n");
+pub fn codegen_main(ast_roots: Vec<x64::Root>) -> String {
     let mut str_id_set: HashSet<(u64, String)> = Default::default();
 
-    for func in ast_root.functions.iter() {
-        let (fn_str, set) = gen_fn(func, str_id_set);
-        assembly_file += &fn_str;
-        str_id_set = set;
-    }
+    let assembly_file = ast_roots
+        .iter()
+        .map(|root| {
+            let (root_str, set) = gen_root(root, str_id_set.clone());
+            str_id_set = set;
+            root_str
+        })
+        .collect::<Vec<String>>()
+        .join("# translation unit's end\n");
 
-    assembly_file
+    ".intel_syntax noprefix\n".to_owned() + &assembly_file
+}
+
+fn gen_root(
+    ast_root: &x64::Root,
+    mut str_id_set: HashSet<(u64, String)>,
+) -> (String, HashSet<(u64, String)>) {
+    let translation_unit_str = ast_root
+        .functions
+        .iter()
+        .map(|func| {
+            let (fn_str, set) = gen_fn(func, str_id_set.clone());
+            str_id_set = set;
+            fn_str
+        })
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    (translation_unit_str, str_id_set)
 }
 
 fn gen_fn(

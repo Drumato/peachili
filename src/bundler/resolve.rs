@@ -1,9 +1,13 @@
 use crate::{module as m, option as opt};
 use typed_arena::Arena;
 
+use std::cell::RefCell;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::rc::Rc;
+
+/// Peachiliプログラムにつける拡張子
+const PEACHILI_FILE_EXTENSION: &'static str = ".go";
 
 pub fn resolve_main<'a>(
     target: opt::Target,
@@ -24,7 +28,7 @@ pub fn resolve_main<'a>(
     let startup_module_path = setup_startup_routine(target);
     let startup_module = analyze_external_module(arena, startup_module_path, "startup".to_string());
     if let m::ModuleKind::Primitive { refs, contents: _ } = &main_module.kind {
-        refs.lock().unwrap().push(startup_module);
+        refs.as_ref().borrow_mut().push(startup_module);
     }
 
     add_dependencies_to(arena, main_module, main_requires);
@@ -75,7 +79,7 @@ fn create_directory_module<'a>(
         children: ref mut c,
     } = parent_module.kind
     {
-        *c = Arc::new(Mutex::new(children));
+        *c = Rc::new(RefCell::new(children));
     }
 
     arena.alloc(parent_module)
@@ -110,7 +114,7 @@ fn add_dependencies_to<'a>(
         let referenced_module = analyze_external_module(arena, req_path, req);
 
         if let m::ModuleKind::Primitive { refs, contents: _ } = &src_module.kind {
-            refs.lock().unwrap().push(referenced_module);
+            refs.as_ref().borrow_mut().push(referenced_module);
         }
     }
 }
@@ -136,14 +140,15 @@ fn resolve_path_from_name(module_name: String) -> String {
 /// モジュールが存在するかチェック．
 /// DIR_MODULEの可能性を考えて，`.go`無しとありの2パターンで検索する
 fn search_module(module_name: String) -> Option<String> {
-    let resolved_dir = search_directory(module_name.to_string());
+    let resolved_dir = find_dir_package(module_name.to_string());
 
     if let Some(dir_path) = resolved_dir {
         return Some(dir_path);
     }
 
     // ディレクトリがなかったので，拡張子をつけて再度チェック
-    let resolved_file = search_peachili_program(format!("{}.go", module_name));
+    let resolved_file =
+        search_peachili_program(format!("{}{}", module_name, PEACHILI_FILE_EXTENSION));
     if let Some(file_path) = resolved_file {
         return Some(file_path);
     }
@@ -153,6 +158,10 @@ fn search_module(module_name: String) -> Option<String> {
 
 /// 引数に渡したディレクトリが存在するかチェック
 fn search_peachili_program(file_name: String) -> Option<String> {
+    if !file_name.ends_with(PEACHILI_FILE_EXTENSION) {
+        return None;
+    }
+
     let metadata = fs::metadata(file_name.to_string());
 
     // そもそもファイルが存在しなかった
@@ -160,12 +169,16 @@ fn search_peachili_program(file_name: String) -> Option<String> {
         return None;
     }
 
-    // 拡張子をつけてファイルを見つけられた -> ソースファイルを発見した
+    // 拡ソースファイルを発見した
     Some(file_name)
 }
 
 /// 引数に渡したPeachiliファイルが存在するかチェック
-fn search_directory(dir_name: String) -> Option<String> {
+fn find_dir_package(dir_name: String) -> Option<String> {
+    if dir_name.ends_with(PEACHILI_FILE_EXTENSION) {
+        return None;
+    }
+
     let metadata = fs::metadata(dir_name.to_string());
 
     // そもそもファイルが存在しなかった
@@ -246,6 +259,8 @@ fn get_lib_path() -> String {
 
 #[cfg(test)]
 mod resolve_tests {
+    use m::ModuleKind;
+
     use super::*;
 
     #[test]
@@ -274,7 +289,7 @@ mod resolve_tests {
     #[test]
     fn search_directory_test() {
         // テスト実行時の相対パスで取っている
-        let dir = search_directory("examples".to_string());
+        let dir = find_dir_package("examples".to_string());
         assert!(dir.is_some());
     }
 
@@ -289,10 +304,29 @@ mod resolve_tests {
         let dir = search_module("examples".to_string());
         assert!(dir.is_some());
 
-        let file = search_module("examples/x64/intlit.go".to_string());
+        let file = search_module("examples/x64/intlit".to_string());
         assert!(file.is_some());
 
         let invalid = search_module("invalid".to_string());
         assert!(invalid.is_none());
+    }
+
+    #[test]
+    fn analyze_external_module_test() {
+        let arena = Default::default();
+        std::env::set_var("PEACHILI_LIB_PATH", "./lib");
+        let a_module = analyze_external_module(
+            &arena,
+            "src/bundler/test_data/a.go".to_string(),
+            "src/bundler/test_data/a".to_string(),
+        );
+        assert_eq!("src::bundler::test_data::a", a_module.name);
+        assert_eq!(
+            "src/bundler/test_data/a.go",
+            a_module.file_path.to_str().unwrap()
+        );
+        if let ModuleKind::Primitive { refs, contents: _ } = &a_module.kind {
+            assert_eq!(1, refs.as_ref().borrow().len());
+        }
     }
 }

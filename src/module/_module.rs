@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 /// 各ファイル(パッケージ)を表す構造体
 /// 依存グラフの各ノードとしても動作する
@@ -26,17 +25,24 @@ impl<'a> ModuleInfo<'a> {
     }
 
     pub fn new_primitive(file_path: PathBuf, name: String, contents: String) -> Self {
-        Self::new(ModuleKind::Primitive{contents, refs: Arc::new(Mutex::new(Default::default()))}, file_path, name)
+        Self::new(
+            ModuleKind::Primitive {
+                contents,
+                refs: Rc::new(RefCell::new(Default::default())),
+            },
+            file_path,
+            name.replace("/", "::"),
+        )
     }
 
     /// 外部パッケージを割り当てる
     pub fn new_directory(file_path: PathBuf, name: String) -> Self {
         Self::new(
             ModuleKind::Directory {
-                children: Arc::new(Mutex::new(Vec::new())),
+                children: Rc::new(RefCell::new(Vec::new())),
             },
             file_path,
-            name,
+            name.replace("/", "::"),
         )
     }
 }
@@ -45,9 +51,9 @@ impl<'a> ModuleInfo<'a> {
 #[allow(dead_code)]
 pub enum ModuleKind<'a> {
     /// ソースコードが含まれるファイルを表す
-    Primitive{
+    Primitive {
         /// 参照するモジュール
-        refs: Arc<Mutex<Vec<Module<'a>>>>,
+        refs: Rc<RefCell<Vec<Module<'a>>>>,
         /// ソースコードの内容
         contents: String,
     },
@@ -55,6 +61,6 @@ pub enum ModuleKind<'a> {
     /// 複数のサブパッケージを含むディレクトリを表す
     Directory {
         /// ディレクトリにぶら下がっているモジュール
-        children: Arc<Mutex<Vec<Module<'a>>>>,
+        children: Rc<RefCell<Vec<Module<'a>>>>,
     },
 }

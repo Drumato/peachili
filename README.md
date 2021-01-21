@@ -3,7 +3,7 @@
 ## Architecture
 
 ```
-String ==(Parser)==> Higher AST ==(Translator)==> Typed AST(Architecture-dependent) ==(Generator)==> assembly
+String ==(Parser)==> Higher AST ==(Type Resolver && Translator)==> Typed AST(Architecture-dependent) ==(Generator)==> assembly
 ```
 
 ## usage
