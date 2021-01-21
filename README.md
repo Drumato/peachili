@@ -31,9 +31,9 @@ python integration_test.py
 
 ## Debug
 
-```
+```bash
 # aarch64
-qemu-aarch64-static -g <port> a.out
-gdb-multiarch a.out
-target remote :<port>
+$ sudo apt install gcc-aarch64-linux-gnu qemu qemu-user gdb-multiarch
+$ aarch64-linux-gnu-gcc -static asm.s
+$ qemu-aarch64 ./a.out
 ```

@@ -235,7 +235,8 @@ fn try_to_get_file_contents(file_name: &str) -> String {
 
 fn setup_startup_routine(target: opt::Target) -> String {
     match target {
-        opt::Target::X86_64 => format!("{}startup_x64.go", get_lib_path()),
+        opt::Target::X86_64 => format!("{}startup_x86_64.go", get_lib_path()),
+        opt::Target::AArch64 => format!("{}startup_aarch64.go", get_lib_path()),
     }
 }
 
@@ -295,7 +296,7 @@ mod resolve_tests {
 
     #[test]
     fn search_peachili_program_test() {
-        let file = search_peachili_program("examples/x64/intlit.go".to_string());
+        let file = search_peachili_program("examples/x86_64/intlit.go".to_string());
         assert!(file.is_some());
     }
 
@@ -304,7 +305,7 @@ mod resolve_tests {
         let dir = search_module("examples".to_string());
         assert!(dir.is_some());
 
-        let file = search_module("examples/x64/intlit".to_string());
+        let file = search_module("examples/x86_64/intlit".to_string());
         assert!(file.is_some());
 
         let invalid = search_module("invalid".to_string());

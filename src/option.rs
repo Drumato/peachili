@@ -1,7 +1,7 @@
 use structopt::StructOpt;
 #[derive(StructOpt, Clone)]
 pub struct BuildOption {
-    #[structopt(parse(from_str), default_value = "x86_64")]
+    #[structopt(short, long, parse(from_str), default_value = "x86_64")]
     pub target: Target,
 
     #[structopt(subcommand)]
@@ -19,12 +19,14 @@ pub enum Command {
 #[derive(Copy, Clone)]
 pub enum Target {
     X86_64,
+    AArch64,
 }
 
 impl From<&str> for Target {
     fn from(s: &str) -> Self {
         match s {
             "x86_64" => Target::X86_64,
+            "aarch64" => Target::AArch64,
             _ => panic!("unsupported target -> {}", s),
         }
     }

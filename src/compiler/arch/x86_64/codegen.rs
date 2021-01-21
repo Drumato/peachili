@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::compiler::arch::x64;
+use crate::compiler::arch::x86_64;
 
-pub fn codegen_main(ast_roots: Vec<x64::Root>) -> String {
+pub fn codegen_main(ast_roots: Vec<x86_64::Root>) -> String {
     let mut str_id_set: HashSet<(u64, String)> = Default::default();
 
     let assembly_file = ast_roots
@@ -19,7 +19,7 @@ pub fn codegen_main(ast_roots: Vec<x64::Root>) -> String {
 }
 
 fn gen_root(
-    ast_root: &x64::Root,
+    ast_root: &x86_64::Root,
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     let translation_unit_str = ast_root
@@ -37,7 +37,7 @@ fn gen_root(
 }
 
 fn gen_fn(
-    func: &x64::Function,
+    func: &x86_64::Function,
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     let mut fn_str = format!(".global \"{}\"\n", func.name.trim_start_matches("main::"));
@@ -67,12 +67,12 @@ fn gen_fn_prologue(stack_size: usize) -> String {
 }
 
 fn gen_stmt(
-    st: &x64::Statement,
-    local_variables: &HashMap<String, x64::FrameObject>,
+    st: &x86_64::Statement,
+    local_variables: &HashMap<String, x86_64::FrameObject>,
     str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match st {
-        x64::Statement::Expr { expr } => gen_code(
+        x86_64::Statement::Expr { expr } => gen_code(
             "Expression Statement",
             |set| {
                 let (ex_str, set2) = gen_expr(expr, local_variables, set);
@@ -80,7 +80,7 @@ fn gen_stmt(
             },
             str_id_set,
         ),
-        x64::Statement::Asm { insts } => gen_code(
+        x86_64::Statement::Asm { insts } => gen_code(
             "Asm Statement",
             |set| {
                 (
@@ -98,22 +98,22 @@ fn gen_stmt(
 }
 
 fn gen_expr(
-    ex: &x64::Expression,
-    local_variables: &HashMap<String, x64::FrameObject>,
+    ex: &x86_64::Expression,
+    local_variables: &HashMap<String, x86_64::FrameObject>,
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match &ex.kind {
-        x64::ExprKind::Integer { value } => gen_code(
+        x86_64::ExprKind::Integer { value } => gen_code(
             "Integer Literal",
             |set| (format!("  mov rax, {}\n", value), set),
             str_id_set,
         ),
-        x64::ExprKind::UnsignedInteger { value } => gen_code(
+        x86_64::ExprKind::UnsignedInteger { value } => gen_code(
             "Unsigned Integer Literal",
             |set| (format!("  mov rax, {}\n", value), set),
             str_id_set,
         ),
-        x64::ExprKind::Identifier {
+        x86_64::ExprKind::Identifier {
             list: _,
             stack_offset: _,
         } => gen_code(
@@ -125,7 +125,7 @@ fn gen_expr(
             },
             str_id_set,
         ),
-        x64::ExprKind::Negative { child } => gen_code(
+        x86_64::ExprKind::Negative { child } => gen_code(
             "Negative Expression",
             |set| {
                 let (child_str, set) = gen_expr(&child.as_ref().borrow(), local_variables, set);
@@ -135,7 +135,7 @@ fn gen_expr(
             },
             str_id_set.clone(),
         ),
-        x64::ExprKind::Call { ident, params } => gen_code(
+        x86_64::ExprKind::Call { ident, params } => gen_code(
             "Call Expression",
             |mut set| {
                 let mut s = String::new();
@@ -159,7 +159,7 @@ fn gen_expr(
             },
             str_id_set,
         ),
-        x64::ExprKind::StringLiteral { contents, id } => {
+        x86_64::ExprKind::StringLiteral { contents, id } => {
             str_id_set.insert((*id, contents.clone()));
             gen_code(
                 "String Literal",
@@ -167,28 +167,28 @@ fn gen_expr(
                 str_id_set,
             )
         }
-        x64::ExprKind::True => gen_code(
+        x86_64::ExprKind::True => gen_code(
             "True Literal",
             |set| ("  mov rax, 1\n".to_string(), set),
             str_id_set,
         ),
-        x64::ExprKind::False => gen_code(
+        x86_64::ExprKind::False => gen_code(
             "True Literal",
             |set| ("  mov rax, 0\n".to_string(), set),
             str_id_set,
         ),
     }
 }
-fn gen_lvalue(ex: &x64::Expression) -> String {
+fn gen_lvalue(ex: &x86_64::Expression) -> String {
     match ex.kind {
-        x64::ExprKind::Identifier {
+        x86_64::ExprKind::Identifier {
             list: _,
             stack_offset,
         } => format!("  lea rax, -{}[rbp]\n", stack_offset),
         _ => panic!("cannot generate code {:?} as lvalue", ex),
     }
 }
-fn gen_load(ty: &x64::PeachiliType) -> String {
+fn gen_load(ty: &x86_64::PeachiliType) -> String {
     match ty.size() {
         1 => format!("  movsx rax, BYTE PTR [rax]\n"),
         2 => format!("  movswq rax, WORD PTR [rax]\n"),

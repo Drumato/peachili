@@ -1,15 +1,15 @@
-use crate::compiler::arch::x64;
+use crate::compiler::arch::x86_64;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Expression {
     pub kind: ExprKind,
-    pub ty: x64::PeachiliType,
+    pub ty: x86_64::PeachiliType,
 }
 
 impl Expression {
-    pub fn new(k: ExprKind, ty: x64::PeachiliType) -> Self {
+    pub fn new(k: ExprKind, ty: x86_64::PeachiliType) -> Self {
         Self { kind: k, ty }
     }
 }

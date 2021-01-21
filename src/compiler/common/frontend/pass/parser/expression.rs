@@ -92,7 +92,7 @@ fn identifier_expr<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
             rest,
             ast::ExprKind::Call {
                 ident: gen_child_node(ident),
-                params: params,
+                params,
             },
         )
     }

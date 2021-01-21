@@ -1,7 +1,7 @@
 use crate::compiler::common::frontend;
 use crate::{module, option};
 
-use super::arch::x64;
+use super::arch::{aarch64, x86_64};
 pub fn compile_main<'a>(
     main_module: module::Module<'a>,
     build_option: option::BuildOption,
@@ -11,15 +11,26 @@ pub fn compile_main<'a>(
 
     match target {
         option::Target::X86_64 => {
-            let type_env = x64::type_resolve_main(&ast_roots, &raw_type_env)?;
+            let type_env = x86_64::type_resolve_main(&ast_roots, &raw_type_env)?;
             let lower_ast_roots = ast_roots
                 .iter()
-                .map(|root| x64::ast_to_lower(root, type_env.clone()).unwrap())
-                .collect::<Vec<x64::Root>>();
+                .map(|root| x86_64::ast_to_lower(root, type_env.clone()).unwrap())
+                .collect::<Vec<x86_64::Root>>();
 
-            let x64_assembly_file = x64::codegen_main(lower_ast_roots);
+            let assembly_file = x86_64::codegen_main(lower_ast_roots);
 
-            Ok(x64_assembly_file)
+            Ok(assembly_file)
+        }
+        option::Target::AArch64 => {
+            let type_env = aarch64::type_resolve_main(&ast_roots, &raw_type_env)?;
+            let lower_ast_roots = ast_roots
+                .iter()
+                .map(|root| aarch64::ast_to_lower(root, type_env.clone()).unwrap())
+                .collect::<Vec<aarch64::Root>>();
+
+            let assembly_file = aarch64::codegen_main(lower_ast_roots);
+
+            Ok(assembly_file)
         }
     }
 }
