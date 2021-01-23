@@ -3,6 +3,9 @@ import sys
 import subprocess
 import time
 
+X86_64 = "x86_64"
+AARCH64 = "aarch64"
+
 
 def p(message: str):
     print(message, file=sys.stderr)
@@ -33,7 +36,7 @@ def test_compiler(arch_name: str):
             p("asm.s: failed to link")
             exit(1)
 
-        actual = subprocess.run(["./a.out"]).returncode
+        actual = execute_binary(arch_name)
         if actual != expect_status:
             p(f"{test_file}: expected {expect_status} but got {actual}")
             exit(1)
@@ -52,18 +55,25 @@ def generate_an_assembly(arch_name: str, test_file: str) -> int:
 
 
 def link_assembly(arch_name) -> int:
-    if arch_name == "x86_64":
+    if arch_name == X86_64:
         return subprocess.run(["clang", "-static", "asm.s"]).returncode
     else:
         return subprocess.run(["aarch64-linux-gnu-gcc", "-static", "asm.s"]).returncode
 
 
+def execute_binary(arch_name: str) -> int:
+    if arch_name == X86_64:
+        return subprocess.run(["./a.out"]).returncode
+    else:
+        return subprocess.run(["qemu-aarch64", "./a.out"]).returncode
+
+
 def test_aarch64_compiler():
-    test_compiler("aarch64")
+    test_compiler(AARCH64)
 
 
 def test_x64_compiler():
-    test_compiler("x86_64")
+    test_compiler(X86_64)
 
 
 def profile_procedure(fn_name):

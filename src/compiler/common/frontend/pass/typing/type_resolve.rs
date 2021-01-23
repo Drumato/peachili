@@ -1,4 +1,4 @@
-use crate::compiler::{arch::aarch64, common::frontend::ast as high_ast};
+use crate::compiler::common::frontend::{ast as high_ast, peachili_type};
 use std::collections::{HashMap, VecDeque};
 
 use thiserror::Error;
@@ -14,15 +14,30 @@ pub enum TypeResolveError {
 pub fn type_resolve_main(
     ast_roots: &VecDeque<high_ast::ASTRoot>,
     raw_type_env: &HashMap<String, high_ast::TopLevelDecl>,
-) -> Result<HashMap<String, aarch64::PeachiliType>, Box<dyn std::error::Error>> {
-    let mut type_env: HashMap<String, aarch64::PeachiliType> = Default::default();
+) -> Result<HashMap<String, peachili_type::PeachiliType>, Box<dyn std::error::Error>> {
+    let mut type_env: HashMap<String, peachili_type::PeachiliType> = Default::default();
 
     // プリミティブな型はそのまま変換するだけ
-    type_env.insert("Int64".to_string(), aarch64::PeachiliType::Int64);
-    type_env.insert("Uint64".to_string(), aarch64::PeachiliType::Uint64);
-    type_env.insert("Noreturn".to_string(), aarch64::PeachiliType::Noreturn);
-    type_env.insert("ConstStr".to_string(), aarch64::PeachiliType::ConstStr);
-    type_env.insert("Boolean".to_string(), aarch64::PeachiliType::Boolean);
+    type_env.insert(
+        "Int64".to_string(),
+        peachili_type::PeachiliType::new(peachili_type::PTKind::Int64, 8),
+    );
+    type_env.insert(
+        "Uint64".to_string(),
+        peachili_type::PeachiliType::new(peachili_type::PTKind::Uint64, 8),
+    );
+    type_env.insert(
+        "Noreturn".to_string(),
+        peachili_type::PeachiliType::new(peachili_type::PTKind::Noreturn, 0),
+    );
+    type_env.insert(
+        "ConstStr".to_string(),
+        peachili_type::PeachiliType::new(peachili_type::PTKind::Noreturn, 0),
+    );
+    type_env.insert(
+        "Boolean".to_string(),
+        peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 0),
+    );
 
     for ast_root in ast_roots.iter() {
         for common_tld in ast_root.decls.iter() {
@@ -62,12 +77,12 @@ pub fn type_resolve_main(
 
 fn resolve_at_function(
     raw_type_env: &HashMap<String, high_ast::TopLevelDecl>,
-    type_env: HashMap<String, aarch64::PeachiliType>,
+    type_env: HashMap<String, peachili_type::PeachiliType>,
     func_name: &String,
     return_type_str: &String,
     ref_module_name: &String,
     parameters: &HashMap<String, String>,
-) -> Result<HashMap<String, aarch64::PeachiliType>, Box<dyn std::error::Error>> {
+) -> Result<HashMap<String, peachili_type::PeachiliType>, Box<dyn std::error::Error>> {
     // 関数の返り値の型解決
     let (mut type_env, return_type) = resolve_type(
         raw_type_env,
@@ -87,23 +102,38 @@ fn resolve_at_function(
 
 pub fn resolve_type(
     raw_type_env: &HashMap<String, high_ast::TopLevelDecl>,
-    resolved_type_env: HashMap<String, aarch64::PeachiliType>,
+    resolved_type_env: HashMap<String, peachili_type::PeachiliType>,
     ref_module_name: &String,
     type_name: &String,
 ) -> Result<
     (
-        HashMap<String, aarch64::PeachiliType>,
-        aarch64::PeachiliType,
+        HashMap<String, peachili_type::PeachiliType>,
+        peachili_type::PeachiliType,
     ),
     TypeResolveError,
 > {
     match type_name.as_str() {
         // プリミティブな型はそのまま変換するだけ
-        "Int64" => Ok((resolved_type_env, aarch64::PeachiliType::Int64)),
-        "Uint64" => Ok((resolved_type_env, aarch64::PeachiliType::Uint64)),
-        "Noreturn" => Ok((resolved_type_env, aarch64::PeachiliType::Noreturn)),
-        "ConstStr" => Ok((resolved_type_env, aarch64::PeachiliType::ConstStr)),
-        "Boolean" => Ok((resolved_type_env, aarch64::PeachiliType::Boolean)),
+        "Int64" => Ok((
+            resolved_type_env,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Int64, 8),
+        )),
+        "Uint64" => Ok((
+            resolved_type_env,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Uint64, 8),
+        )),
+        "Noreturn" => Ok((
+            resolved_type_env,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Noreturn, 0),
+        )),
+        "ConstStr" => Ok((
+            resolved_type_env,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::ConstStr, 8),
+        )),
+        "Boolean" => Ok((
+            resolved_type_env,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
+        )),
 
         // 識別子の場合
         // "(定義箇所と異なるモジュールから)実際に使用される名前" を調べた後，
@@ -128,13 +158,13 @@ pub fn resolve_type(
 
 pub fn find_typedef(
     raw_type_env: &HashMap<String, high_ast::TopLevelDecl>,
-    resolved_type_env: HashMap<String, aarch64::PeachiliType>,
+    resolved_type_env: HashMap<String, peachili_type::PeachiliType>,
     ref_module_name: &String,
     type_name: &String,
 ) -> Result<
     (
-        HashMap<String, aarch64::PeachiliType>,
-        aarch64::PeachiliType,
+        HashMap<String, peachili_type::PeachiliType>,
+        peachili_type::PeachiliType,
     ),
     TypeResolveError,
 > {

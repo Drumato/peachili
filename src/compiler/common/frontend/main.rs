@@ -1,6 +1,6 @@
 use crate::compiler::common::frontend::{pass, types};
 use crate::{module, option};
-use types::ast;
+use types::{ast, typed_ast};
 
 use std::collections::{HashMap, VecDeque};
 
@@ -8,10 +8,7 @@ use std::collections::{HashMap, VecDeque};
 pub fn main<'a>(
     main_module: module::Module<'a>,
     build_option: option::BuildOption,
-) -> Result<
-    (VecDeque<ast::ASTRoot>, HashMap<String, ast::TopLevelDecl>),
-    Box<dyn std::error::Error + 'a>,
-> {
+) -> Result<VecDeque<typed_ast::Root>, Box<dyn std::error::Error + 'a>> {
     let module_queue = pseudo_topological_sort_modules(main_module);
     let mut ast_root_deque: VecDeque<ast::ASTRoot> = VecDeque::new();
 
@@ -34,7 +31,15 @@ pub fn main<'a>(
             ast_root_deque.push_back(ast_root);
         }
     }
-    Ok((ast_root_deque, raw_type_env))
+
+    let type_env = pass::typing::type_resolve_main(&ast_root_deque, &raw_type_env)?;
+
+    let lower_ast_deque = ast_root_deque
+        .iter()
+        .map(|root| pass::typing::ast_to_lower(root, type_env.clone()).unwrap())
+        .collect();
+
+    Ok(lower_ast_deque)
 }
 
 /// モジュールの依存関係をソートしてキューを作成．

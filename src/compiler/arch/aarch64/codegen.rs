@@ -1,8 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::compiler::arch::aarch64;
+use crate::compiler::common::frontend::peachili_type;
+use crate::compiler::common::frontend::typed_ast as ast;
 
-pub fn codegen_main(ast_roots: Vec<aarch64::Root>) -> String {
+pub fn codegen_main(ast_roots: VecDeque<ast::Root>) -> String {
     let mut str_id_set: HashSet<(u64, String)> = Default::default();
 
     let assembly_file = ast_roots
@@ -19,7 +20,7 @@ pub fn codegen_main(ast_roots: Vec<aarch64::Root>) -> String {
 }
 
 fn gen_root(
-    ast_root: &aarch64::Root,
+    ast_root: &ast::Root,
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     let translation_unit_str = ast_root
@@ -37,7 +38,7 @@ fn gen_root(
 }
 
 fn gen_fn(
-    func: &aarch64::Function,
+    func: &ast::Function,
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     let mut fn_str = format!(".global \"{}\"\n", func.name.trim_start_matches("main::"));
@@ -75,12 +76,12 @@ fn gen_fn_epilogue(stack_size: usize) -> String {
 }
 
 fn gen_stmt(
-    st: &aarch64::Statement,
-    local_variables: &HashMap<String, aarch64::FrameObject>,
+    st: &ast::Statement,
+    local_variables: &HashMap<String, ast::FrameObject>,
     str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match st {
-        aarch64::Statement::Expr { expr } => gen_code(
+        ast::Statement::Expr { expr } => gen_code(
             "Expression Statement",
             |set| {
                 let (ex_str, set2) = gen_expr(expr, local_variables, set);
@@ -88,7 +89,7 @@ fn gen_stmt(
             },
             str_id_set,
         ),
-        aarch64::Statement::Asm { insts } => gen_code(
+        ast::Statement::Asm { insts } => gen_code(
             "Asm Statement",
             |set| {
                 (
@@ -106,22 +107,22 @@ fn gen_stmt(
 }
 
 fn gen_expr(
-    ex: &aarch64::Expression,
-    local_variables: &HashMap<String, aarch64::FrameObject>,
+    ex: &ast::Expression,
+    local_variables: &HashMap<String, ast::FrameObject>,
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match &ex.kind {
-        aarch64::ExprKind::Integer { value } => gen_code(
+        ast::ExprKind::Integer { value } => gen_code(
             "Integer Literal",
             |set| (format!("  mov x0, #{}\n", value), set),
             str_id_set,
         ),
-        aarch64::ExprKind::UnsignedInteger { value } => gen_code(
+        ast::ExprKind::UnsignedInteger { value } => gen_code(
             "Unsigned Integer Literal",
             |set| (format!("  mov x0, #{}\n", value), set),
             str_id_set,
         ),
-        aarch64::ExprKind::Identifier {
+        ast::ExprKind::Identifier {
             list: _,
             stack_offset: _,
         } => gen_code(
@@ -133,7 +134,7 @@ fn gen_expr(
             },
             str_id_set,
         ),
-        aarch64::ExprKind::Negative { child } => gen_code(
+        ast::ExprKind::Negative { child } => gen_code(
             "Negative Expression",
             |set| {
                 let (child_str, set) = gen_expr(&child.as_ref().borrow(), local_variables, set);
@@ -143,7 +144,7 @@ fn gen_expr(
             },
             str_id_set.clone(),
         ),
-        aarch64::ExprKind::Call { ident, params } => gen_code(
+        ast::ExprKind::Call { ident, params } => gen_code(
             "Call Expression",
             |mut set| {
                 let mut s = String::new();
@@ -160,7 +161,7 @@ fn gen_expr(
             },
             str_id_set,
         ),
-        aarch64::ExprKind::StringLiteral { contents, id } => {
+        ast::ExprKind::StringLiteral { contents, id } => {
             str_id_set.insert((*id, contents.clone()));
             gen_code(
                 "String Literal",
@@ -168,21 +169,21 @@ fn gen_expr(
                 str_id_set,
             )
         }
-        aarch64::ExprKind::True => gen_code(
+        ast::ExprKind::True => gen_code(
             "True Literal",
             |set| ("  mov x0, #1\n".to_string(), set),
             str_id_set,
         ),
-        aarch64::ExprKind::False => gen_code(
+        ast::ExprKind::False => gen_code(
             "True Literal",
             |set| ("  mov x0, #0\n".to_string(), set),
             str_id_set,
         ),
     }
 }
-fn gen_lvalue(ex: &aarch64::Expression) -> String {
+fn gen_lvalue(ex: &ast::Expression) -> String {
     match ex.kind {
-        aarch64::ExprKind::Identifier {
+        ast::ExprKind::Identifier {
             list: _,
             stack_offset,
         } => format!("  adrp x0, [sp, #-{}]\n", stack_offset),
@@ -190,8 +191,8 @@ fn gen_lvalue(ex: &aarch64::Expression) -> String {
     }
 }
 
-fn gen_load(ty: &aarch64::PeachiliType) -> String {
-    match ty.size() {
+fn gen_load(ty: &peachili_type::PeachiliType) -> String {
+    match ty.size {
         1 => format!("  ldr x0, [x0, #0]\n"),
         2 => format!("  ldr x0, [x0, #0]\n"),
         4 => format!("  ldr x0, [x0, #0]\n"),

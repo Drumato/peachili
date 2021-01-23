@@ -1,5 +1,6 @@
-use crate::compiler::arch::x86_64;
-use crate::compiler::common::frontend::ast as high_ast;
+use crate::compiler::common::frontend::typed_ast;
+use crate::compiler::common::frontend::{ast as high_ast, peachili_type};
+
 use std::{
     cell::RefCell,
     collections::{hash_map::DefaultHasher, HashMap},
@@ -7,8 +8,8 @@ use std::{
     rc::Rc,
 };
 
+use peachili_type::PeachiliType;
 use thiserror::Error;
-use x86_64::PeachiliType;
 
 #[derive(Error, Debug)]
 pub enum ConstError {
@@ -21,9 +22,9 @@ pub enum ConstError {
 pub fn ast_to_lower(
     common_root: &high_ast::ASTRoot,
     resolved_type_env: HashMap<String, PeachiliType>,
-) -> Result<x86_64::Root, Box<dyn std::error::Error>> {
-    let mut constants: HashMap<String, x86_64::Constant> = Default::default();
-    let mut lower_functions: Vec<x86_64::Function> = Vec::with_capacity(common_root.decls.len());
+) -> Result<typed_ast::Root, Box<dyn std::error::Error>> {
+    let mut constants: HashMap<String, typed_ast::Constant> = Default::default();
+    let mut lower_functions: Vec<typed_ast::Function> = Vec::with_capacity(common_root.decls.len());
 
     for common_tld in common_root.decls.iter() {
         match &common_tld.kind {
@@ -56,7 +57,7 @@ pub fn ast_to_lower(
         }
     }
 
-    Ok(x86_64::Root {
+    Ok(typed_ast::Root {
         functions: lower_functions,
         constants,
     })
@@ -72,11 +73,11 @@ fn fn_to_lower(
         &HashMap<String, String>,
         &[high_ast::Stmt],
     ),
-) -> Result<x86_64::Function, Box<dyn std::error::Error>> {
+) -> Result<typed_ast::Function, Box<dyn std::error::Error>> {
     let (fn_name, _return_type, params, stmts) = f_attrs;
 
     // 関数の返り値の型解決
-    let mut local_variables: HashMap<String, x86_64::FrameObject> = Default::default();
+    let mut local_variables: HashMap<String, typed_ast::FrameObject> = Default::default();
     let mut fn_stack_size = 0;
 
     // 引数リストを解決する
@@ -89,11 +90,11 @@ fn fn_to_lower(
                     .get(&format!("{}::{}", ref_module_name, param_type_name))
                     .unwrap(),
             };
-            fn_stack_size += param_type.size();
+            fn_stack_size += param_type.size;
 
             local_variables.insert(
                 param_name.to_string(),
-                x86_64::FrameObject {
+                typed_ast::FrameObject {
                     stack_offset: fn_stack_size,
                     p_type: param_type.clone(),
                 },
@@ -108,7 +109,7 @@ fn fn_to_lower(
         lower_stmts.push(stmt_to_lower(stmt, &resolved_type_env, &mut fn_stack_size));
     }
 
-    Ok(x86_64::Function {
+    Ok(typed_ast::Function {
         name: fn_name.to_string(),
         return_type: resolved_type_env.get(fn_name).unwrap().clone(),
         params: lower_params,
@@ -120,14 +121,14 @@ fn fn_to_lower(
 
 fn stmt_to_lower(
     stmt: &high_ast::Stmt,
-    type_env: &HashMap<String, x86_64::PeachiliType>,
+    type_env: &HashMap<String, peachili_type::PeachiliType>,
     stack_offset: &mut usize,
-) -> x86_64::Statement {
+) -> typed_ast::Statement {
     match &stmt.kind {
-        high_ast::StmtKind::Expr { expr: expr_info } => x86_64::Statement::Expr {
+        high_ast::StmtKind::Expr { expr: expr_info } => typed_ast::Statement::Expr {
             expr: expr_to_lower(&expr_info, type_env, stack_offset),
         },
-        high_ast::StmtKind::Asm { insts } => x86_64::Statement::Asm {
+        high_ast::StmtKind::Asm { insts } => typed_ast::Statement::Asm {
             insts: insts.clone(),
         },
     }
@@ -135,15 +136,15 @@ fn stmt_to_lower(
 
 fn expr_to_lower(
     expr: &high_ast::Expr,
-    type_env: &HashMap<String, x86_64::PeachiliType>,
+    type_env: &HashMap<String, peachili_type::PeachiliType>,
     stack_offset: &mut usize,
-) -> x86_64::Expression {
+) -> typed_ast::Expression {
     match &expr.kind {
         high_ast::ExprKind::Identifier { list } => match type_env.get(&list.join("::")) {
             Some(id_ty) => {
-                *stack_offset += id_ty.size();
-                x86_64::Expression::new(
-                    x86_64::ExprKind::Identifier {
+                *stack_offset += id_ty.size;
+                typed_ast::Expression::new(
+                    typed_ast::ExprKind::Identifier {
                         list: list.clone(),
                         stack_offset: *stack_offset,
                     },
@@ -152,19 +153,19 @@ fn expr_to_lower(
             }
             _ => unreachable!(),
         },
-        high_ast::ExprKind::Integer { value } => x86_64::Expression::new(
-            x86_64::ExprKind::Integer { value: *value },
-            x86_64::PeachiliType::Int64,
+        high_ast::ExprKind::Integer { value } => typed_ast::Expression::new(
+            typed_ast::ExprKind::Integer { value: *value },
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Int64, 8),
         ),
-        high_ast::ExprKind::UnsignedInteger { value } => x86_64::Expression::new(
-            x86_64::ExprKind::UnsignedInteger { value: *value },
-            x86_64::PeachiliType::Uint64,
+        high_ast::ExprKind::UnsignedInteger { value } => typed_ast::Expression::new(
+            typed_ast::ExprKind::UnsignedInteger { value: *value },
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Uint64, 8),
         ),
         high_ast::ExprKind::Negative { child } => {
             let child_expr = expr_to_lower(&child.borrow(), type_env, stack_offset);
             let neg_ty = child_expr.ty.clone();
-            x86_64::Expression::new(
-                x86_64::ExprKind::Negative {
+            typed_ast::Expression::new(
+                typed_ast::ExprKind::Negative {
                     child: Rc::new(RefCell::new(child_expr)),
                 },
                 neg_ty,
@@ -173,12 +174,12 @@ fn expr_to_lower(
         high_ast::ExprKind::StringLiteral { contents } => {
             let mut s = DefaultHasher::new();
             contents.hash(&mut s);
-            x86_64::Expression::new(
-                x86_64::ExprKind::StringLiteral {
+            typed_ast::Expression::new(
+                typed_ast::ExprKind::StringLiteral {
                     contents: contents.to_string(),
                     id: s.finish(),
                 },
-                x86_64::PeachiliType::ConstStr,
+                peachili_type::PeachiliType::new(peachili_type::PTKind::ConstStr, 8),
             )
         }
         high_ast::ExprKind::Call { ident, params } => {
@@ -190,10 +191,10 @@ fn expr_to_lower(
 
             let call_ty = lower_ident.ty.clone();
 
-            x86_64::Expression::new(
-                x86_64::ExprKind::Call {
+            typed_ast::Expression::new(
+                typed_ast::ExprKind::Call {
                     ident: match lower_ident.kind {
-                        x86_64::ExprKind::Identifier {
+                        typed_ast::ExprKind::Identifier {
                             list,
                             stack_offset: _,
                         } => list.join("::"),
@@ -204,19 +205,21 @@ fn expr_to_lower(
                 call_ty,
             )
         }
-        high_ast::ExprKind::True => {
-            x86_64::Expression::new(x86_64::ExprKind::True, x86_64::PeachiliType::Boolean)
-        }
-        high_ast::ExprKind::False => {
-            x86_64::Expression::new(x86_64::ExprKind::False, x86_64::PeachiliType::Boolean)
-        }
+        high_ast::ExprKind::True => typed_ast::Expression::new(
+            typed_ast::ExprKind::True,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
+        ),
+        high_ast::ExprKind::False => typed_ast::Expression::new(
+            typed_ast::ExprKind::False,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
+        ),
     }
 }
 
 fn evaluate_constant_expr(
     const_name: &String,
     const_expr: &high_ast::Expr,
-) -> Result<x86_64::Constant, ConstError> {
+) -> Result<typed_ast::Constant, ConstError> {
     match const_expr.kind {
         // 64bit整数の範囲を超えていたらとりあえずエラー
         high_ast::ExprKind::Integer { value } => {
@@ -225,7 +228,7 @@ fn evaluate_constant_expr(
                     name: const_name.to_string(),
                 })
             } else {
-                Ok(x86_64::Constant::Integer(value as i64))
+                Ok(typed_ast::Constant::Integer(value as i64))
             }
         }
         high_ast::ExprKind::UnsignedInteger { value } => {
@@ -234,7 +237,7 @@ fn evaluate_constant_expr(
                     name: const_name.to_string(),
                 })
             } else {
-                Ok(x86_64::Constant::UnsignedInteger(value as u64))
+                Ok(typed_ast::Constant::UnsignedInteger(value as u64))
             }
         }
         _ => Err(ConstError::CannotEvaluate {
