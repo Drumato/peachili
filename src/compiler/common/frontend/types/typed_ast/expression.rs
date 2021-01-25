@@ -12,8 +12,13 @@ impl Expression {
     pub fn new(k: ExprKind, ty: peachili_type::PeachiliType) -> Self {
         Self { kind: k, ty }
     }
+
+    pub fn new_edge(n: Self) -> Edge {
+        Rc::new(RefCell::new(n))
+    }
 }
 
+type Edge = Rc<RefCell<Expression>>;
 #[derive(Debug)]
 pub enum ExprKind {
     Integer {
@@ -27,7 +32,23 @@ pub enum ExprKind {
         stack_offset: usize,
     },
     Negative {
-        child: Rc<RefCell<Expression>>,
+        child: Edge,
+    },
+    Addition {
+        lhs: Edge,
+        rhs: Edge,
+    },
+    Subtraction {
+        lhs: Edge,
+        rhs: Edge,
+    },
+    Multiplication {
+        lhs: Edge,
+        rhs: Edge,
+    },
+    Division {
+        lhs: Edge,
+        rhs: Edge,
     },
     Call {
         ident: String,

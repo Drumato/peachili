@@ -8,10 +8,37 @@ pub struct Expr {
     // pub position: position::Position,
 }
 
+impl Expr {
+    pub fn new_edge(n: Self) -> Edge {
+        Rc::new(RefCell::new(n))
+    }
+}
+
+type Edge = Rc<RefCell<Expr>>;
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum ExprKind {
+    /// `1 + 1`
+    Addition {
+        lhs: Edge,
+        rhs: Edge,
+    },
+    /// `200 - 100`
+    Subtraction {
+        lhs: Edge,
+        rhs: Edge,
+    },
+    /// `10 * 20`
+    Multiplication {
+        lhs: Edge,
+        rhs: Edge,
+    },
+    /// `200 / 2`
+    Division {
+        lhs: Edge,
+        rhs: Edge,
+    },
     Negative {
-        child: Rc<RefCell<Expr>>,
+        child: Edge,
     },
 
     StringLiteral {

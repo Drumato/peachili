@@ -79,7 +79,7 @@ fn pubconst_declaration<'a>(
         let (rest, const_type) = primitive::identifier_string()(rest)?;
 
         let (rest, _) = symbol("=")(rest)?;
-        let (rest, expr) = expression()(rest)?;
+        let (rest, expr) = expression::expression()(rest)?;
         let (rest, _) = symbol(";")(rest)?;
 
         Ok((

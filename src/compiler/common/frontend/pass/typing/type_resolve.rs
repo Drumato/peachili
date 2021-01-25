@@ -7,8 +7,6 @@ use thiserror::Error;
 pub enum TypeResolveError {
     #[error("cannot resolve type of '{name:?}'")]
     CannotResolve { name: String },
-    #[error("cannot evaluate '{name:?}' as a const now")]
-    CannotEvaluateConst { name: String },
 }
 
 pub fn type_resolve_main(

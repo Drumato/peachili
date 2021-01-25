@@ -140,6 +140,14 @@ fn expr_to_lower(
     stack_offset: &mut usize,
 ) -> typed_ast::Expression {
     match &expr.kind {
+        high_ast::ExprKind::True => typed_ast::Expression::new(
+            typed_ast::ExprKind::True,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
+        ),
+        high_ast::ExprKind::False => typed_ast::Expression::new(
+            typed_ast::ExprKind::False,
+            peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
+        ),
         high_ast::ExprKind::Identifier { list } => match type_env.get(&list.join("::")) {
             Some(id_ty) => {
                 *stack_offset += id_ty.size;
@@ -205,14 +213,54 @@ fn expr_to_lower(
                 call_ty,
             )
         }
-        high_ast::ExprKind::True => typed_ast::Expression::new(
-            typed_ast::ExprKind::True,
-            peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
-        ),
-        high_ast::ExprKind::False => typed_ast::Expression::new(
-            typed_ast::ExprKind::False,
-            peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
-        ),
+        high_ast::ExprKind::Addition { lhs, rhs } => {
+            let lhs = expr_to_lower(&lhs.as_ref().borrow(), type_env, stack_offset);
+            let rhs = expr_to_lower(&rhs.as_ref().borrow(), type_env, stack_offset);
+            let lhs_ty = lhs.ty;
+            typed_ast::Expression::new(
+                typed_ast::ExprKind::Addition {
+                    lhs: typed_ast::Expression::new_edge(lhs),
+                    rhs: typed_ast::Expression::new_edge(rhs),
+                },
+                peachili_type::PeachiliType::new(lhs_ty.kind, lhs_ty.size),
+            )
+        }
+        high_ast::ExprKind::Subtraction { lhs, rhs } => {
+            let lhs = expr_to_lower(&lhs.as_ref().borrow(), type_env, stack_offset);
+            let rhs = expr_to_lower(&rhs.as_ref().borrow(), type_env, stack_offset);
+            let lhs_ty = lhs.ty;
+            typed_ast::Expression::new(
+                typed_ast::ExprKind::Subtraction {
+                    lhs: typed_ast::Expression::new_edge(lhs),
+                    rhs: typed_ast::Expression::new_edge(rhs),
+                },
+                peachili_type::PeachiliType::new(lhs_ty.kind, lhs_ty.size),
+            )
+        }
+        high_ast::ExprKind::Multiplication { lhs, rhs } => {
+            let lhs = expr_to_lower(&lhs.as_ref().borrow(), type_env, stack_offset);
+            let rhs = expr_to_lower(&rhs.as_ref().borrow(), type_env, stack_offset);
+            let lhs_ty = lhs.ty;
+            typed_ast::Expression::new(
+                typed_ast::ExprKind::Multiplication {
+                    lhs: typed_ast::Expression::new_edge(lhs),
+                    rhs: typed_ast::Expression::new_edge(rhs),
+                },
+                peachili_type::PeachiliType::new(lhs_ty.kind, lhs_ty.size),
+            )
+        }
+        high_ast::ExprKind::Division { lhs, rhs } => {
+            let lhs = expr_to_lower(&lhs.as_ref().borrow(), type_env, stack_offset);
+            let rhs = expr_to_lower(&rhs.as_ref().borrow(), type_env, stack_offset);
+            let lhs_ty = lhs.ty;
+            typed_ast::Expression::new(
+                typed_ast::ExprKind::Division {
+                    lhs: typed_ast::Expression::new_edge(lhs),
+                    rhs: typed_ast::Expression::new_edge(rhs),
+                },
+                peachili_type::PeachiliType::new(lhs_ty.kind, lhs_ty.size),
+            )
+        }
     }
 }
 

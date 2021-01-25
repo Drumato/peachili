@@ -1,4 +1,8 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet, VecDeque},
+    rc::Rc,
+};
 
 use crate::compiler::common::frontend::peachili_type;
 use crate::compiler::common::frontend::typed_ast as ast;
@@ -112,6 +116,12 @@ fn gen_expr(
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match &ex.kind {
+        ast::ExprKind::Multiplication { lhs, rhs }
+        | ast::ExprKind::Division { lhs, rhs }
+        | ast::ExprKind::Addition { lhs, rhs }
+        | ast::ExprKind::Subtraction { lhs, rhs } => {
+            gen_binary_expr(ex, lhs, rhs, local_variables, str_id_set)
+        }
         ast::ExprKind::Integer { value } => gen_code(
             "Integer Literal",
             |set| (format!("  mov x0, #{}\n", value), set),
@@ -180,6 +190,51 @@ fn gen_expr(
             str_id_set,
         ),
     }
+}
+
+fn gen_binary_expr(
+    ex: &ast::Expression,
+    lhs: &Rc<RefCell<ast::Expression>>,
+    rhs: &Rc<RefCell<ast::Expression>>,
+    local_variables: &HashMap<String, ast::FrameObject>,
+    str_id_set: HashSet<(u64, String)>,
+) -> (String, HashSet<(u64, String)>) {
+    let (mut s, set) = gen_expr(&rhs.as_ref().borrow(), local_variables, str_id_set);
+    s += &push_reg("x0");
+    let (s2, set) = gen_expr(&lhs.as_ref().borrow(), local_variables, set);
+    s += &s2;
+    s += &pop_reg("x7");
+    // rhsのコンパイル結果(rax)をスタックに保持しておくことで，
+    // lhs -> rax; rhs -> rdiを実現
+    match &ex.kind {
+        ast::ExprKind::Addition { lhs: _, rhs: _ } => {
+            s += "  add x0, x0, x7\n";
+        }
+        ast::ExprKind::Subtraction { lhs: _, rhs: _ } => {
+            s += "  sub x0, x0, x7\n";
+        }
+        ast::ExprKind::Multiplication { lhs: _, rhs: _ } => {
+            s += "  mul x0, x0, x7\n";
+        }
+        ast::ExprKind::Division { lhs: _, rhs: _ } => {
+            s += "  sdiv x0, x0, x7\n";
+        }
+        _ => unreachable!(),
+    }
+
+    (s, set)
+}
+
+fn push_reg(reg: &str) -> String {
+    let mut s = "  add sp, sp, #8\n".to_string();
+    s += &format!("  str {}, [sp, #0]\n", reg);
+    s
+}
+fn pop_reg(reg: &str) -> String {
+    let mut s = format!("  ldr {}, [sp, #0]\n", reg);
+    s += "  sub sp, sp, #8\n";
+
+    s
 }
 fn gen_lvalue(ex: &ast::Expression) -> String {
     match ex.kind {

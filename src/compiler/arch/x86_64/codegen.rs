@@ -1,7 +1,13 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet, VecDeque},
+    rc::Rc,
+};
 
 use crate::compiler::common::frontend::peachili_type;
 use crate::compiler::common::frontend::typed_ast as ast;
+
+const PUSH_RAX: &'static str = "  push rax\n";
 
 pub fn codegen_main(ast_roots: VecDeque<ast::Root>) -> String {
     let mut str_id_set: HashSet<(u64, String)> = Default::default();
@@ -104,6 +110,12 @@ fn gen_expr(
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match &ex.kind {
+        ast::ExprKind::Multiplication { lhs, rhs }
+        | ast::ExprKind::Division { lhs, rhs }
+        | ast::ExprKind::Addition { lhs, rhs }
+        | ast::ExprKind::Subtraction { lhs, rhs } => {
+            gen_binary_expr(ex, lhs, rhs, local_variables, str_id_set)
+        }
         ast::ExprKind::Integer { value } => gen_code(
             "Integer Literal",
             |set| (format!("  mov rax, {}\n", value), set),
@@ -145,7 +157,7 @@ fn gen_expr(
                     set = set2;
 
                     s += &param_str;
-                    s += "  push rax\n";
+                    s += PUSH_RAX;
                 }
 
                 let nparams = params.len();
@@ -179,6 +191,41 @@ fn gen_expr(
             str_id_set,
         ),
     }
+}
+
+fn gen_binary_expr(
+    ex: &ast::Expression,
+    lhs: &Rc<RefCell<ast::Expression>>,
+    rhs: &Rc<RefCell<ast::Expression>>,
+    local_variables: &HashMap<String, ast::FrameObject>,
+    str_id_set: HashSet<(u64, String)>,
+) -> (String, HashSet<(u64, String)>) {
+    // rhsのコンパイル結果(rax)をスタックに保持しておくことで，
+    // lhs -> rax; rhs -> rdiを実現
+    let (mut s, set) = gen_expr(&rhs.as_ref().borrow(), local_variables, str_id_set);
+    s += PUSH_RAX;
+    let (s2, set) = gen_expr(&lhs.as_ref().borrow(), local_variables, set);
+    s += &s2;
+    s += "  pop rdi\n";
+
+    match &ex.kind {
+        ast::ExprKind::Addition { lhs: _, rhs: _ } => {
+            s += "  add rax, rdi\n";
+        }
+        ast::ExprKind::Subtraction { lhs: _, rhs: _ } => {
+            s += "  sub rax, rdi\n";
+        }
+        ast::ExprKind::Multiplication { lhs: _, rhs: _ } => {
+            s += "  imul rax, rdi\n";
+        }
+        ast::ExprKind::Division { lhs: _, rhs: _ } => {
+            s += "  cqo\n";
+            s += "  idiv rdi\n";
+        }
+        _ => unreachable!(),
+    }
+
+    (s, set)
 }
 fn gen_lvalue(ex: &ast::Expression) -> String {
     match ex.kind {

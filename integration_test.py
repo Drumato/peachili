@@ -6,6 +6,8 @@ import time
 X86_64 = "x86_64"
 AARCH64 = "aarch64"
 
+EXPECTS = {"intlit.go": 42, "simple_arithmetic1.go": 1, "simple_arithmetic2.go": 3}
+
 
 def p(message: str):
     print(message, file=sys.stderr)
@@ -20,11 +22,10 @@ class Color:
 
 def test_compiler(arch_name: str):
     test_files = os.listdir(f"examples/{arch_name}")
-    expects = {"intlit.go": 42}
 
     for test_file in test_files:
         # Peachili Compiler --asm.s-> clang --a.out-> OSの順にプロセスを展開
-        expect_status = expects[test_file]
+        expect_status = EXPECTS[test_file]
 
         actual = generate_an_assembly(arch_name, test_file)
         if actual != 0:
