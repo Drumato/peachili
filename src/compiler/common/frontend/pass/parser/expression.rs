@@ -4,10 +4,10 @@ use super::primitive;
 use crate::compiler::common::frontend::types::ast;
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while1},
+    bytes::complete::take_while1,
     character::complete::char as parse_char,
     combinator::{map, value},
-    multi::{many0, separated_list0},
+    multi::many0,
     sequence::{preceded, tuple},
     IResult,
 };
@@ -15,7 +15,25 @@ use nom::{
 type IResultExpr<'a> = IResult<&'a str, ast::Expr>;
 
 pub fn expression<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
-    move |i: &str| addition()(i)
+    move |i: &str| alt((assignment(), addition()))(i)
+}
+
+fn assignment<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
+    move |i: &str| {
+        let (rest, var_name) = primitive::identifier_string()(i)?;
+        let (rest, _) = primitive::symbol("=")(rest)?;
+        let (rest, expr) = addition()(rest)?;
+
+        Ok((
+            rest,
+            ast::Expr {
+                kind: ast::ExprKind::Assignment {
+                    var_name,
+                    expr: ast::Expr::new_edge(expr),
+                },
+            },
+        ))
+    }
 }
 
 /// multiplication ('+' multiplication | '-' multiplication)*
@@ -92,14 +110,18 @@ fn multiplication<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
     }
 }
 
-/// minus_operation | primary
+/// unary_plus | unary_minus | primary
 fn prefix<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
-    move |i: &str| alt((minus_operation(), primary()))(i)
+    move |i: &str| alt((unary_plus(), unary_minus(), primary()))(i)
+}
+/// "+" primary
+fn unary_plus<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
+    move |i: &str| preceded(primitive::symbol("+"), primary())(i)
 }
 /// "-" primary
-fn minus_operation<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
+fn unary_minus<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
     move |i: &str| {
-        let (rest, child_node) = preceded(parse_char('-'), primary())(i)?;
+        let (rest, child_node) = preceded(primitive::symbol("-"), primary())(i)?;
         Ok((
             rest,
             ast::Expr {
@@ -127,7 +149,7 @@ fn primary<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
 /// " character* "
 fn string_literal<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
     move |i: &str| {
-        let (rest, contents) = primitive::string_literal_str()(i)?;
+        let (rest, contents) = primitive::string_literal_string()(i)?;
 
         gen_result_primary(
             rest,
@@ -148,25 +170,34 @@ fn boolean_literal<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
         gen_result_primary(rest, literal_kind)
     }
 }
+/// identifier ("::" identifier)*
+fn identifier_sequence<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
+    move |i: &str| {
+        let (rest, ident_list) = primitive::identifier_list_string()(i)?;
+        Ok((
+            rest,
+            ast::Expr {
+                kind: ast::ExprKind::Identifier { list: ident_list },
+            },
+        ))
+    }
+}
 
 /// identifier_sequence parameter_list?
 fn identifier_expr<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
     move |i: &str| {
         let (rest, ident) = identifier_sequence()(i)?;
 
-        if rest.as_bytes()[0] != '(' as u8 {
-            return Ok((rest, ident));
+        match parameter_list()(rest) {
+            Ok((rest, params)) => gen_result_primary(
+                rest,
+                ast::ExprKind::Call {
+                    ident: gen_child_node(ident),
+                    params,
+                },
+            ),
+            Err(_e) => Ok((rest, ident)),
         }
-
-        let (rest, params) = parameter_list()(rest)?;
-
-        gen_result_primary(
-            rest,
-            ast::ExprKind::Call {
-                ident: gen_child_node(ident),
-                params,
-            },
-        )
     }
 }
 
@@ -177,14 +208,6 @@ fn parameter_list<'a>() -> impl Fn(&'a str) -> IResult<&str, Vec<ast::Expr>> {
             let (rest, n) = expression()(i2)?;
             Ok((rest, n))
         })(i)
-    }
-}
-
-/// identnfier ("::" identifier)*
-fn identifier_sequence<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
-    move |i: &str| {
-        let (rest, ident_list) = separated_list0(tag("::"), primitive::identifier_string())(i)?;
-        gen_result_primary(rest, ast::ExprKind::Identifier { list: ident_list })
     }
 }
 
@@ -231,6 +254,23 @@ fn gen_child_node(child: ast::Expr) -> Rc<RefCell<ast::Expr>> {
 mod tests {
     use super::*;
     use std::rc::Rc;
+
+    #[test]
+    fn assignment_test() {
+        helper(
+            assignment(),
+            "x = 30;",
+            ";",
+            ast::Expr {
+                kind: ast::ExprKind::Assignment {
+                    var_name: "x".to_string(),
+                    expr: ast::Expr::new_edge(ast::Expr {
+                        kind: ast::ExprKind::Integer { value: 30 },
+                    }),
+                },
+            },
+        );
+    }
 
     #[test]
     fn addition_test() {
@@ -345,9 +385,20 @@ mod tests {
     }
 
     #[test]
-    fn minus_operation_test() {
+    fn unary_plus_test() {
         helper(
-            minus_operation(),
+            unary_plus(),
+            "+ 100;",
+            ";",
+            ast::Expr {
+                kind: ast::ExprKind::Integer { value: 100 },
+            },
+        );
+    }
+    #[test]
+    fn unary_minus_test() {
+        helper(
+            unary_minus(),
             "- 100;",
             ";",
             ast::Expr {

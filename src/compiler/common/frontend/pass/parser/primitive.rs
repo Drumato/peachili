@@ -11,7 +11,7 @@ pub fn symbol(pattern: &str) -> impl Fn(&str) -> nom::IResult<&str, &str> + '_ {
     move |i: &str| ws(tag(pattern))(i)
 }
 
-pub fn string_literal_str() -> impl Fn(&str) -> nom::IResult<&str, &str> {
+pub fn string_literal_string() -> impl Fn(&str) -> nom::IResult<&str, &str> {
     move |i: &str| {
         let (rest, contents) = ws(delimited(
             symbol("\""),
@@ -43,6 +43,11 @@ pub fn identifier_string<'a>() -> impl Fn(&'a str) -> nom::IResult<&'a str, Stri
     }
 }
 
+/// identifier ("::" identifier)*
+pub fn identifier_list_string<'a>() -> impl Fn(&'a str) -> nom::IResult<&'a str, Vec<String>> {
+    move |i: &str| separated_list0(tag("::"), identifier_string())(i)
+}
+
 pub fn list_structure<'a, T, F>(
     delimiter: Delimiter,
     separator: &'a str,
@@ -72,40 +77,34 @@ pub enum Delimiter {
 #[cfg(test)]
 mod primitive_tests {
     use super::*;
-
     #[test]
-    fn primitive_test_main() {
-        let _ = string_literal_str_test("\"movq $60, %rax\";", ";");
-        let _ = list_structure_test("(+, +, +, +);", ";", |i: &str| symbol("+")(i));
-        let _ = list_structure_test("(+++, +++, +++, +++);", ";", |i: &str| symbol("+++")(i));
-        let _ = identifier_string_with_invalid_input("100yen;");
-        let _ = identifier_string_with_invalid_input("!foafekajl;");
-    }
-
-    fn list_structure_test<'a, T, F>(input: &'a str, rest: &'a str, sub_parser: F) -> Vec<T>
-    where
-        F: Fn(&'a str) -> nom::IResult<&'a str, T>,
-    {
-        let result = list_structure(Delimiter::Paren, ",", sub_parser)(input);
+    fn list_structure_test<'a>() {
+        let result = list_structure(Delimiter::Paren, ",", symbol("+++"))("(+++, +++, +++, +++);");
         assert!(result.is_ok());
 
         let (r, list) = result.unwrap();
 
-        assert_eq!(rest, r);
-
-        list
+        assert_eq!(";", r);
+        assert_eq!(vec!["+++".to_string(); 4], list);
     }
 
-    fn string_literal_str_test<'a>(input: &'a str, rest: &'a str) {
-        let result = string_literal_str()(input);
+    #[test]
+    fn string_literal_str_test<'a>() {
+        let result = string_literal_string()("\"movq $60, %rax\";");
         assert!(result.is_ok());
 
-        let (r, _) = result.unwrap();
-        assert_eq!(rest, r);
+        let (r, literal) = result.unwrap();
+        assert_eq!(";", r);
+        assert_eq!("movq $60, %rax".to_string(), literal);
     }
 
-    fn identifier_string_with_invalid_input<'a>(input: &'a str) {
-        let result = identifier_string()(input);
-        assert!(result.is_err());
+    #[test]
+    fn identifier_list_string_test() {
+        let result = identifier_list_string()("std::fs::File;");
+        assert!(result.is_ok());
+
+        let (r, ident) = result.unwrap();
+        assert_eq!(";", r);
+        assert_eq!("std::fs::File".to_string(), ident.join("::"));
     }
 }

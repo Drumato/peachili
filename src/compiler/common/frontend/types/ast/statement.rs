@@ -8,6 +8,14 @@ pub struct Stmt {
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum StmtKind {
-    Expr { expr: expression::Expr },
-    Asm { insts: Vec<String> },
+    Declare {
+        var_name: String,
+        type_name: Vec<String>,
+    },
+    Expr {
+        expr: expression::Expr,
+    },
+    Asm {
+        insts: Vec<String>,
+    },
 }

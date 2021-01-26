@@ -6,7 +6,15 @@ import time
 X86_64 = "x86_64"
 AARCH64 = "aarch64"
 
-EXPECTS = {"intlit.go": 42, "simple_arithmetic1.go": 1, "simple_arithmetic2.go": 3}
+EXPECTS = {
+    "intlit.go": 42,
+    "simple_arithmetic1.go": 1,
+    "simple_arithmetic2.go": 3,
+    "prefix_minus.go": 9,
+    "prefix_plus.go": 10,
+    "simple_autovar1.go": 30,
+    "simple_autovar2.go": 15,
+}
 
 
 def p(message: str):

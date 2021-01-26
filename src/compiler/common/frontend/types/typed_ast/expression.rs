@@ -50,6 +50,11 @@ pub enum ExprKind {
         lhs: Edge,
         rhs: Edge,
     },
+    Assignment {
+        var_name: String,
+        var_stack_offset: usize,
+        expr: Edge,
+    },
     Call {
         ident: String,
         params: Vec<Expression>,

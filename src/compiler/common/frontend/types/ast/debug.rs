@@ -37,6 +37,16 @@ fn dump_decl(decl: &TopLevelDecl) {
 
 fn dump_stmt(stmt: &Stmt) {
     match &stmt.kind {
+        StmtKind::Declare {
+            var_name,
+            type_name,
+        } => {
+            eprintln!(
+                "    DeclareStatement(var: {}, type: {})",
+                var_name,
+                type_name.join("::")
+            );
+        }
         StmtKind::Expr { expr: _ } => {
             eprintln!("    ExpressionStatement");
         }

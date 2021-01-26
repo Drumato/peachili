@@ -52,7 +52,7 @@ fn gen_fn(
     for (i, (param_name, _param_ty)) in func.params.iter().enumerate() {
         let param = func.local_variables.get(param_name).unwrap();
 
-        fn_str += &format!("  str x{}, [sp, #{}]\n", i, param.stack_offset);
+        fn_str += &format!("  str x{}, [x29, #-{}]\n", i, param.stack_offset);
     }
 
     for st in func.stmts.iter() {
@@ -85,6 +85,7 @@ fn gen_stmt(
     str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match st {
+        ast::Statement::Nop => (String::new(), str_id_set),
         ast::Statement::Expr { expr } => gen_code(
             "Expression Statement",
             |set| {
@@ -116,6 +117,22 @@ fn gen_expr(
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match &ex.kind {
+        ast::ExprKind::Assignment {
+            var_name: _,
+            var_stack_offset,
+            expr,
+        } => gen_code(
+            "Assignment",
+            |set| {
+                let mut s = gen_lvalue_with(*var_stack_offset);
+                s += &push_reg("x0");
+                let (expr_s, set) = gen_expr(&expr.as_ref().borrow(), local_variables, set);
+                s += &expr_s;
+                s += &gen_store(&ex.ty);
+                (s, set)
+            },
+            str_id_set,
+        ),
         ast::ExprKind::Multiplication { lhs, rhs }
         | ast::ExprKind::Division { lhs, rhs }
         | ast::ExprKind::Addition { lhs, rhs }
@@ -192,6 +209,13 @@ fn gen_expr(
     }
 }
 
+fn gen_store(_ty: &peachili_type::PeachiliType) -> String {
+    let mut s = pop_reg("x7");
+
+    s += "  str x0, [x7, #0]\n";
+    s
+}
+
 fn gen_binary_expr(
     ex: &ast::Expression,
     lhs: &Rc<RefCell<ast::Expression>>,
@@ -241,9 +265,12 @@ fn gen_lvalue(ex: &ast::Expression) -> String {
         ast::ExprKind::Identifier {
             list: _,
             stack_offset,
-        } => format!("  adrp x0, [sp, #-{}]\n", stack_offset),
+        } => gen_lvalue_with(stack_offset),
         _ => panic!("cannot generate code {:?} as lvalue", ex),
     }
+}
+fn gen_lvalue_with(stack_offset: usize) -> String {
+    format!("  add x0, x29, #-{}\n", stack_offset)
 }
 
 fn gen_load(ty: &peachili_type::PeachiliType) -> String {

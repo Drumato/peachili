@@ -17,6 +17,11 @@ impl Expr {
 type Edge = Rc<RefCell<Expr>>;
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum ExprKind {
+    /// `x = 3`
+    Assignment {
+        var_name: String,
+        expr: Edge,
+    },
     /// `1 + 1`
     Addition {
         lhs: Edge,

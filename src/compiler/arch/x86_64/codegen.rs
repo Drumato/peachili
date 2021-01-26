@@ -79,6 +79,7 @@ fn gen_stmt(
     str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match st {
+        ast::Statement::Nop => (String::new(), str_id_set),
         ast::Statement::Expr { expr } => gen_code(
             "Expression Statement",
             |set| {
@@ -110,6 +111,22 @@ fn gen_expr(
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match &ex.kind {
+        ast::ExprKind::Assignment {
+            var_name: _,
+            var_stack_offset,
+            expr,
+        } => gen_code(
+            "Assignment",
+            |set| {
+                let mut s = gen_lvalue_with(*var_stack_offset);
+                s += PUSH_RAX;
+                let (expr_s, set) = gen_expr(&expr.as_ref().borrow(), local_variables, set);
+                s += &expr_s;
+                s += &gen_store(&ex.ty);
+                (s, set)
+            },
+            str_id_set,
+        ),
         ast::ExprKind::Multiplication { lhs, rhs }
         | ast::ExprKind::Division { lhs, rhs }
         | ast::ExprKind::Addition { lhs, rhs }
@@ -193,6 +210,13 @@ fn gen_expr(
     }
 }
 
+fn gen_store(_ty: &peachili_type::PeachiliType) -> String {
+    let mut s = "  pop rdi\n".to_string();
+
+    s += "  mov [rdi], rax\n";
+    s
+}
+
 fn gen_binary_expr(
     ex: &ast::Expression,
     lhs: &Rc<RefCell<ast::Expression>>,
@@ -232,9 +256,12 @@ fn gen_lvalue(ex: &ast::Expression) -> String {
         ast::ExprKind::Identifier {
             list: _,
             stack_offset,
-        } => format!("  lea rax, -{}[rbp]\n", stack_offset),
+        } => gen_lvalue_with(stack_offset),
         _ => panic!("cannot generate code {:?} as lvalue", ex),
     }
+}
+fn gen_lvalue_with(stack_offset: usize) -> String {
+    format!("  lea rax, -{}[rbp]\n", stack_offset)
 }
 fn gen_load(ty: &peachili_type::PeachiliType) -> String {
     match ty.size {
