@@ -59,7 +59,7 @@ pub enum ExprKind {
         list: Vec<String>,
     },
     Call {
-        ident: Rc<RefCell<Expr>>,
+        callee: Vec<String>,
         params: Vec<Expr>,
     },
     True,

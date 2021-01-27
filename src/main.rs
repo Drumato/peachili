@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     write!(file, "{}", assembly_file)?;
                     file.flush()?;
                 }
-                Err(e) => eprintln!("{}", e),
+                Err(e) => eprintln!("Error Found: {}", e),
             }
         }
     }

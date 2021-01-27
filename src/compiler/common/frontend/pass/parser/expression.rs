@@ -183,21 +183,25 @@ fn identifier_sequence<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
     }
 }
 
-/// identifier_sequence parameter_list?
+/// call_expression | identifier_sequence
 fn identifier_expr<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
+    move |i: &str| alt((call_expression(), identifier_sequence()))(i)
+}
+/// identifier_sequence parameter_list?
+fn call_expression<'a>() -> impl Fn(&'a str) -> IResultExpr<'a> {
     move |i: &str| {
-        let (rest, ident) = identifier_sequence()(i)?;
+        let (rest, callee_name) = primitive::identifier_list_string()(i)?;
+        let (rest, params) = parameter_list()(rest)?;
 
-        match parameter_list()(rest) {
-            Ok((rest, params)) => gen_result_primary(
-                rest,
-                ast::ExprKind::Call {
-                    ident: gen_child_node(ident),
+        Ok((
+            rest,
+            ast::Expr {
+                kind: ast::ExprKind::Call {
+                    callee: callee_name,
                     params,
                 },
-            ),
-            Err(_e) => Ok((rest, ident)),
-        }
+            },
+        ))
     }
 }
 
@@ -481,11 +485,7 @@ mod tests {
             ";",
             ast::Expr {
                 kind: ast::ExprKind::Call {
-                    ident: Rc::new(RefCell::new(ast::Expr {
-                        kind: ast::ExprKind::Identifier {
-                            list: vec!["x64".to_string(), "exit_with".to_string()],
-                        },
-                    })),
+                    callee: vec!["x64".to_string(), "exit_with".to_string()],
                     params: vec![
                         ast::Expr {
                             kind: ast::ExprKind::Integer { value: 0 },

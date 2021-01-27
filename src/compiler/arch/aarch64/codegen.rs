@@ -4,8 +4,8 @@ use std::{
     rc::Rc,
 };
 
-use crate::compiler::common::frontend::peachili_type;
 use crate::compiler::common::frontend::typed_ast as ast;
+use crate::compiler::common::frontend::{frame_object, peachili_type};
 
 pub fn codegen_main(ast_roots: VecDeque<ast::Root>) -> String {
     let mut str_id_set: HashSet<(u64, String)> = Default::default();
@@ -81,7 +81,7 @@ fn gen_fn_epilogue(stack_size: usize) -> String {
 
 fn gen_stmt(
     st: &ast::Statement,
-    local_variables: &HashMap<String, ast::FrameObject>,
+    local_variables: &HashMap<String, frame_object::FrameObject>,
     str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match st {
@@ -113,7 +113,7 @@ fn gen_stmt(
 
 fn gen_expr(
     ex: &ast::Expression,
-    local_variables: &HashMap<String, ast::FrameObject>,
+    local_variables: &HashMap<String, frame_object::FrameObject>,
     mut str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     match &ex.kind {
@@ -220,7 +220,7 @@ fn gen_binary_expr(
     ex: &ast::Expression,
     lhs: &Rc<RefCell<ast::Expression>>,
     rhs: &Rc<RefCell<ast::Expression>>,
-    local_variables: &HashMap<String, ast::FrameObject>,
+    local_variables: &HashMap<String, frame_object::FrameObject>,
     str_id_set: HashSet<(u64, String)>,
 ) -> (String, HashSet<(u64, String)>) {
     let (mut s, set) = gen_expr(&rhs.as_ref().borrow(), local_variables, str_id_set);

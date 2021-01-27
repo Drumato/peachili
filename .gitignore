@@ -10,3 +10,5 @@
        /.vscode
        .*gdb.*
        .*peda.*
+*.out
+*.s

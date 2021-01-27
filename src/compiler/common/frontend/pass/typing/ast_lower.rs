@@ -1,5 +1,5 @@
-use crate::compiler::common::frontend::typed_ast;
 use crate::compiler::common::frontend::{ast as high_ast, peachili_type};
+use crate::compiler::common::frontend::{frame_object, typed_ast};
 
 use std::{
     cell::RefCell,
@@ -20,7 +20,7 @@ pub enum ConstError {
 /// 基本的には同じ構造になるが，"Typed"にするという点で大きく異なる
 pub fn ast_to_lower(
     common_root: &high_ast::ASTRoot,
-    resolved_type_env: HashMap<String, PeachiliType>,
+    global_env: frame_object::GlobalEnv,
 ) -> Result<typed_ast::Root, Box<dyn std::error::Error>> {
     let mut constants: HashMap<String, typed_ast::Constant> = Default::default();
     let mut lower_functions: Vec<typed_ast::Function> = Vec::with_capacity(common_root.decls.len());
@@ -42,7 +42,7 @@ pub fn ast_to_lower(
                 stmts,
             } => {
                 let f = fn_to_lower(
-                    &resolved_type_env,
+                    &global_env,
                     &common_root.module_name,
                     (func_name, return_type, parameters, stmts),
                 )?;
@@ -64,7 +64,7 @@ pub fn ast_to_lower(
 
 /// high_ast::Function => typed_ast::Function
 fn fn_to_lower(
-    type_env: &HashMap<String, PeachiliType>,
+    global_env: &frame_object::GlobalEnv,
     ref_module_name: &String,
     f_attrs: (
         &String,
@@ -76,24 +76,19 @@ fn fn_to_lower(
     let (fn_name, _return_type, params, stmts) = f_attrs;
 
     // 関数の返り値の型解決
-    let mut local_variables: HashMap<String, typed_ast::FrameObject> = Default::default();
+    let mut local_variables: HashMap<String, frame_object::FrameObject> = Default::default();
     let mut fn_stack_size = 0;
 
     // 引数リストを解決する
     let lower_params = {
         let mut lower_params: HashMap<String, PeachiliType> = Default::default();
         for (param_name, param_type_name) in params.iter() {
-            let (param_type, _) = find_identifier_type_forcibly(
-                type_env,
-                &local_variables,
-                ref_module_name,
-                param_type_name,
-            );
+            let param_type = find_identifier_type(global_env, ref_module_name, param_type_name);
             fn_stack_size += param_type.size;
 
             local_variables.insert(
                 param_name.to_string(),
-                typed_ast::FrameObject {
+                frame_object::FrameObject {
                     stack_offset: fn_stack_size,
                     p_type: param_type.clone(),
                 },
@@ -108,17 +103,16 @@ fn fn_to_lower(
         let (stmt, lvs) = stmt_to_lower(
             stmt,
             local_variables,
-            &type_env,
+            &global_env,
             ref_module_name,
             &mut fn_stack_size,
         );
         local_variables = lvs;
         lower_stmts.push(stmt);
     }
-
     Ok(typed_ast::Function {
         name: fn_name.to_string(),
-        return_type: type_env.get(fn_name).unwrap().clone(),
+        return_type: global_env.func_table.get(fn_name).unwrap().clone(),
         params: lower_params,
         local_variables,
         stack_size: fn_stack_size,
@@ -128,20 +122,20 @@ fn fn_to_lower(
 
 fn stmt_to_lower(
     stmt: &high_ast::Stmt,
-    mut local_variables: HashMap<String, typed_ast::FrameObject>,
-    type_env: &HashMap<String, peachili_type::PeachiliType>,
+    mut local_variables: HashMap<String, frame_object::FrameObject>,
+    global_env: &frame_object::GlobalEnv,
     ref_module_name: &str,
     stack_offset: &mut usize,
 ) -> (
     typed_ast::Statement,
-    HashMap<String, typed_ast::FrameObject>,
+    HashMap<String, frame_object::FrameObject>,
 ) {
     match &stmt.kind {
         high_ast::StmtKind::Expr { expr: expr_info } => {
             let ex = expr_to_lower(
                 &expr_info,
                 &local_variables,
-                type_env,
+                global_env,
                 ref_module_name,
                 stack_offset,
             );
@@ -151,16 +145,11 @@ fn stmt_to_lower(
             var_name,
             type_name,
         } => {
-            let (id_ty, _) = find_identifier_type_forcibly(
-                type_env,
-                &local_variables,
-                ref_module_name,
-                &type_name.join("::"),
-            );
+            let id_ty = find_identifier_type(global_env, ref_module_name, &type_name.join("::"));
             *stack_offset += id_ty.size;
             local_variables.insert(
                 var_name.clone(),
-                typed_ast::FrameObject {
+                frame_object::FrameObject {
                     stack_offset: *stack_offset,
                     p_type: id_ty.clone(),
                 },
@@ -178,8 +167,8 @@ fn stmt_to_lower(
 
 fn expr_to_lower(
     expr: &high_ast::Expr,
-    local_variables: &HashMap<String, typed_ast::FrameObject>,
-    type_env: &HashMap<String, peachili_type::PeachiliType>,
+    local_variables: &HashMap<String, frame_object::FrameObject>,
+    global_env: &frame_object::GlobalEnv,
     ref_module_name: &str,
     stack_offset: &mut usize,
 ) -> typed_ast::Expression {
@@ -193,18 +182,14 @@ fn expr_to_lower(
             peachili_type::PeachiliType::new(peachili_type::PTKind::Boolean, 8),
         ),
         high_ast::ExprKind::Identifier { list } => {
-            let (id_ty, offset) = find_identifier_type_forcibly(
-                type_env,
-                local_variables,
-                ref_module_name,
-                &list.join("::"),
-            );
+            let id_name = list.join("::");
+            let obj = find_local_var_type(local_variables, &id_name);
             typed_ast::Expression::new(
                 typed_ast::ExprKind::Identifier {
                     list: list.clone(),
-                    stack_offset: offset,
+                    stack_offset: obj.stack_offset,
                 },
-                id_ty,
+                obj.p_type,
             )
         }
         high_ast::ExprKind::Integer { value } => typed_ast::Expression::new(
@@ -219,7 +204,7 @@ fn expr_to_lower(
             let child_expr = expr_to_lower(
                 &child.borrow(),
                 local_variables,
-                type_env,
+                global_env,
                 ref_module_name,
                 stack_offset,
             );
@@ -242,61 +227,47 @@ fn expr_to_lower(
                 peachili_type::PeachiliType::new(peachili_type::PTKind::ConstStr, 8),
             )
         }
-        high_ast::ExprKind::Call { ident, params } => {
-            let lower_ident = expr_to_lower(
-                &ident.borrow(),
-                local_variables,
-                type_env,
-                ref_module_name,
-                stack_offset,
-            );
+        high_ast::ExprKind::Call { callee, params } => {
+            let fn_name = callee.join("::");
+            let fn_return_type =
+                find_function_return_type_forcibly(global_env, ref_module_name, &fn_name);
             let mut lower_params = Vec::new();
             for param in params.iter() {
                 lower_params.push(expr_to_lower(
                     param,
                     local_variables,
-                    type_env,
+                    global_env,
                     ref_module_name,
                     stack_offset,
                 ));
             }
-
-            let call_ty = lower_ident.ty.clone();
-
             typed_ast::Expression::new(
                 typed_ast::ExprKind::Call {
-                    ident: match lower_ident.kind {
-                        typed_ast::ExprKind::Identifier {
-                            list,
-                            stack_offset: _,
-                        } => list.join("::"),
-                        _ => unreachable!(),
-                    },
+                    ident: fn_name,
                     params: lower_params,
                 },
-                call_ty,
+                fn_return_type,
             )
         }
         high_ast::ExprKind::Assignment {
             var_name,
             expr: var_expr,
         } => {
-            let (id_ty, offset) =
-                find_identifier_type_forcibly(type_env, local_variables, ref_module_name, var_name);
+            let obj = find_local_var_type(local_variables, &var_name);
             let ex = expr_to_lower(
                 &var_expr.as_ref().borrow(),
                 local_variables,
-                type_env,
+                global_env,
                 ref_module_name,
                 stack_offset,
             );
             typed_ast::Expression::new(
                 typed_ast::ExprKind::Assignment {
                     var_name: var_name.clone(),
-                    var_stack_offset: offset,
+                    var_stack_offset: obj.stack_offset,
                     expr: typed_ast::Expression::new_edge(ex),
                 },
-                id_ty,
+                obj.p_type,
             )
         }
         high_ast::ExprKind::Addition { lhs, rhs }
@@ -306,7 +277,7 @@ fn expr_to_lower(
             expr,
             (lhs, rhs),
             local_variables,
-            type_env,
+            global_env,
             ref_module_name,
             stack_offset,
         ),
@@ -316,8 +287,8 @@ fn expr_to_lower(
 fn binary_expr_to_lower(
     ex: &high_ast::Expr,
     edges: (&Rc<RefCell<high_ast::Expr>>, &Rc<RefCell<high_ast::Expr>>),
-    local_variables: &HashMap<String, typed_ast::FrameObject>,
-    type_env: &HashMap<String, peachili_type::PeachiliType>,
+    local_variables: &HashMap<String, frame_object::FrameObject>,
+    global_env: &frame_object::GlobalEnv,
     ref_module_name: &str,
     stack_offset: &mut usize,
 ) -> typed_ast::Expression {
@@ -325,7 +296,7 @@ fn binary_expr_to_lower(
     let lhs = expr_to_lower(
         &lhs.as_ref().borrow(),
         local_variables,
-        type_env,
+        global_env,
         ref_module_name,
         stack_offset,
     );
@@ -333,7 +304,7 @@ fn binary_expr_to_lower(
     let rhs = expr_to_lower(
         &rhs.as_ref().borrow(),
         local_variables,
-        type_env,
+        global_env,
         ref_module_name,
         stack_offset,
     );
@@ -371,22 +342,43 @@ fn binary_expr_to_lower(
     }
 }
 
-fn find_identifier_type_forcibly(
-    type_env: &HashMap<String, peachili_type::PeachiliType>,
-    local_variables: &HashMap<String, typed_ast::FrameObject>,
+fn find_local_var_type<'a>(
+    local_variables: &'a HashMap<String, frame_object::FrameObject>,
+    name: &'a str,
+) -> &'a frame_object::FrameObject {
+    local_variables.get(name).unwrap().clone()
+}
+
+fn find_identifier_type(
+    global_env: &frame_object::GlobalEnv,
     ref_module_name: &str,
     name: &str,
-) -> (peachili_type::PeachiliType, usize) {
-    match type_env.get(name) {
-        Some(id_ty) => (id_ty.clone(), 0),
-        None => match type_env.get(&format!("{}::{}", ref_module_name, name)) {
-            Some(id_ty) => (id_ty.clone(), 0),
-            None => match local_variables.get(name) {
-                Some(obj) => (obj.p_type.clone(), obj.stack_offset),
-                None => unreachable!(),
-            },
-        },
+) -> peachili_type::PeachiliType {
+    // 普通にタイプ名として
+    if let Some(id_ty) = global_env.type_name_table.get(name) {
+        return id_ty.clone();
     }
+
+    global_env
+        .type_name_table
+        .get(&format!("{}::{}", ref_module_name, name))
+        .unwrap()
+        .clone()
+}
+fn find_function_return_type_forcibly<'a>(
+    global_env: &'a frame_object::GlobalEnv,
+    ref_module_name: &'a str,
+    fn_name: &'a str,
+) -> peachili_type::PeachiliType {
+    if let Some(id_ty) = global_env.func_table.get(fn_name) {
+        return id_ty.clone();
+    }
+
+    global_env
+        .func_table
+        .get(&format!("{}::{}", ref_module_name, fn_name))
+        .unwrap()
+        .clone()
 }
 
 fn evaluate_constant_expr(
