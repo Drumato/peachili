@@ -1,0 +1,13 @@
+import x86_64;
+
+func main() Noreturn {
+	declare x Int64;
+	declare result Int64;
+	result = 0;
+
+	countup x from 0 to 10 {
+		result = result + x;
+	}
+	
+    x86_64::exit_with(result);
+}

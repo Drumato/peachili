@@ -1,5 +1,3 @@
-extern crate asmpeach;
-extern crate pld;
 extern crate typed_arena;
 
 use std::fs::File;

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use super::peachili_type;
 
+#[derive(Clone, Debug)]
 pub struct FrameObject {
     pub stack_offset: usize,
     pub p_type: peachili_type::PeachiliType,

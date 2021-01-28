@@ -12,3 +12,6 @@ pub use statement::*;
 
 mod expression;
 pub use expression::*;
+
+mod scope;
+pub use scope::*;

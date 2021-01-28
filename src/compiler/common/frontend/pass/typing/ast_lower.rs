@@ -76,8 +76,9 @@ fn fn_to_lower(
     let (fn_name, _return_type, params, stmts) = f_attrs;
 
     // 関数の返り値の型解決
-    let mut local_variables: HashMap<String, frame_object::FrameObject> = Default::default();
+    let mut fn_scope: typed_ast::Scope = Default::default();
     let mut fn_stack_size = 0;
+    let mut label_id = 0;
 
     // 引数リストを解決する
     let lower_params = {
@@ -86,7 +87,7 @@ fn fn_to_lower(
             let param_type = find_identifier_type(global_env, ref_module_name, param_type_name);
             fn_stack_size += param_type.size;
 
-            local_variables.insert(
+            fn_scope.local_variables.insert(
                 param_name.to_string(),
                 frame_object::FrameObject {
                     stack_offset: fn_stack_size,
@@ -98,23 +99,24 @@ fn fn_to_lower(
         lower_params
     };
 
-    let mut lower_stmts = Vec::new();
-    for stmt in stmts {
-        let (stmt, lvs) = stmt_to_lower(
-            stmt,
-            local_variables,
-            &global_env,
-            ref_module_name,
-            &mut fn_stack_size,
-        );
-        local_variables = lvs;
-        lower_stmts.push(stmt);
-    }
+    let lower_stmts = stmts
+        .iter()
+        .map(|s| {
+            stmt_to_lower(
+                s,
+                &mut fn_scope,
+                &global_env,
+                ref_module_name,
+                &mut fn_stack_size,
+                &mut label_id,
+            )
+        })
+        .collect();
     Ok(typed_ast::Function {
         name: fn_name.to_string(),
         return_type: global_env.func_table.get(fn_name).unwrap().clone(),
         params: lower_params,
-        local_variables,
+        scope: fn_scope,
         stack_size: fn_stack_size,
         stmts: lower_stmts,
     })
@@ -122,24 +124,22 @@ fn fn_to_lower(
 
 fn stmt_to_lower(
     stmt: &high_ast::Stmt,
-    mut local_variables: HashMap<String, frame_object::FrameObject>,
+    cur_scope: &mut typed_ast::Scope,
     global_env: &frame_object::GlobalEnv,
     ref_module_name: &str,
     stack_offset: &mut usize,
-) -> (
-    typed_ast::Statement,
-    HashMap<String, frame_object::FrameObject>,
-) {
+    label_id: &mut usize,
+) -> typed_ast::Statement {
     match &stmt.kind {
         high_ast::StmtKind::Expr { expr: expr_info } => {
             let ex = expr_to_lower(
                 &expr_info,
-                &local_variables,
+                cur_scope,
                 global_env,
                 ref_module_name,
                 stack_offset,
             );
-            (typed_ast::Statement::Expr { expr: ex }, local_variables)
+            typed_ast::Statement::Expr { expr: ex }
         }
         high_ast::StmtKind::Declare {
             var_name,
@@ -147,27 +147,123 @@ fn stmt_to_lower(
         } => {
             let id_ty = find_identifier_type(global_env, ref_module_name, &type_name.join("::"));
             *stack_offset += id_ty.size;
-            local_variables.insert(
+            cur_scope.local_variables.insert(
                 var_name.clone(),
                 frame_object::FrameObject {
                     stack_offset: *stack_offset,
                     p_type: id_ty.clone(),
                 },
             );
-            (typed_ast::Statement::Nop, local_variables)
+            typed_ast::Statement::Nop
         }
-        high_ast::StmtKind::Asm { insts } => (
-            typed_ast::Statement::Asm {
-                insts: insts.clone(),
-            },
-            local_variables,
-        ),
+        high_ast::StmtKind::Asm { insts } => typed_ast::Statement::Asm {
+            insts: insts.clone(),
+        },
+        high_ast::StmtKind::Block { stmts } => {
+            let mut scope = typed_ast::Scope::new(Rc::new(cur_scope.clone()));
+            let block_id = *label_id;
+            *label_id += 1;
+
+            let lower_stmts = stmts
+                .iter()
+                .map(|s| {
+                    stmt_to_lower(
+                        s,
+                        &mut scope,
+                        &global_env,
+                        ref_module_name,
+                        stack_offset,
+                        label_id,
+                    )
+                })
+                .collect();
+
+            typed_ast::Statement::Block {
+                block_id,
+                stmts: lower_stmts,
+                scope,
+            }
+        }
+        high_ast::StmtKind::HalfOpenCountup {
+            block,
+            id,
+            from,
+            lessthan,
+        } => {
+            let mut scope = typed_ast::Scope::new(Rc::new(cur_scope.clone()));
+            let block_id = *label_id;
+            *label_id += 1;
+
+            let lower_block = block
+                .iter()
+                .map(|s| {
+                    stmt_to_lower(
+                        s,
+                        &mut scope,
+                        &global_env,
+                        ref_module_name,
+                        stack_offset,
+                        label_id,
+                    )
+                })
+                .collect();
+
+            typed_ast::Statement::HalfOpenCountup {
+                block: lower_block,
+                block_id: block_id,
+                var_name: id.to_string(),
+                var_stack_offset: cur_scope.find_local_var(id).stack_offset,
+                from: expr_to_lower(from, cur_scope, global_env, ref_module_name, stack_offset),
+                lessthan: expr_to_lower(
+                    lessthan,
+                    cur_scope,
+                    global_env,
+                    ref_module_name,
+                    stack_offset,
+                ),
+                scope,
+            }
+        }
+        high_ast::StmtKind::ClosedCountup {
+            block,
+            id,
+            from,
+            to,
+        } => {
+            let mut scope = typed_ast::Scope::new(Rc::new(cur_scope.clone()));
+            let block_id = *label_id;
+            *label_id += 1;
+
+            let lower_block = block
+                .iter()
+                .map(|s| {
+                    stmt_to_lower(
+                        s,
+                        &mut scope,
+                        &global_env,
+                        ref_module_name,
+                        stack_offset,
+                        label_id,
+                    )
+                })
+                .collect();
+
+            typed_ast::Statement::ClosedCountup {
+                block: lower_block,
+                block_id: block_id,
+                var_name: id.to_string(),
+                var_stack_offset: cur_scope.find_local_var(id).stack_offset,
+                from: expr_to_lower(from, cur_scope, global_env, ref_module_name, stack_offset),
+                to: expr_to_lower(to, cur_scope, global_env, ref_module_name, stack_offset),
+                scope,
+            }
+        }
     }
 }
 
 fn expr_to_lower(
     expr: &high_ast::Expr,
-    local_variables: &HashMap<String, frame_object::FrameObject>,
+    cur_scope: &typed_ast::Scope,
     global_env: &frame_object::GlobalEnv,
     ref_module_name: &str,
     stack_offset: &mut usize,
@@ -183,7 +279,7 @@ fn expr_to_lower(
         ),
         high_ast::ExprKind::Identifier { list } => {
             let id_name = list.join("::");
-            let obj = find_local_var_type(local_variables, &id_name);
+            let obj = cur_scope.find_local_var(&id_name);
             typed_ast::Expression::new(
                 typed_ast::ExprKind::Identifier {
                     list: list.clone(),
@@ -203,7 +299,7 @@ fn expr_to_lower(
         high_ast::ExprKind::Negative { child } => {
             let child_expr = expr_to_lower(
                 &child.borrow(),
-                local_variables,
+                cur_scope,
                 global_env,
                 ref_module_name,
                 stack_offset,
@@ -235,7 +331,7 @@ fn expr_to_lower(
             for param in params.iter() {
                 lower_params.push(expr_to_lower(
                     param,
-                    local_variables,
+                    cur_scope,
                     global_env,
                     ref_module_name,
                     stack_offset,
@@ -253,10 +349,10 @@ fn expr_to_lower(
             var_name,
             expr: var_expr,
         } => {
-            let obj = find_local_var_type(local_variables, &var_name);
+            let obj = cur_scope.find_local_var(&var_name);
             let ex = expr_to_lower(
                 &var_expr.as_ref().borrow(),
-                local_variables,
+                cur_scope,
                 global_env,
                 ref_module_name,
                 stack_offset,
@@ -276,7 +372,7 @@ fn expr_to_lower(
         | high_ast::ExprKind::Division { lhs, rhs } => binary_expr_to_lower(
             expr,
             (lhs, rhs),
-            local_variables,
+            cur_scope,
             global_env,
             ref_module_name,
             stack_offset,
@@ -287,7 +383,7 @@ fn expr_to_lower(
 fn binary_expr_to_lower(
     ex: &high_ast::Expr,
     edges: (&Rc<RefCell<high_ast::Expr>>, &Rc<RefCell<high_ast::Expr>>),
-    local_variables: &HashMap<String, frame_object::FrameObject>,
+    cur_scope: &typed_ast::Scope,
     global_env: &frame_object::GlobalEnv,
     ref_module_name: &str,
     stack_offset: &mut usize,
@@ -295,7 +391,7 @@ fn binary_expr_to_lower(
     let (lhs, rhs) = edges;
     let lhs = expr_to_lower(
         &lhs.as_ref().borrow(),
-        local_variables,
+        cur_scope,
         global_env,
         ref_module_name,
         stack_offset,
@@ -303,7 +399,7 @@ fn binary_expr_to_lower(
     let lhs_ty = lhs.ty;
     let rhs = expr_to_lower(
         &rhs.as_ref().borrow(),
-        local_variables,
+        cur_scope,
         global_env,
         ref_module_name,
         stack_offset,
@@ -340,13 +436,6 @@ fn binary_expr_to_lower(
         ),
         _ => unreachable!(),
     }
-}
-
-fn find_local_var_type<'a>(
-    local_variables: &'a HashMap<String, frame_object::FrameObject>,
-    name: &'a str,
-) -> &'a frame_object::FrameObject {
-    local_variables.get(name).unwrap().clone()
 }
 
 fn find_identifier_type(

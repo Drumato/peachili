@@ -8,11 +8,7 @@ edition = "2018"
 
 [dependencies]
 structopt = "0.3"
-elf-utilities = "0.1.73"
-indexmap = "1.3.2"
 colored = "1.9.3"
-asmpeach = "0.1.46"
-pld = "0.1.45"
 
 # llvm-scratch = "0.1.15"
 typed-arena = "2.0.1"

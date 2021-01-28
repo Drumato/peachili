@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 /// Peachiliプログラムにつける拡張子
-const PEACHILI_FILE_EXTENSION: &'static str = ".go";
+const PEACHILI_FILE_EXTENSION: &'static str = ".chili";
 
 pub fn resolve_main<'a>(
     target: opt::Target,
@@ -138,7 +138,7 @@ fn resolve_path_from_name(module_name: String) -> String {
 }
 
 /// モジュールが存在するかチェック．
-/// DIR_MODULEの可能性を考えて，`.go`無しとありの2パターンで検索する
+/// DIR_MODULEの可能性を考えて，`.chili`無しとありの2パターンで検索する
 fn search_module(module_name: String) -> Option<String> {
     let resolved_dir = find_dir_package(module_name.to_string());
 
@@ -235,8 +235,8 @@ fn try_to_get_file_contents(file_name: &str) -> String {
 
 fn setup_startup_routine(target: opt::Target) -> String {
     match target {
-        opt::Target::X86_64 => format!("{}startup_x86_64.go", get_lib_path()),
-        opt::Target::AArch64 => format!("{}startup_aarch64.go", get_lib_path()),
+        opt::Target::X86_64 => format!("{}startup_x86_64.chili", get_lib_path()),
+        opt::Target::AArch64 => format!("{}startup_aarch64.chili", get_lib_path()),
     }
 }
 
@@ -296,7 +296,7 @@ mod resolve_tests {
 
     #[test]
     fn search_peachili_program_test() {
-        let file = search_peachili_program("examples/x86_64/intlit.go".to_string());
+        let file = search_peachili_program("examples/x86_64/intlit.chili".to_string());
         assert!(file.is_some());
     }
 
@@ -318,12 +318,12 @@ mod resolve_tests {
         std::env::set_var("PEACHILI_LIB_PATH", "./lib");
         let a_module = analyze_external_module(
             &arena,
-            "src/bundler/test_data/a.go".to_string(),
+            "src/bundler/test_data/a.chili".to_string(),
             "src/bundler/test_data/a".to_string(),
         );
         assert_eq!("src::bundler::test_data::a", a_module.name);
         assert_eq!(
-            "src/bundler/test_data/a.go",
+            "src/bundler/test_data/a.chili",
             a_module.file_path.to_str().unwrap()
         );
         if let ModuleKind::Primitive { refs, contents: _ } = &a_module.kind {

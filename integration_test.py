@@ -7,13 +7,17 @@ X86_64 = "x86_64"
 AARCH64 = "aarch64"
 
 EXPECTS = {
-    "intlit.go": 42,
-    "simple_arithmetic1.go": 1,
-    "simple_arithmetic2.go": 3,
-    "prefix_minus.go": 9,
-    "prefix_plus.go": 10,
-    "simple_autovar1.go": 30,
-    "simple_autovar2.go": 15,
+    "intlit.chili": 42,
+    "simple_arithmetic1.chili": 1,
+    "simple_arithmetic2.chili": 3,
+    "prefix_minus.chili": 9,
+    "prefix_plus.chili": 10,
+    "simple_autovar1.chili": 30,
+    "simple_autovar2.chili": 15,
+    "block1.chili": 30,
+    "block2.chili": 15,
+    "countup1.chili": 45,
+    "countup2.chili": 55,
 }
 
 

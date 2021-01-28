@@ -37,6 +37,15 @@ fn dump_decl(decl: &TopLevelDecl) {
 
 fn dump_stmt(stmt: &Stmt) {
     match &stmt.kind {
+        StmtKind::HalfOpenCountup { .. } => {
+            eprintln!("    HalfOpenCountupStatement",);
+        }
+        StmtKind::ClosedCountup { .. } => {
+            eprintln!("    ClosedCountupStatement",);
+        }
+        StmtKind::Block { .. } => {
+            eprintln!("    BlockStatement",);
+        }
         StmtKind::Declare {
             var_name,
             type_name,
